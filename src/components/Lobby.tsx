@@ -13,8 +13,23 @@ export function Lobby({ online, onBack }: LobbyProps) {
 
   const connectedCount = roomState?.players.filter(p => p.connected).length ?? 0;
   const bothConnected = connectedCount >= 2;
+  const inMatch = roomState?.status === 'playing' || roomState?.status === 'finished';
+  const inDraft = roomState?.status === 'drafting' || roomState?.status === 'draft_ready';
 
   if (roomState) {
+    if (inMatch) {
+      return (
+        <div className="lobby-screen">
+          <header className="lobby-header">
+            <h1>SHOWHAND</h1>
+            <p className="lobby-subtitle">Maç yükleniyor…</p>
+          </header>
+          <p className="lobby-status-message">{roomState.message}</p>
+          <p className="lobby-next-step">Oyun tahtası açılmazsa sayfayı yenile (Ctrl+Shift+R).</p>
+        </div>
+      );
+    }
+
     return (
       <div className="lobby-screen">
         <header className="lobby-header">
@@ -53,9 +68,15 @@ export function Lobby({ online, onBack }: LobbyProps) {
           </div>
         </div>
 
-        {bothConnected && (
+        {bothConnected && inDraft && (
           <p className="lobby-next-step">
-            İkiniz de bağlandınız. Sonraki aşamada draft ve maç buradan devam edecek.
+            İkiniz de bağlandınız — efekt desteni seçmeye hazırsınız.
+          </p>
+        )}
+
+        {bothConnected && roomState.status === 'waiting' && (
+          <p className="lobby-next-step">
+            İkiniz de bağlandınız. Draft bir sonraki adımda başlayacak.
           </p>
         )}
 

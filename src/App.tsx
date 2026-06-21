@@ -30,7 +30,13 @@ function App() {
 
   if (screen === 'online') {
     const rs = online.roomState;
-    if (rs && (rs.status === 'playing' || rs.status === 'finished')) {
+    const inMatch = rs && (
+      rs.status === 'playing'
+      || rs.status === 'finished'
+      || online.gamePayload !== null
+    );
+
+    if (inMatch) {
       return (
         <OnlineGameBoard
           online={online}

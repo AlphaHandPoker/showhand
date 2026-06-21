@@ -57,6 +57,16 @@ export function useOnlineGame(): UseOnlineGame {
     };
   }, []);
 
+  useEffect(() => {
+    const rs = roomState;
+    if (!rs || rs.status !== 'playing') return;
+    if (gamePayload) return;
+    const t = window.setTimeout(() => {
+      socketRef.current?.emit(ClientEvents.REQUEST_SYNC);
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [roomState, gamePayload]);
+
   const createRoom = useCallback(() => {
     setError(null);
     socketRef.current?.emit(ClientEvents.CREATE_ROOM);

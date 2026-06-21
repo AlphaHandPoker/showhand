@@ -8,6 +8,7 @@ export const ClientEvents = {
   JOIN_ROOM: 'JOIN_ROOM',
   SUBMIT_DRAFT: 'SUBMIT_DRAFT',
   LOCK_COMMIT: 'LOCK_COMMIT',
+  REQUEST_SYNC: 'REQUEST_SYNC',
 } as const;
 
 export const ServerEvents = {

@@ -114,7 +114,7 @@ io.on('connection', (socket) => {
     }
 
     void socket.join(code);
-    emitRoomState(code);
+    emitAll(code);
     console.log(`[room] joined ${code} guest=${socket.id}`);
   });
 
@@ -147,6 +147,11 @@ io.on('connection', (socket) => {
     if (room?.resolving) {
       void runResolutionLoop(code);
     }
+  });
+
+  socket.on(ClientEvents.REQUEST_SYNC, () => {
+    const code = rooms.getRoomCodeForSocket(socket.id);
+    if (code) emitAll(code);
   });
 
   socket.on('disconnect', () => {
