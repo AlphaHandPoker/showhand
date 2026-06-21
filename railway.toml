@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm install"
+nixpacksConfigPath = "nixpacks.toml"
 
 [deploy]
 startCommand = "npm start"

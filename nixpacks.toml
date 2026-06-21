@@ -1,0 +1,11 @@
+# Railway runs only the Socket.io API — not the Vite static site.
+providers = ["node"]
+
+[variables]
+NIXPACKS_NODE_VERSION = "20"
+
+[phases.install]
+cmds = ["npm install --omit=dev"]
+
+[start]
+cmd = "npm start"
