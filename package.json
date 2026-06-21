@@ -13,7 +13,9 @@
     "start": "tsx server/index.ts",
     "start:server": "tsx server/index.ts",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:railway": "railway up",
+    "deploy:vercel": "vercel --prod"
   },
   "dependencies": {
     "cors": "^2.8.5",
