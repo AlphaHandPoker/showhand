@@ -65,17 +65,13 @@ async function main() {
     throw new Error('Host draft not marked submitted');
   }
 
-  const hostReadyPromise = waitForRoomStatus(host, 'draft_ready');
-  const guestReadyPromise = waitForRoomStatus(guest, 'draft_ready');
+  const hostPlayingPromise = waitForRoomStatus(host, 'playing');
+  const guestPlayingPromise = waitForRoomStatus(guest, 'playing');
   guest.emit(ClientEvents.SUBMIT_DRAFT, { deck: SAMPLE_DECK_B });
-  const guestReady = await guestReadyPromise;
-  const hostReady = await hostReadyPromise;
+  await guestPlayingPromise;
+  await hostPlayingPromise;
 
-  if (!guestReady.draft?.bothReady || !hostReady.draft?.bothReady) {
-    throw new Error('draft.bothReady should be true');
-  }
-
-  console.log('PASS: lobby + independent drafts in room', hostState.code);
+  console.log('PASS: lobby + drafts → match started in room', hostState.code);
   host.disconnect();
   guest.disconnect();
 }

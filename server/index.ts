@@ -7,6 +7,7 @@ import {
   ServerEvents,
   normalizeRoomCode,
   type JoinRoomPayload,
+  type LockCommitPayload,
   type RoomErrorPayload,
   type SubmitDraftPayload,
 } from '../shared/protocol.js';
@@ -45,6 +46,39 @@ function emitRoomState(code: string): void {
       ServerEvents.ROOM_STATE,
       rooms.buildStatePayload(code, slot),
     );
+  }
+}
+
+function emitGameState(code: string): void {
+  const room = rooms.getRoom(code);
+  if (!room?.gameState) return;
+
+  for (const slot of [0, 1] as const) {
+    const socketId = room.slots[slot];
+    if (!socketId) continue;
+    const payload = rooms.buildGamePayload(code, slot);
+    if (payload) {
+      io.to(socketId).emit(ServerEvents.GAME_STATE, payload);
+    }
+  }
+}
+
+function emitAll(code: string): void {
+  emitRoomState(code);
+  emitGameState(code);
+}
+
+async function runResolutionLoop(code: string): Promise<void> {
+  const room = rooms.getRoom(code);
+  if (!room?.resolving) return;
+
+  emitAll(code);
+
+  while (rooms.getRoom(code)?.resolving) {
+    const stillResolving = rooms.advanceResolution(code);
+    emitAll(code);
+    if (!stillResolving) break;
+    await new Promise(r => setTimeout(r, 80));
   }
 }
 
@@ -92,8 +126,26 @@ io.on('connection', (socket) => {
     }
     const code = rooms.getRoomCodeForSocket(socket.id);
     if (code) {
-      emitRoomState(code);
+      emitAll(code);
       console.log(`[draft] submitted in ${code} by ${socket.id}`);
+    }
+  });
+
+  socket.on(ClientEvents.LOCK_COMMIT, (payload: LockCommitPayload) => {
+    const err = rooms.submitCommit(socket.id, payload.actions ?? []);
+    if (err) {
+      emitError(socket.id, err);
+      return;
+    }
+    const code = rooms.getRoomCodeForSocket(socket.id);
+    if (!code) return;
+
+    const room = rooms.getRoom(code);
+    emitAll(code);
+    console.log(`[commit] locked in ${code} by ${socket.id}`);
+
+    if (room?.resolving) {
+      void runResolutionLoop(code);
     }
   });
 

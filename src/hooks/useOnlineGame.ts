@@ -4,17 +4,21 @@ import { SERVER_URL } from '../config/server';
 import {
   ClientEvents,
   ServerEvents,
+  type GameStatePayload,
   type RoomErrorPayload,
   type RoomStatePayload,
 } from '../../shared/protocol';
+import type { CommittedAction } from '../game/types';
 
 export interface UseOnlineGame {
   socketConnected: boolean;
   roomState: RoomStatePayload | null;
+  gamePayload: GameStatePayload | null;
   error: string | null;
   createRoom: () => void;
   joinRoom: (code: string) => void;
   submitDraft: (deck: string[]) => void;
+  lockCommit: (actions: CommittedAction[]) => void;
   leaveRoom: () => void;
   clearError: () => void;
 }
@@ -23,6 +27,7 @@ export function useOnlineGame(): UseOnlineGame {
   const socketRef = useRef<Socket | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [roomState, setRoomState] = useState<RoomStatePayload | null>(null);
+  const [gamePayload, setGamePayload] = useState<GameStatePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,6 +41,10 @@ export function useOnlineGame(): UseOnlineGame {
     socket.on('disconnect', () => setSocketConnected(false));
     socket.on(ServerEvents.ROOM_STATE, (payload: RoomStatePayload) => {
       setRoomState(payload);
+      setError(null);
+    });
+    socket.on(ServerEvents.GAME_STATE, (payload: GameStatePayload) => {
+      setGamePayload(payload);
       setError(null);
     });
     socket.on(ServerEvents.ROOM_ERROR, (payload: RoomErrorPayload) => {
@@ -63,10 +72,16 @@ export function useOnlineGame(): UseOnlineGame {
     socketRef.current?.emit(ClientEvents.SUBMIT_DRAFT, { deck });
   }, []);
 
+  const lockCommit = useCallback((actions: CommittedAction[]) => {
+    setError(null);
+    socketRef.current?.emit(ClientEvents.LOCK_COMMIT, { actions });
+  }, []);
+
   const leaveRoom = useCallback(() => {
     socketRef.current?.disconnect();
     socketRef.current?.connect();
     setRoomState(null);
+    setGamePayload(null);
     setError(null);
   }, []);
 
@@ -75,10 +90,12 @@ export function useOnlineGame(): UseOnlineGame {
   return {
     socketConnected,
     roomState,
+    gamePayload,
     error,
     createRoom,
     joinRoom,
     submitDraft,
+    lockCommit,
     leaveRoom,
     clearError,
   };

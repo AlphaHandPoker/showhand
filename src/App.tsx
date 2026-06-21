@@ -3,6 +3,7 @@ import type { EffectType } from './game/types';
 import { DraftScreen } from './components/DraftScreen';
 import { GameBoard } from './components/GameBoard';
 import { Lobby } from './components/Lobby';
+import { OnlineGameBoard } from './components/OnlineGameBoard';
 import { useOnlineGame } from './hooks/useOnlineGame';
 import { buildBotDeckSelection } from './game/deckBuilder';
 import './App.css';
@@ -29,6 +30,17 @@ function App() {
 
   if (screen === 'online') {
     const rs = online.roomState;
+    if (rs && (rs.status === 'playing' || rs.status === 'finished')) {
+      return (
+        <OnlineGameBoard
+          online={online}
+          onLeave={() => {
+            online.leaveRoom();
+            setScreen('home');
+          }}
+        />
+      );
+    }
     if (rs && (rs.status === 'drafting' || rs.status === 'draft_ready')) {
       return (
         <div className="app">

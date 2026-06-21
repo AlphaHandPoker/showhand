@@ -483,6 +483,61 @@ export function lockPlayerCommit(state: GameState, actions: CommittedAction[]): 
   return newState;
 }
 
+export function lockBothPlayerCommits(
+  state: GameState,
+  playerActions: CommittedAction[],
+  botActions: CommittedAction[],
+): GameState {
+  if (state.phase !== 'committing') return state;
+
+  const errPlayer = validateCommittedActions(state, 'player', playerActions);
+  if (errPlayer) throw new Error(errPlayer);
+
+  const errBot = validateCommittedActions(state, 'bot', botActions);
+  if (errBot) throw new Error(errBot);
+
+  const newState: GameState = {
+    ...state,
+    deck: [...state.deck],
+    players: {
+      player: {
+        ...state.players.player,
+        pokerHand: state.players.player.pokerHand.map(c => ({ ...c })),
+        effectHand: [...state.players.player.effectHand],
+      },
+      bot: {
+        ...state.players.bot,
+        pokerHand: state.players.bot.pokerHand.map(c => ({ ...c })),
+        effectHand: [...state.players.bot.effectHand],
+      },
+    },
+    roundCommits: {
+      player: { actions: [...playerActions], locked: true },
+      bot: { actions: [...botActions], locked: true },
+    },
+    log: [...state.log],
+    spyReveal: null,
+  };
+
+  const queue: ResolutionItem[] = [];
+  for (const pid of getResolutionOrder(newState)) {
+    for (const action of newState.roundCommits[pid].actions) {
+      queue.push({ playerId: pid, action });
+    }
+  }
+
+  newState.resolutionQueue = queue;
+  newState.resolutionIndex = 0;
+  newState.phase = 'resolving';
+  addLog(newState, 'Hamleler kilitlendi — çözülüyor...');
+
+  if (queue.length === 0) {
+    return finishResolutionPhase(newState);
+  }
+
+  return newState;
+}
+
 export function resolveNextInQueue(state: GameState): GameState {
   if (state.phase !== 'resolving') return state;
   if (state.resolutionIndex >= state.resolutionQueue.length) {

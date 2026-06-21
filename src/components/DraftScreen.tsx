@@ -134,7 +134,7 @@ export function DraftScreen({ onStart, online }: DraftScreenProps) {
             <p className="draft-waiting">Rakibin destesini seçmesi bekleniyor…</p>
           )}
           {online?.bothReady && (
-            <p className="draft-ready">Her iki deste hazır — maç yakında başlayacak (Aşama 3+)</p>
+            <p className="draft-ready">Her iki deste hazır — maç başlıyor…</p>
           )}
           <button
             type="button"

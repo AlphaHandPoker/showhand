@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CommittedAction, EffectType, GameState, SlotIndex, ResolutionItem } from '../game/types';
 import { EFFECT_NAMES, HAND_SIZE, TOTAL_ROUNDS, MAX_CARDS_PER_ROUND } from '../game/types';
 import {
@@ -38,6 +38,13 @@ interface GameBoardProps {
   playerDeck: EffectType[];
   botDeck: EffectType[];
   onRestart: () => void;
+  online?: {
+    youLocked: boolean;
+    opponentLocked: boolean;
+    onLockCommit: (actions: CommittedAction[]) => void;
+    syncedGame: GameState;
+    opponentLabel?: string;
+  };
 }
 
 type PendingPick =
@@ -46,10 +53,11 @@ type PendingPick =
   | { effectId: string; effectType: EffectType; step: 'opponent_effect' }
   | { effectId: string; effectType: EffectType; step: 'cleanse_slot' };
 
-export function GameBoard({ playerDeck, botDeck, onRestart }: GameBoardProps) {
+export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardProps) {
   const initialGame = useMemo(
-    () => createGame(playerDeck, botDeck),
-    [playerDeck, botDeck],
+    () => (online ? online.syncedGame : createGame(playerDeck, botDeck)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [online?.syncedGame, playerDeck, botDeck],
   );
 
   const {
@@ -87,7 +95,34 @@ export function GameBoard({ playerDeck, botDeck, onRestart }: GameBoardProps) {
 
   const isFinished = game.phase === 'finished';
   const isCommitting = game.phase === 'committing';
-  const canInteract = introReady && isCommitting && !isFinished && !isAnimating && !resolving;
+  const canInteract = introReady && isCommitting && !isFinished && !isAnimating && !resolving
+    && (!online || !online.youLocked);
+
+  const syncQueueRef = useRef(Promise.resolve());
+  const lastSyncSigRef = useRef('');
+
+  useEffect(() => {
+    if (!online?.syncedGame) return;
+    const g = online.syncedGame;
+    const sig = `${g.phase}-${g.currentRound}-${g.resolutionIndex}-${g.log.length}-${g.winner ?? ''}`;
+    if (sig === lastSyncSigRef.current) return;
+    lastSyncSigRef.current = sig;
+
+    syncQueueRef.current = syncQueueRef.current.then(async () => {
+      if (g.phase === 'resolving' && game.phase === 'committing') {
+        setResolutionFeed({ queue: g.resolutionQueue, completed: 0 });
+        setResolving(true);
+      }
+      await applyUpdate(g);
+      if (g.phase !== 'resolving') {
+        setResolving(false);
+        if (g.phase === 'committing') {
+          setCommitQueue([]);
+          setPendingPick(null);
+        }
+      }
+    });
+  }, [online?.syncedGame, game.phase, applyUpdate]);
 
   const slotsLeft = MAX_CARDS_PER_ROUND - commitQueue.length;
   const usedEffectIds = new Set(commitQueue.map(a => a.effectId));
@@ -117,6 +152,14 @@ export function GameBoard({ playerDeck, botDeck, onRestart }: GameBoardProps) {
 
   const handleLockCommit = async () => {
     if (!canInteract || pendingPick) return;
+
+    if (online) {
+      online.onLockCommit([...commitQueue]);
+      setCommitQueue([]);
+      setPendingPick(null);
+      return;
+    }
+
     let next: GameState;
     try {
       next = lockPlayerCommit(game, commitQueue);
@@ -333,7 +376,13 @@ export function GameBoard({ playerDeck, botDeck, onRestart }: GameBoardProps) {
     || slotsLeft <= 0
     || (!!pendingPick && pendingPick.step !== 'opponent_effect');
 
-  const actionHint = getCommitHint(displayGame, pendingPick, commitQueue.length, resolving);
+  const actionHint = getCommitHint(
+    displayGame,
+    pendingPick,
+    commitQueue.length,
+    resolving,
+    online ? { youLocked: online.youLocked, opponentLocked: online.opponentLocked } : undefined,
+  );
 
   const handleIntroComplete = useCallback(async () => {
     setShuffleDone(true);
@@ -453,6 +502,13 @@ export function GameBoard({ playerDeck, botDeck, onRestart }: GameBoardProps) {
             </div>
           )}
 
+          {online?.youLocked && !online.opponentLocked && isCommitting && (
+            <div className="action-hint online-wait">Kilitledin — rakip bekleniyor…</div>
+          )}
+          {online?.opponentLocked && !online.youLocked && isCommitting && (
+            <div className="action-hint online-wait online-wait--urgent">Rakip kilitledi — sen de kilitle!</div>
+          )}
+
           {commitQueue.length > 0 && isCommitting && (
             <div className="commit-queue">
               <strong>Seçilen hamleler:</strong>
@@ -481,11 +537,11 @@ export function GameBoard({ playerDeck, botDeck, onRestart }: GameBoardProps) {
             <div className="result-banner">
               <span className="result-text">
                 {game.winner === 'player' && 'Kazandın!'}
-                {game.winner === 'bot' && 'Bot kazandı'}
+                {game.winner === 'bot' && (online ? 'Rakip kazandı' : 'Bot kazandı')}
                 {game.winner === 'tie' && 'Berabere'}
               </span>
               <button type="button" className="btn-restart" onClick={onRestart}>
-                Yeni Maç
+                {online ? 'Ana Menü' : 'Yeni Maç'}
               </button>
             </div>
           )}
@@ -541,6 +597,7 @@ function getCommitHint(
   pending: PendingPick | null,
   queued: number,
   resolving: boolean,
+  online?: { youLocked: boolean; opponentLocked: boolean },
 ): string | null {
   if (game.phase === 'finished') return null;
   if (resolving) return 'Hamleler çözülüyor...';
@@ -565,6 +622,12 @@ function getCommitHint(
   }
 
   if (game.phase === 'committing') {
+    if (online?.youLocked && !online.opponentLocked) {
+      return 'Kilitledin — rakip bekleniyor…';
+    }
+    if (online?.opponentLocked && !online.youLocked) {
+      return 'Rakip kilitledi — sen de kilitle!';
+    }
     const left = MAX_CARDS_PER_ROUND - queued;
     if (left === MAX_CARDS_PER_ROUND) {
       return 'Efekt seç veya pas geç — rakip görmeden kilitle';
