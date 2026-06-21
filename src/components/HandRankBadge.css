@@ -1,0 +1,68 @@
+/* ═══════════════════════════════════════
+   HAND RANK BADGE — Current hand strength
+   ═══════════════════════════════════════ */
+
+.hand-rank-badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hand-rank-name {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.hand-rank-detail {
+  font-family: var(--font-body);
+  font-size: 0.58rem;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.tier-partial {
+  background: rgba(10, 20, 35, 0.5);
+  color: var(--text-muted);
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.tier-high-card { background: linear-gradient(135deg, #344050, #283848); color: #c0c8d2; }
+.tier-pair { background: linear-gradient(135deg, #185838, #125030); color: #c8ecd8; }
+.tier-two-pair { background: linear-gradient(135deg, #145050, #104848); color: #c8e8e4; }
+.tier-trips { background: linear-gradient(135deg, #125878, #0e4c68); color: #c8e2f0; }
+.tier-straight { background: linear-gradient(135deg, #3e40b0, #3638a0); color: #d4d6ff; }
+.tier-flush { background: linear-gradient(135deg, #5c28a0, #502090); color: #dcc8f8; }
+.tier-full { background: linear-gradient(135deg, #a84410, #983c0a); color: #f8e4c8; }
+.tier-quads { background: linear-gradient(135deg, #901c1c, #801414); color: #f8d0d0; }
+
+.tier-sflush {
+  background: linear-gradient(135deg, #b07808, #a06c06);
+  color: #f8f0d0;
+  animation: sflush-shimmer 3s ease-in-out infinite;
+}
+
+.tier-royal {
+  background: var(--rank-royal);
+  background-size: 200% 100%;
+  color: #fff;
+  animation: royal-shimmer 3s linear infinite;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes sflush-shimmer {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.08); }
+}
+
+@keyframes royal-shimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}

@@ -1,0 +1,34 @@
+.card-swap-flight-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 195;
+  pointer-events: none;
+}
+
+.card-swap-flight {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 196;
+  will-change: transform;
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.4));
+}
+
+.card-swap-flight--cross {
+  filter: drop-shadow(0 10px 24px rgba(212, 168, 67, 0.25));
+}
+
+.card-swap-flight .playing-card-face-mini {
+  width: 100%;
+  height: 100%;
+}
+
+.card-swap-flight--player .playing-card-face-mini {
+  border-radius: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-swap-flight {
+    transition: none !important;
+  }
+}

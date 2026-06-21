@@ -1,0 +1,220 @@
+/* ═══════════════════════════════════════
+   DRAFT SCREEN — Pre-match deck builder
+   ═══════════════════════════════════════ */
+
+.draft-screen {
+  min-height: 100vh;
+  padding: 36px 32px 48px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.draft-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.draft-header h1 {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--accent-gold);
+  letter-spacing: 0.18em;
+  margin: 0 0 10px;
+  text-shadow: 0 2px 16px rgba(212, 168, 67, 0.25);
+}
+
+.draft-subtitle {
+  font-family: var(--font-body);
+  color: var(--text-secondary);
+  margin: 0 0 14px;
+  font-size: 1rem;
+}
+
+.draft-counter {
+  display: inline-block;
+  padding: 8px 22px;
+  border-radius: var(--radius-pill);
+  background: rgba(7, 17, 29, 0.5);
+  border: 1px solid var(--bg-panel-border);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.draft-counter .counter-full { color: var(--accent-gold); }
+
+.draft-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 28px;
+  align-items: start;
+}
+
+.draft-pool h2,
+.draft-hand h2 {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin: 0 0 14px;
+}
+
+.draft-pool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 14px;
+}
+
+.draft-pool-item {
+  position: relative;
+  border-radius: 10px;
+}
+
+.draft-pool-item .effect-card { width: 100%; }
+
+.draft-pool-item.in-deck {
+  z-index: 2;
+}
+
+.draft-pool-item.in-deck .effect-card {
+  transform: translateY(-4px);
+}
+
+.draft-pool-item.disabled {
+  opacity: 0.55;
+}
+
+.draft-pool-item.disabled .effect-card {
+  opacity: 1;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.draft-pool-item.disabled .effect-card-frame {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.draft-pool-item.disabled .effect-card-frame::before {
+  opacity: 0.25;
+}
+
+.draft-type-count {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: var(--accent-gold);
+  color: #0c1929;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-family: var(--font-body);
+}
+
+.draft-hand {
+  padding: 20px;
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  border: 1px solid var(--bg-panel-border);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.25);
+  position: sticky;
+  top: 20px;
+}
+
+.draft-hand-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+  min-height: 220px;
+}
+
+.draft-slot { border-radius: 10px; }
+.draft-slot .effect-card { width: 100%; }
+
+.draft-slot-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 96px;
+  border: 2px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  font-family: var(--font-display);
+  transition: border-color 0.2s;
+}
+
+.draft-slot-empty:hover { border-color: rgba(255, 255, 255, 0.14); }
+
+.draft-error {
+  color: #d88a8a;
+  font-size: 0.82rem;
+  margin: 0 0 14px;
+  font-family: var(--font-body);
+}
+
+.draft-online-status {
+  margin: 0 0 10px;
+  color: var(--accent-teal);
+  font-size: 0.92rem;
+}
+
+.draft-waiting {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.draft-ready {
+  margin: 0 0 12px;
+  color: #86efac;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.btn-draft-leave {
+  margin-top: 10px;
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.btn-start-match {
+  width: 100%;
+  padding: 14px 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dim));
+  color: #0c1929;
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 4px 18px rgba(212, 168, 67, 0.2);
+}
+
+.btn-start-match:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(212, 168, 67, 0.3);
+}
+
+.btn-start-match:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

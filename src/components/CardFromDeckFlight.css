@@ -1,0 +1,141 @@
+.card-from-deck-flight {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 200;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.card-from-deck-flight-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.35),
+    0 12px 28px rgba(0, 0, 0, 0.25);
+}
+
+.card-from-deck-back,
+.card-from-deck-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+}
+
+.card-from-deck-back {
+  background: linear-gradient(150deg, #152a45, #1c3758);
+  border: 1.5px solid rgba(28, 55, 88, 0.6);
+}
+
+.card-from-deck-back-emblem {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: rgba(212, 168, 67, 0.55);
+  font-family: var(--font-card);
+}
+
+.card-from-deck-face {
+  background: var(--card-bg);
+  border: 1.5px solid rgba(0, 0, 0, 0.1);
+  font-family: var(--font-card);
+  opacity: 0;
+}
+
+.card-from-deck-face.spades,
+.card-from-deck-face.clubs {
+  color: var(--suit-black);
+}
+
+.card-from-deck-face.hearts,
+.card-from-deck-face.diamonds {
+  color: var(--suit-red);
+}
+
+.card-from-deck-face .card-corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+
+.card-from-deck-face .card-corner-tl { top: 5px; left: 6px; }
+.card-from-deck-face .card-corner-br { bottom: 5px; right: 6px; transform: rotate(180deg); }
+
+.card-from-deck-face .card-rank {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.card-from-deck-face .card-suit-sm {
+  font-size: 0.55rem;
+}
+
+.card-from-deck-face .card-suit-center {
+  font-size: 1.35rem;
+}
+
+.card-from-deck-flight--player .card-from-deck-face .card-rank { font-size: 0.95rem; }
+.card-from-deck-flight--player .card-from-deck-face .card-suit-sm { font-size: 0.65rem; }
+.card-from-deck-flight--player .card-from-deck-face .card-suit-center { font-size: 1.65rem; }
+
+/* Flip at destination */
+.card-from-deck-flight.phase-flip .card-from-deck-flight-inner {
+  animation: deck-flight-scale-flip var(--deck-flip-ms) ease-in-out forwards;
+}
+
+.card-from-deck-flight.phase-flip .card-from-deck-back {
+  animation: deck-flight-hide-back var(--deck-flip-ms) ease-in-out forwards;
+}
+
+.card-from-deck-flight.phase-flip .card-from-deck-face {
+  animation: deck-flight-show-face var(--deck-flip-ms) ease-in-out forwards;
+}
+
+/* Reduced motion */
+.card-from-deck-flight--reduced {
+  opacity: 0;
+  animation: deck-flight-fade-in 120ms ease-out forwards;
+}
+
+.card-from-deck-flight--reduced .card-from-deck-back {
+  display: none;
+}
+
+.card-from-deck-flight--reduced .card-from-deck-face {
+  opacity: 1;
+}
+
+@keyframes deck-flight-scale-flip {
+  0% { transform: scaleX(1); }
+  45% { transform: scaleX(0.04); }
+  55% { transform: scaleX(0.04); }
+  100% { transform: scaleX(1); }
+}
+
+@keyframes deck-flight-hide-back {
+  0%, 44% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes deck-flight-show-face {
+  0%, 44% { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}
+
+@keyframes deck-flight-fade-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-from-deck-flight:not(.card-from-deck-flight--reduced) .card-from-deck-flight-inner {
+    animation: none;
+  }
+}

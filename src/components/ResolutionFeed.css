@@ -1,0 +1,101 @@
+/* ═══════════════════════════════════════
+   RESOLUTION FEED — Sol alt dock
+   ═══════════════════════════════════════ */
+
+.resolution-feed {
+  background: rgba(7, 17, 29, 0.88);
+  border: 1px solid rgba(212, 168, 67, 0.22);
+  border-radius: 12px;
+  padding: 10px 12px;
+  width: 100%;
+  max-height: 220px;
+  display: flex;
+  flex-direction: column;
+  animation: resolution-feed-in 0.3s ease-out;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+}
+
+.resolution-feed-title {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-gold);
+  flex-shrink: 0;
+}
+
+.resolution-feed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.resolution-item {
+  display: grid;
+  grid-template-columns: 16px 32px 1fr auto;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 5px;
+  border-radius: 6px;
+  font-size: 0.65rem;
+  border: 1px solid transparent;
+  transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+}
+
+.resolution-item--pending { opacity: 0.35; color: var(--text-muted); }
+
+.resolution-item--active {
+  background: rgba(212, 168, 67, 0.1);
+  border-color: rgba(212, 168, 67, 0.35);
+  color: var(--text-primary);
+}
+
+.resolution-item--done { opacity: 0.65; color: var(--text-secondary); }
+
+.resolution-item-step { font-family: var(--font-display); font-weight: 700; font-size: 0.58rem; color: var(--accent-gold); }
+.resolution-item-actor { font-weight: 600; font-size: 0.58rem; }
+.resolution-item-effect { font-weight: 500; font-size: 0.62rem; }
+.resolution-item-check { color: var(--accent-emerald); font-weight: 700; font-size: 0.7rem; }
+
+.resolution-item-pulse {
+  color: var(--accent-gold);
+  animation: resolution-pulse 0.8s ease-in-out infinite;
+}
+
+.resolution-latest-log {
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.68rem;
+  color: var(--accent-teal);
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.resolution-latest-log.is-live {
+  animation: resolution-log-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes resolution-log-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+@keyframes resolution-feed-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes resolution-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}

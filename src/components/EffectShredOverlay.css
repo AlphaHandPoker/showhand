@@ -1,0 +1,42 @@
+.effect-shred-overlay {
+  position: fixed;
+  z-index: 200;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.effect-shred-overlay--shake {
+  animation: effect-shred-shake 180ms ease-in-out;
+}
+
+.shred-piece {
+  position: absolute;
+  background: linear-gradient(155deg, #1c0e38, #30205c);
+  border: 1px solid rgba(192, 57, 43, 0.5);
+  border-radius: 3px;
+  opacity: 0.95;
+  animation: shred-fly 420ms ease-out forwards;
+}
+
+.shred-piece--1 { inset: 8% 45% 55% 5%; animation-delay: 0ms; --shred-x: -28px; --shred-y: -32px; --shred-r: -25deg; }
+.shred-piece--2 { inset: 5% 8% 50% 48%; animation-delay: 20ms; --shred-x: 34px; --shred-y: -24px; --shred-r: 18deg; }
+.shred-piece--3 { inset: 52% 40% 8% 10%; animation-delay: 40ms; --shred-x: -22px; --shred-y: 28px; --shred-r: 12deg; }
+.shred-piece--4 { inset: 48% 10% 12% 42%; animation-delay: 60ms; --shred-x: 26px; --shred-y: 30px; --shred-r: -15deg; }
+
+@keyframes effect-shred-shake {
+  0%, 100% { transform: translate(-50%, -50%) rotate(0); }
+  20% { transform: translate(calc(-50% - 4px), -50%) rotate(-3deg); }
+  40% { transform: translate(calc(-50% + 5px), -50%) rotate(3deg); }
+  60% { transform: translate(calc(-50% - 3px), -50%) rotate(-2deg); }
+  80% { transform: translate(calc(-50% + 2px), -50%) rotate(1deg); }
+}
+
+@keyframes shred-fly {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+  100% { opacity: 0; transform: translate(var(--shred-x), var(--shred-y)) rotate(var(--shred-r)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .effect-shred-overlay--shake { animation: none; }
+  .shred-piece { animation-duration: 120ms; }
+}

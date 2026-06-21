@@ -1,0 +1,160 @@
+/* ═══════════════════════════════════════
+   HAND RANK LADDER — Left sidebar
+   Compact 148px column, full height
+   ═══════════════════════════════════════ */
+
+.hand-rank-ladder {
+  grid-column: 1;
+  grid-row: 1;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--bg-panel-border);
+  padding: 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.ladder-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-align: center;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.ladder-subtitle {
+  margin: 0;
+  font-size: 0.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.75;
+}
+
+.ladder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.ladder-rung {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.ladder-label {
+  font-family: var(--font-body);
+  font-size: 0.58rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--text-secondary);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ladder-markers {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.ladder-marker {
+  font-family: var(--font-display);
+  font-size: 0.46rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 4px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.marker-player {
+  background: rgba(46, 204, 113, 0.15);
+  border: 1px solid rgba(46, 204, 113, 0.5);
+  color: #6ee7a0;
+}
+
+.marker-bot {
+  background: rgba(192, 57, 43, 0.15);
+  border: 1px solid rgba(192, 57, 43, 0.5);
+  color: #d88a8a;
+}
+
+
+/* ── Tier prestige ── */
+
+.ladder-tier-base .ladder-label { color: var(--text-muted); }
+.ladder-tier-mid .ladder-label { color: #8899ab; font-weight: 600; }
+.ladder-tier-high .ladder-label { color: #b0a0d4; font-weight: 600; }
+
+.ladder-tier-elite .ladder-label {
+  color: var(--accent-gold);
+  font-weight: 700;
+  text-shadow: 0 0 6px rgba(212, 168, 67, 0.2);
+}
+
+.ladder-tier-royal .ladder-label {
+  background: linear-gradient(90deg, #d4a843, #c0392b, #8b5cf6, #3b82f6);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: ladder-royal-text 4s linear infinite;
+  font-weight: 700;
+}
+
+.ladder-tier-royal {
+  background: rgba(212, 168, 67, 0.05);
+  border-color: rgba(212, 168, 67, 0.12);
+}
+
+
+/* ── Active hand highlights ── */
+
+.ladder-rung.has-player {
+  background: rgba(46, 204, 113, 0.06);
+  border-color: rgba(46, 204, 113, 0.25);
+  box-shadow: inset 2px 0 0 var(--accent-emerald);
+}
+
+.ladder-rung.has-bot {
+  background: rgba(192, 57, 43, 0.06);
+  border-color: rgba(192, 57, 43, 0.25);
+  box-shadow: inset 2px 0 0 var(--accent-crimson);
+}
+
+.ladder-rung.has-player.has-bot {
+  border-color: rgba(212, 168, 67, 0.3);
+  box-shadow: inset 2px 0 0 var(--accent-gold);
+  background: rgba(212, 168, 67, 0.05);
+}
+
+.ladder-rung.has-player-partial .marker-player,
+.ladder-rung.has-bot-partial .marker-bot {
+  border-style: dashed;
+  opacity: 0.8;
+}
+
+@keyframes ladder-royal-text {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}

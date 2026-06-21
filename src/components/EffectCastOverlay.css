@@ -1,0 +1,239 @@
+/* ═══════════════════════════════════════
+   EFFECT CAST OVERLAY
+   Phases: present → target → retire → result
+   Player cards rise from bottom, bot cards from top.
+   GPU-only: transform + opacity.
+   ═══════════════════════════════════════ */
+
+.effect-cast-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* ── backdrop ── */
+.cast-backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(7, 17, 29, 0.5) 0%,
+    rgba(7, 17, 29, 0.85) 100%
+  );
+  will-change: opacity;
+}
+
+.cast-backdrop--light {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(7, 17, 29, 0.18) 0%,
+    rgba(7, 17, 29, 0.5) 100%
+  );
+}
+
+/* Backdrop fades in with the overlay */
+.phase-present .cast-backdrop { animation: fade-in 300ms ease-out forwards; }
+.phase-target .cast-backdrop  { opacity: 1; }
+.phase-retire .cast-backdrop  { animation: fade-out 360ms ease-in forwards; }
+.phase-result .cast-backdrop  { animation: fade-in 280ms ease-out forwards; }
+
+/* ── card wrapper ── */
+.cast-card-wrapper {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  will-change: transform, opacity;
+}
+
+/* ── PRESENT: card rises to center ── */
+/* Player → rises from bottom */
+.from-player.phase-present .cast-card-wrapper {
+  animation: rise-from-bottom 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+/* Bot → rises from top */
+.from-bot.phase-present .cast-card-wrapper {
+  animation: rise-from-top 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── TARGET: card settles slightly smaller, holds at center ── */
+.phase-target .cast-card-wrapper {
+  animation: none;
+  opacity: 0.95;
+  transform: translate3d(0, 0, 0) scale(0.88);
+  transition: transform 300ms ease-out, opacity 300ms ease-out;
+}
+
+/* ── RETIRE: card fades back toward its side ── */
+.from-player.phase-retire .cast-card-wrapper,
+.from-player.phase-retire .cast-card-wrapper--retire {
+  animation: retire-to-bottom 360ms ease-in forwards;
+}
+.from-bot.phase-retire .cast-card-wrapper,
+.from-bot.phase-retire .cast-card-wrapper--retire {
+  animation: retire-to-top 360ms ease-in forwards;
+}
+
+/* ── RESULT: fizzle panel ── */
+.phase-result {
+  animation: fade-in 280ms ease-out forwards;
+}
+
+.cast-result-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 28px;
+  border-radius: var(--radius-md);
+  background: rgba(7, 17, 29, 0.88);
+  border: 1px solid rgba(212, 168, 67, 0.25);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  max-width: 380px;
+  animation: pop-in 400ms var(--ease-out-back) forwards;
+}
+
+/* ── text elements ── */
+.cast-result-headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--accent-gold);
+  letter-spacing: 0.05em;
+}
+
+.cast-result-actor {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.cast-player-label {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+}
+
+.cast-step-badge {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(212, 168, 67, 0.3);
+}
+
+.cast-effect-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.06em;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
+}
+
+.cast-result-label {
+  margin: 0;
+  max-width: 340px;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--accent-teal);
+  line-height: 1.5;
+}
+
+/* ═══ Keyframes — GPU only (transform + opacity) ═══ */
+
+@keyframes rise-from-bottom {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 40vh, 0) scale(0.45);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1.45);
+  }
+}
+
+@keyframes rise-from-top {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -40vh, 0) scale(0.45);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1.45);
+  }
+}
+
+@keyframes retire-to-bottom {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(0.88);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 34vh, 0) scale(0.3);
+  }
+}
+
+@keyframes retire-to-top {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(0.88);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -34vh, 0) scale(0.3);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes pop-in {
+  0%   { opacity: 0; transform: scale(0.88) translateY(12px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ═══ Reduced motion ═══ */
+@media (prefers-reduced-motion: reduce) {
+  .from-player.phase-present .cast-card-wrapper,
+  .from-bot.phase-present .cast-card-wrapper {
+    animation-duration: 150ms;
+  }
+  .from-player.phase-retire .cast-card-wrapper,
+  .from-bot.phase-retire .cast-card-wrapper {
+    animation-duration: 100ms;
+  }
+}

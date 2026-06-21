@@ -1,0 +1,48 @@
+.card-to-deck-flight {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 195;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.card-to-deck-flight .playing-card-face-mini {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.playing-card-face-mini {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1.5px solid rgba(0, 0, 0, 0.1);
+  background: var(--card-bg);
+  font-family: var(--font-card);
+  overflow: hidden;
+}
+
+.playing-card-face-mini.red { color: #b91c1c; }
+.playing-card-face-mini.black { color: #1a1a2e; }
+
+.playing-card-face-mini .card-corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+
+.playing-card-face-mini .card-corner-tl { top: 5px; left: 6px; }
+.playing-card-face-mini .card-corner-br { bottom: 5px; right: 6px; transform: rotate(180deg); }
+.playing-card-face-mini .card-rank { font-size: 0.75rem; font-weight: 700; }
+.playing-card-face-mini .card-suit-sm { font-size: 0.52rem; }
+.playing-card-face-mini .card-suit-center { font-size: 1.2rem; line-height: 1; }
+
+.card-to-deck-flight--player .playing-card-face-mini {
+  border-radius: 12px;
+}

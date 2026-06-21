@@ -1,0 +1,77 @@
+:root {
+  /* ── Deep navy palette ── */
+  --bg-deep: #07111d;
+  --bg-mid: #0c1929;
+  --bg-panel: rgba(12, 25, 41, 0.88);
+  --bg-panel-border: rgba(255, 255, 255, 0.06);
+  --bg-card-zone: rgba(10, 20, 35, 0.65);
+
+  /* ── Accents ── */
+  --accent-gold: #d4a843;
+  --accent-gold-dim: #a3812e;
+  --accent-gold-glow: rgba(212, 168, 67, 0.35);
+  --accent-crimson: #c0392b;
+  --accent-emerald: #2ecc71;
+  --accent-emerald-dim: rgba(46, 204, 113, 0.18);
+  --accent-teal: #48c9b0;
+  --accent-purple: #8b5cf6;
+
+  /* ── Text ── */
+  --text-primary: #e8ecf1;
+  --text-secondary: #8899ab;
+  --text-muted: #536680;
+
+  /* ── Playing card ── */
+  --card-bg: #f7f5f0;
+  --card-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --card-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --card-radius: 10px;
+
+  /* ── Effect card categories (accent, not fill) ── */
+  --effect-card-bg: linear-gradient(180deg, #121f32 0%, #0a1524 100%);
+  --effect-card-bg-solid: #0e1a2b;
+
+  --effect-aggressive-accent: #c0392b;
+  --effect-aggressive-muted: #d47068;
+  --effect-aggressive-border: rgba(192, 57, 43, 0.75);
+  --effect-aggressive-glow: rgba(192, 57, 43, 0.35);
+  --effect-aggressive-halo: rgba(192, 57, 43, 0.18);
+
+  --effect-defensive-accent: #2ecc71;
+  --effect-defensive-muted: #5dd995;
+  --effect-defensive-border: rgba(46, 204, 113, 0.75);
+  --effect-defensive-glow: rgba(46, 204, 113, 0.35);
+  --effect-defensive-halo: rgba(46, 204, 113, 0.18);
+
+  --effect-utility-accent: #8b5cf6;
+  --effect-utility-muted: #a78bfa;
+  --effect-utility-border: rgba(139, 92, 246, 0.75);
+  --effect-utility-glow: rgba(139, 92, 246, 0.35);
+  --effect-utility-halo: rgba(139, 92, 246, 0.18);
+
+  /* Legacy aliases (used by hover glows) */
+  --effect-aggressive-bg: var(--effect-card-bg);
+  --effect-defensive-bg: var(--effect-card-bg);
+  --effect-utility-bg: var(--effect-card-bg);
+
+  /* ── Hand rank tiers ── */
+  --rank-royal: linear-gradient(90deg, #d4a843, #c0392b, #8b5cf6, #3b82f6, #d4a843);
+
+  /* ── Typography ── */
+  --font-display: 'Manrope', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-card: Georgia, 'Times New Roman', serif;
+
+  /* ── Animation ── */
+  --anim-fast: 200ms;
+  --anim-normal: 400ms;
+  --anim-slow: 500ms;
+  --ease-out-back: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+
+  /* ── Radius ── */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+}

@@ -1,0 +1,96 @@
+.slot-machine-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.slot-machine-overlay--closing {
+  animation: slot-overlay-out 280ms ease-in forwards;
+}
+
+.slot-machine-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 10, 18, 0.62);
+}
+
+.slot-machine-panel {
+  position: relative;
+  z-index: 1;
+  padding: 24px 28px 28px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #121f32 0%, #0a1524 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  text-align: center;
+  animation: slot-panel-in 320ms var(--ease-out-back);
+}
+
+.slot-machine-label {
+  margin: 0 0 16px;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-gold);
+}
+
+.slot-machine-card {
+  position: relative;
+  width: 100px;
+  height: 140px;
+  margin: 0 auto;
+}
+
+.slot-machine-card .playing-card-face-mini {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  transition: filter 80ms ease;
+}
+
+.slot-machine-card:not(.slot-machine-card--landed) .playing-card-face-mini {
+  animation: slot-shimmer 120ms ease-in-out;
+}
+
+.slot-machine-card--landed .playing-card-face-mini {
+  box-shadow: 0 0 24px var(--accent-gold-glow);
+}
+
+.slot-machine-flash {
+  position: absolute;
+  inset: -8px;
+  border-radius: 16px;
+  background: radial-gradient(circle, rgba(212, 168, 67, 0.35), transparent 70%);
+  animation: slot-flash 400ms ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes slot-panel-in {
+  from { opacity: 0; transform: scale(0.88) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes slot-overlay-out {
+  to { opacity: 0; }
+}
+
+@keyframes slot-shimmer {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.15); }
+}
+
+@keyframes slot-flash {
+  from { opacity: 1; transform: scale(0.95); }
+  to { opacity: 0; transform: scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot-machine-panel { animation: none; }
+  .slot-machine-card:not(.slot-machine-card--landed) .playing-card-face-mini { animation: none; }
+}
