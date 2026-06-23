@@ -128,9 +128,11 @@ interface EffectCardViewProps {
   large?: boolean;
   castGlow?: boolean;
   compact?: boolean;
+  boardSize?: 'bot' | 'player' | 'arena';
   spyRevealed?: boolean;
   spyFlipping?: boolean;
   targeted?: boolean;
+  readOnly?: boolean;
 }
 
 export function EffectCardView({
@@ -143,54 +145,79 @@ export function EffectCardView({
   large,
   castGlow,
   compact,
+  boardSize,
   spyRevealed,
   spyFlipping,
   targeted,
+  readOnly,
 }: EffectCardViewProps) {
   if (hidden) {
-    return <EffectCardBack onClick={onClick} disabled={disabled} selected={selected} compact={compact} />;
+    return <EffectCardBack onClick={onClick} disabled={disabled} selected={selected} compact={compact} readOnly={readOnly} />;
   }
 
   const category = EFFECT_CATEGORY[card.type];
   const description = getEffectDescription(card.type);
-  const iconSize = large ? 28 : compact ? 16 : 22;
+  const iconSize = large ? 28 : compact ? 16 : boardSize ? 20 : 22;
+
+  const className = [
+    'effect-card',
+    `effect-cat-${category}`,
+    selected && 'selected',
+    animClass,
+    large && 'effect-card-large',
+    compact && 'effect-card-compact',
+    boardSize === 'bot' && 'effect-card--board-bot',
+    boardSize === 'player' && 'effect-card--board-player',
+    boardSize === 'arena' && 'effect-card--board',
+    castGlow && 'cast-glow',
+    spyRevealed && 'effect-card--spy-revealed',
+    spyFlipping && 'effect-card--spy-flip',
+    targeted && 'effect-card--targeted',
+    readOnly && 'effect-card--readonly',
+  ].filter(Boolean).join(' ');
+
+  const frame = (
+    <div className="effect-card-frame">
+      <div className="effect-card-header">
+        <span className="effect-card-name">{EFFECT_NAMES[card.type]}</span>
+      </div>
+      <div className="effect-card-art">
+        <div className="effect-card-icon-badge">
+          <EffectIcon type={card.type} size={iconSize} className="effect-card-icon" />
+        </div>
+      </div>
+      {!compact && <div className="effect-card-desc">{description}</div>}
+      <div className="effect-card-gem" />
+      {spyRevealed && (
+        <>
+          <div className="card-status-badge card-status-badge--spy" title="Rakip bu kartı gördü">
+            <Eye size={10} strokeWidth={2.2} />
+          </div>
+          <div className="effect-spy-exposed-ribbon" aria-hidden>
+            Rakip görüyor
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  if (readOnly) {
+    return (
+      <div className={className} aria-hidden>
+        {frame}
+      </div>
+    );
+  }
 
   return (
     <button
       type="button"
-      className={[
-        'effect-card',
-        `effect-cat-${category}`,
-        selected && 'selected',
-        animClass,
-        large && 'effect-card-large',
-        compact && 'effect-card-compact',
-        castGlow && 'cast-glow',
-        spyRevealed && 'effect-card--spy-revealed',
-        spyFlipping && 'effect-card--spy-flip',
-        targeted && 'effect-card--targeted',
-      ].filter(Boolean).join(' ')}
+      className={className}
       onClick={onClick}
       disabled={disabled}
       title={description}
     >
-      <div className="effect-card-frame">
-        <div className="effect-card-header">
-          <span className="effect-card-name">{EFFECT_NAMES[card.type]}</span>
-        </div>
-        <div className="effect-card-art">
-          <div className="effect-card-icon-badge">
-            <EffectIcon type={card.type} size={iconSize} className="effect-card-icon" />
-          </div>
-        </div>
-        {!compact && <div className="effect-card-desc">{description}</div>}
-        <div className="effect-card-gem" />
-        {spyRevealed && (
-          <div className="card-status-badge card-status-badge--spy" title="Casus ile açığa çıktı">
-            <Eye size={10} strokeWidth={2.2} />
-          </div>
-        )}
-      </div>
+      {frame}
     </button>
   );
 }
@@ -205,6 +232,7 @@ interface EffectCardBackProps {
   effectAnchor?: string;
   spyFlipping?: boolean;
   targeted?: boolean;
+  readOnly?: boolean;
 }
 
 export function EffectCardBack({
@@ -217,27 +245,44 @@ export function EffectCardBack({
   effectAnchor,
   spyFlipping,
   targeted,
+  readOnly,
 }: EffectCardBackProps) {
-  const Tag = onClick ? 'button' : 'div';
+  const className = [
+    'effect-card-back',
+    selected && 'selected',
+    small && 'small',
+    compact && 'compact',
+    spyFlipping && 'effect-card-back--spy-flip',
+    targeted && 'effect-card-back--targeted',
+    readOnly && 'effect-card-back--readonly',
+    animClass,
+  ].filter(Boolean).join(' ');
+
+  const inner = (
+    <>
+      <div className="effect-back-pattern" />
+      <span className="effect-back-emblem">✦</span>
+    </>
+  );
+
+  if (readOnly || !onClick) {
+    return (
+      <div className={className} data-effect-anchor={effectAnchor} aria-hidden>
+        {inner}
+      </div>
+    );
+  }
+
   return (
-    <Tag
-      type={onClick ? 'button' : undefined}
-      className={[
-        'effect-card-back',
-        selected && 'selected',
-        small && 'small',
-        compact && 'compact',
-        spyFlipping && 'effect-card-back--spy-flip',
-        targeted && 'effect-card-back--targeted',
-        animClass,
-      ].filter(Boolean).join(' ')}
+    <button
+      type="button"
+      className={className}
       onClick={onClick}
       disabled={disabled}
       data-effect-anchor={effectAnchor}
     >
-      <div className="effect-back-pattern" />
-      <span className="effect-back-emblem">✦</span>
-    </Tag>
+      {inner}
+    </button>
   );
 }
 
@@ -250,6 +295,8 @@ interface OpponentEffectStackProps {
   revealedSpyIds?: Set<string>;
   spyFlipEffectId?: string | null;
   targetEffectId?: string | null;
+  hiddenEffectIds?: Set<string>;
+  overlayMaskEffectId?: string | null;
 }
 
 export function OpponentEffectStack({
@@ -261,19 +308,27 @@ export function OpponentEffectStack({
   revealedSpyIds = new Set(),
   spyFlipEffectId = null,
   targetEffectId = null,
+  hiddenEffectIds = new Set(),
+  overlayMaskEffectId = null,
 }: OpponentEffectStackProps) {
   return (
     <div className="opponent-effect-stack">
       <span className="effect-count-label">{effects.length} efekt kartı</span>
       <div className="effect-back-row">
         {effects.map(effect => {
+          if (hiddenEffectIds.has(effect.id)) return null;
           const isFlipping = spyFlipEffectId === effect.id;
           const isRevealed = revealedSpyIds.has(effect.id) && !isFlipping;
           const isTargeted = targetEffectId === effect.id;
+          const overlayMasked = overlayMaskEffectId === effect.id;
 
           if (isRevealed) {
             return (
-              <div key={effect.id} data-effect-anchor={`${ownerId}-${effect.id}`}>
+              <div
+                key={effect.id}
+                className={overlayMasked ? 'effect-flight-anchor--overlay-active' : undefined}
+                data-effect-anchor={`${ownerId}-${effect.id}`}
+              >
                 <EffectCardView
                   card={effect}
                   compact
@@ -288,16 +343,20 @@ export function OpponentEffectStack({
           }
 
           return (
-            <EffectCardBack
+            <div
               key={effect.id}
-              effectAnchor={`${ownerId}-${effect.id}`}
-              spyFlipping={isFlipping}
-              targeted={isTargeted}
-              animClass={getEffectDrawClass(effect.id, drawingEffectIds)}
-              onClick={selectable && onCardClick ? () => onCardClick(effect.id) : undefined}
-              disabled={!selectable}
-              compact
-            />
+              className={overlayMasked ? 'effect-flight-anchor--overlay-active' : undefined}
+              data-effect-anchor={`${ownerId}-${effect.id}`}
+            >
+              <EffectCardBack
+                spyFlipping={isFlipping}
+                targeted={isTargeted}
+                animClass={getEffectDrawClass(effect.id, drawingEffectIds)}
+                onClick={selectable && onCardClick ? () => onCardClick(effect.id) : undefined}
+                disabled={!selectable}
+                compact
+              />
+            </div>
           );
         })}
       </div>

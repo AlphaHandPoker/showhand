@@ -5,7 +5,7 @@ import './EffectCastOverlay.css';
 
 interface EffectCastOverlayProps {
   cast: CastAnimation;
-  phase: 'present' | 'target' | 'retire' | 'result';
+  phase: 'present' | 'target' | 'fly' | 'result';
 }
 
 export function EffectCastOverlay({ cast, phase }: EffectCastOverlayProps) {
@@ -28,15 +28,10 @@ export function EffectCastOverlay({ cast, phase }: EffectCastOverlayProps) {
     );
   }
 
-  if (phase === 'retire') {
+  if (phase === 'present' || phase === 'fly') {
     return (
-      <div className={`effect-cast-overlay phase-retire ${fromBottom ? 'from-player' : 'from-bot'}`}>
+      <div className={`effect-cast-overlay phase-${phase} ${fromBottom ? 'from-player' : 'from-bot'}`}>
         <div className="cast-backdrop cast-backdrop--light" />
-        {cast.effect && (
-          <div className="cast-card-wrapper cast-card-wrapper--retire">
-            <EffectCardView card={cast.effect} large castGlow />
-          </div>
-        )}
       </div>
     );
   }
@@ -46,14 +41,17 @@ export function EffectCastOverlay({ cast, phase }: EffectCastOverlayProps) {
   return (
     <div className={`effect-cast-overlay phase-${phase} ${fromBottom ? 'from-player' : 'from-bot'}`}>
       <div className={`cast-backdrop ${isTarget ? 'cast-backdrop--light' : ''}`} />
-      <div className={`cast-card-wrapper ${isTarget ? 'cast-card-wrapper--target' : ''}`}>
+      <div
+        className={`cast-card-wrapper cast-card-wrapper--center ${isTarget ? 'cast-card-wrapper--target' : ''}`}
+        data-cast-flight-source
+      >
         {cast.stepIndex !== undefined && cast.stepTotal !== undefined && (
           <span className="cast-step-badge">
             Hamle {cast.stepIndex} / {cast.stepTotal}
           </span>
         )}
         {cast.effect && (
-          <EffectCardView card={cast.effect} large={!isTarget} castGlow={!isTarget} />
+          <EffectCardView card={cast.effect} large castGlow={!isTarget} />
         )}
         <p className="cast-effect-name">{effectName}</p>
         <p className="cast-player-label">

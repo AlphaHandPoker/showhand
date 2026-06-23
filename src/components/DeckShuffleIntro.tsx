@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { playShuffleSound, SHUFFLE_DURATION_MS } from '../audio/sounds';
+import { playShuffleSound, SHUFFLE_DURATION_MS, warmUpGameAudio } from '../audio/sounds';
 import './DeckShuffleIntro.css';
 
 interface DeckShuffleIntroProps {
@@ -8,6 +8,7 @@ interface DeckShuffleIntroProps {
 
 export function DeckShuffleIntro({ onComplete }: DeckShuffleIntroProps) {
   useEffect(() => {
+    warmUpGameAudio();
     playShuffleSound();
     const timer = window.setTimeout(onComplete, SHUFFLE_DURATION_MS);
     return () => window.clearTimeout(timer);

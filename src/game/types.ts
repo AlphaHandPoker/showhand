@@ -65,10 +65,15 @@ export interface ResolutionItem {
   action: CommittedAction;
 }
 
+export type GameLogKind = 'round' | 'effect' | 'result';
+
 export interface GameLogEntry {
   turn: number;
   message: string;
   playerId?: PlayerId;
+  kind?: GameLogKind;
+  effectName?: string;
+  detail?: string;
 }
 
 export interface GameState {
@@ -111,7 +116,7 @@ export const EFFECT_DESCRIPTIONS: Record<EffectType, string> = {
   spy: 'Rakibin bir efekt kartını gör',
   force_delete: 'Rakibin bir efekt kartını sil',
   cleanse: 'Olumsuz bir efekti (dondurma) kaldır',
-  last_draw: 'Seçtiğin kartı desteye gönder, yeni kart çek (2 round koruma)',
+  last_draw: 'Seçtiğin kartı desteye gönder, yeni kart çek',
 };
 
 export const TOTAL_ROUNDS = 5;

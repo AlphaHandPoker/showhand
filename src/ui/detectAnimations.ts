@@ -40,6 +40,20 @@ function findRemovedEffect(prev: EffectCard[], next: EffectCard[]): EffectCard |
   return removed.length === 1 ? removed[0] : null;
 }
 
+function findRemovedEffectForAction(
+  prevHand: EffectCard[],
+  nextHand: EffectCard[],
+  action?: CommittedAction,
+): EffectCard | null {
+  const byDiff = findRemovedEffect(prevHand, nextHand);
+  if (byDiff) return byDiff;
+  if (!action) return null;
+  const played = prevHand.find(e => e.id === action.effectId);
+  if (!played) return null;
+  if (nextHand.some(e => e.id === action.effectId)) return null;
+  return played;
+}
+
 function findChangedPokerCard(
   prevHand: PlayingCard[],
   nextHand: PlayingCard[],
@@ -56,6 +70,11 @@ function findChangedPokerCard(
 function findNewPokerCard(prevHand: PlayingCard[], nextHand: PlayingCard[]): PlayingCard | null {
   const prevIds = new Set(prevHand.map(c => c.id));
   return nextHand.find(c => !prevIds.has(c.id)) ?? null;
+}
+
+function findNewPokerCards(prevHand: PlayingCard[], nextHand: PlayingCard[]): PlayingCard[] {
+  const prevIds = new Set(prevHand.map(c => c.id));
+  return nextHand.filter(c => !prevIds.has(c.id));
 }
 
 function findRemovedPokerCard(prevHand: PlayingCard[], nextHand: PlayingCard[]): PlayingCard | null {
@@ -75,6 +94,18 @@ function detectMechanical(
   action = getResolvingItem(prev)?.action,
 ): Pick<CastAnimation, 'mechanical' | 'targetCardIds' | 'cardBefore' | 'cardAfter' | 'swapCardIds' | 'opponentEffectId'> {
   const opponentId = getOpponent(actorId);
+
+  if (effectType === 'steal_card' && action?.opponentSlot !== undefined && action.ownSlot !== undefined) {
+    const oppCard = prev.players[opponentId].pokerHand.find(c => c.slotIndex === action.opponentSlot);
+    const ownCard = prev.players[actorId].pokerHand.find(c => c.slotIndex === action.ownSlot);
+    if (oppCard && ownCard) {
+      return {
+        mechanical: 'swap',
+        targetCardIds: [oppCard.id, ownCard.id],
+        swapCardIds: [oppCard.id, ownCard.id],
+      };
+    }
+  }
 
   if (effectType === 'steal_card') {
     const changedIds: string[] = [];
@@ -140,6 +171,22 @@ function detectMechanical(
     }
   }
 
+  if (effectType === 'send_back' && action?.opponentSlot !== undefined) {
+    const prevOpp = prev.players[opponentId].pokerHand;
+    const nextOpp = next.players[opponentId].pokerHand;
+    const oldCard = prevOpp.find(c => c.slotIndex === action.opponentSlot)
+      ?? findRemovedPokerCard(prevOpp, nextOpp);
+    const newCard = findNewPokerCard(prevOpp, nextOpp);
+    if (oldCard || newCard) {
+      return {
+        mechanical: 'send_back',
+        targetCardIds: newCard ? [newCard.id] : oldCard ? [oldCard.id] : [],
+        cardBefore: oldCard ?? undefined,
+        cardAfter: newCard ?? undefined,
+      };
+    }
+  }
+
   if (effectType === 'send_back') {
     const prevOpp = prev.players[opponentId].pokerHand;
     const nextOpp = next.players[opponentId].pokerHand;
@@ -190,8 +237,8 @@ function detectMechanical(
 function detectDrawPlans(prev: GameState, next: GameState): AnimationPlan[] {
   const plans: AnimationPlan[] = [];
   for (const pid of ['player', 'bot'] as PlayerId[]) {
-    const newCard = findNewPokerCard(prev.players[pid].pokerHand, next.players[pid].pokerHand);
-    if (newCard) {
+    const newCards = findNewPokerCards(prev.players[pid].pokerHand, next.players[pid].pokerHand);
+    for (const newCard of newCards) {
       plans.push({
         kind: 'draw',
         playerId: pid,
@@ -205,19 +252,38 @@ function detectDrawPlans(prev: GameState, next: GameState): AnimationPlan[] {
 }
 
 export function detectAnimations(prev: GameState, next: GameState): AnimationPlan[] {
+  // Tur sonu çekilişleri useAnimatedGame içinde ayrı işlenir (efekt sonrası sıralı animasyon).
+  if (prev.phase === 'resolving' && next.phase === 'committing') {
+    return detectDrawPlans(prev, next);
+  }
+
   const plans: AnimationPlan[] = [];
   const resolvingItem = getResolvingItem(prev);
   const actorId = resolvingItem?.playerId ?? next.resolvingPlayer ?? prev.resolvingPlayer ?? null;
   const action = resolvingItem?.action;
-  const newLog = next.log.length > prev.log.length ? next.log[next.log.length - 1] : null;
+  const addedLogs = next.log.length > prev.log.length
+    ? next.log.slice(prev.log.length)
+    : [];
+  const effectLog = addedLogs.find(entry =>
+    entry.kind === 'effect' && !entry.detail?.startsWith('geçersiz'),
+  )
+    ?? addedLogs.find(entry => entry.kind === 'effect')
+    ?? addedLogs[addedLogs.length - 1]
+    ?? null;
   const stepTotal = prev.resolutionQueue.length || next.resolutionQueue.length;
   const stepIndex = prev.resolutionIndex >= 0 ? prev.resolutionIndex + 1 : undefined;
 
-  if (actorId && newLog) {
-    const removed = findRemovedEffect(prev.players[actorId].effectHand, next.players[actorId].effectHand);
+  if (actorId && addedLogs.length > 0) {
+    const removed = findRemovedEffectForAction(
+      prev.players[actorId].effectHand,
+      next.players[actorId].effectHand,
+      action,
+    );
     if (removed) {
       const mech = detectMechanical(prev, next, actorId, removed.type, action);
-      const isFizzle = newLog.message.includes('etkisiz');
+      const isFizzle = addedLogs.some(entry =>
+        entry.message.includes('geçersiz') || entry.detail?.startsWith('geçersiz'),
+      );
       plans.push({
         kind: 'effect',
         playerId: actorId,
@@ -229,7 +295,7 @@ export function detectAnimations(prev: GameState, next: GameState): AnimationPla
         swapCardIds: mech.swapCardIds,
         opponentEffectId: mech.opponentEffectId,
         committedAction: action,
-        logMessage: newLog.message,
+        logMessage: effectLog?.message ?? addedLogs[addedLogs.length - 1]!.message,
         stepIndex,
         stepTotal: stepTotal || undefined,
       });

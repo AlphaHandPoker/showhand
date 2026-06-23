@@ -17,19 +17,65 @@ export const CARD_DECK_REVEAL_MS = CARD_TRAVEL_MS + CARD_DECK_FLIP_MS;
 export const CARD_REVEAL_REDUCED_MS = 120;
 
 const DEFAULT_VOLUME = 0.45;
+const HIT_POOL_SIZE = 6;
 
-function playOneShot(url: string, volume = DEFAULT_VOLUME): void {
-  const audio = new Audio(url);
-  audio.volume = volume;
-  void audio.play().catch(() => {
-    /* autoplay policy — ignore silently */
-  });
+class OneShotPool {
+  private readonly pool: HTMLAudioElement[];
+  private next = 0;
+
+  constructor(url: string, size: number) {
+    this.pool = Array.from({ length: size }, () => {
+      const audio = new Audio(url);
+      audio.preload = 'auto';
+      return audio;
+    });
+  }
+
+  play(volume = DEFAULT_VOLUME): void {
+    const audio = this.pool[this.next % this.pool.length]!;
+    this.next += 1;
+    try {
+      if (!audio.paused) audio.pause();
+      audio.currentTime = 0;
+      audio.volume = volume;
+      void audio.play().catch(() => {
+        /* autoplay policy — ignore silently */
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Prime decode + unlock autoplay after the first user-visible interaction. */
+  warmUp(): void {
+    for (const audio of this.pool) {
+      const prevVolume = audio.volume;
+      audio.volume = 0;
+      void audio.play()
+        .then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = prevVolume || DEFAULT_VOLUME;
+        })
+        .catch(() => {
+          audio.volume = prevVolume || DEFAULT_VOLUME;
+        });
+    }
+  }
 }
 
+const hitPool = new OneShotPool(hitCardUrl, HIT_POOL_SIZE);
+const shufflePool = new OneShotPool(shuffleCardUrl, 2);
+
 export function playShuffleSound(): void {
-  playOneShot(shuffleCardUrl);
+  shufflePool.play();
 }
 
 export function playHitCardSound(): void {
-  playOneShot(hitCardUrl);
+  hitPool.play();
+}
+
+/** Call once at game start (shuffle intro) so later card hits are reliable. */
+export function warmUpGameAudio(): void {
+  hitPool.warmUp();
 }

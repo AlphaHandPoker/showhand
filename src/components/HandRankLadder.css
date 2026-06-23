@@ -4,15 +4,9 @@
    ═══════════════════════════════════════ */
 
 .hand-rank-ladder {
-  grid-column: 1;
-  grid-row: 1;
-  background: var(--bg-panel);
-  border-right: 1px solid var(--bg-panel-border);
-  padding: 16px 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  height: 100vh;
   overflow: hidden;
 }
 

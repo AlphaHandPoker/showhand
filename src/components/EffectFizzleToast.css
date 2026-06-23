@@ -1,0 +1,45 @@
+.effect-fizzle-toast {
+  position: fixed;
+  inset: 0;
+  z-index: 9400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: fizzle-toast-in 280ms ease-out;
+}
+
+.effect-fizzle-toast__inner {
+  max-width: min(420px, 90vw);
+  padding: 18px 24px;
+  border-radius: 12px;
+  background: rgba(12, 18, 32, 0.92);
+  border: 1px solid rgba(255, 120, 100, 0.45);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+
+.effect-fizzle-toast__title {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffb4a8;
+}
+
+.effect-fizzle-toast__body {
+  margin: 0;
+  font-size: 0.92rem;
+  color: rgba(230, 235, 245, 0.88);
+  line-height: 1.45;
+}
+
+@keyframes fizzle-toast-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

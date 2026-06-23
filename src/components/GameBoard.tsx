@@ -1,27 +1,35 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CommittedAction, EffectType, GameState, SlotIndex, ResolutionItem } from '../game/types';
-import { EFFECT_NAMES, HAND_SIZE, TOTAL_ROUNDS, MAX_CARDS_PER_ROUND } from '../game/types';
+import { HAND_SIZE, TOTAL_ROUNDS, MAX_CARDS_PER_ROUND } from '../game/types';
 import {
   createGame, lockPlayerCommit, resolveNextInQueue,
   getValidOwnSlots, getValidOpponentSlots, getValidCleanseTargets,
   canCommitEffectType,
 } from '../game/gameEngine';
 import { getHandHighlights } from '../game/poker';
-import { sortHandBySlot } from '../game/effects';
+import { sortHandBySlot, canTargetCard } from '../game/effects';
 import {
-  PlayingCardSlot, EffectCardView, OpponentEffectStack, DeckPile, PokerCardEmptySlot,
+  PlayingCardSlot, EffectCardView, OpponentEffectStack, PokerCardEmptySlot,
 } from './Cards';
 import { HandRankBadge } from './HandRankBadge';
-import { HandRankLadder } from './HandRankLadder';
+import { LeftSidebar } from './LeftSidebar';
 import { EffectCastOverlay } from './EffectCastOverlay';
 import { ResolutionFeed } from './ResolutionFeed';
 import { DeckShuffleIntro } from './DeckShuffleIntro';
 import { CardFromDeckFlight } from './CardFromDeckFlight';
 import { CardToDeckFlight } from './CardToDeckFlight';
 import { CardSwapFlight } from './CardSwapFlight';
-import { SlotMachineReveal } from './SlotMachineReveal';
-import { EffectShredOverlay } from './EffectShredOverlay';
 import { ResolutionSequencerUI } from './ResolutionSequencerUI';
+import { CommitRevealLanes } from './CommitRevealLanes';
+import { CommitToLaneFlight } from './CommitToLaneFlight';
+import { EffectFizzleToast } from './EffectFizzleToast';
+import { CenterHeldEffect } from './CenterHeldEffect';
+import { EffectTokenStack, TokenSlotPlaceholder } from './EffectTokenStack';
+import { EffectToSlotFlight } from './EffectToSlotFlight';
+import { EffectHandToCenterFlight } from './EffectHandToCenterFlight';
+import { InPlaceCardSpin } from './InPlaceCardSpin';
+import { SpyRevealOverlay } from './SpyRevealOverlay';
+import { ForceDeleteOverlay } from './ForceDeleteOverlay';
 import { useAnimatedGame } from '../hooks/useAnimatedGame';
 import { getCardAnimationClass } from '../ui/detectAnimations';
 import './GameBoard.css';
@@ -30,9 +38,18 @@ import './DeckShuffleIntro.css';
 import './CardFromDeckFlight.css';
 import './CardToDeckFlight.css';
 import './CardSwapFlight.css';
-import './SlotMachineReveal.css';
-import './EffectShredOverlay.css';
+import './CommitRevealLanes.css';
+import './CommitToLaneFlight.css';
+import './EffectFizzleToast.css';
+import './LeftSidebar.css';
+import './HandRankLadder.css';
+import './GameLogPanel.css';
 import './ResolutionSequencerUI.css';
+import './EffectHandToCenterFlight.css';
+import './InPlaceCardSpin.css';
+import './SpyRevealOverlay.css';
+import './ForceDeleteOverlay.css';
+import './EffectToSlotFlight.css';
 
 interface GameBoardProps {
   playerDeck: EffectType[];
@@ -64,6 +81,7 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
     game,
     displayGame,
     visual,
+    slotTokens,
     applyUpdate,
     runResolutionCinematic,
     requestFastForward,
@@ -71,8 +89,14 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
     completeDeckTravel,
     completeCardToDeck,
     completeCardSwap,
-    completeSlotMachine,
-    completeEffectShred,
+    completeHandToCenter,
+    departLaneCard,
+    clearCenterHeld,
+    completeCommitToLane,
+    completeInPlaceSpin,
+    completeSpyReveal,
+    completeForceDelete,
+    completeEffectToSlot,
     isAnimating,
   } = useAnimatedGame(initialGame);
 
@@ -97,6 +121,13 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
   const isCommitting = game.phase === 'committing';
   const canInteract = introReady && isCommitting && !isFinished && !isAnimating && !resolving
     && (!online || !online.youLocked);
+  const canCancelPick = isCommitting && !isFinished && pendingPick !== null;
+  const canPickOpponentEffects = isCommitting && !isFinished && !resolving
+    && pendingPick?.step === 'opponent_effect'
+    && (!online || !online.youLocked);
+  const canCompletePick = isCommitting && !isFinished && !resolving
+    && (!online || !online.youLocked);
+  const boardInputBlocked = resolving || !introReady || (isAnimating && !isCommitting);
 
   const syncQueueRef = useRef(Promise.resolve());
   const lastSyncSigRef = useRef('');
@@ -123,6 +154,12 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
       }
     });
   }, [online?.syncedGame, game.phase, applyUpdate]);
+
+  useEffect(() => {
+    if (!isCommitting || resolving) {
+      setPendingPick(null);
+    }
+  }, [isCommitting, resolving]);
 
   const slotsLeft = MAX_CARDS_PER_ROUND - commitQueue.length;
   const usedEffectIds = new Set(commitQueue.map(a => a.effectId));
@@ -180,18 +217,18 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
     setPendingPick(null);
   };
 
+  const handleOpponentEffectPick = (opponentEffectId: string) => {
+    if (!canPickOpponentEffects || !pendingPick || pendingPick.step !== 'opponent_effect') return;
+    if (!game.players.bot.effectHand.some(e => e.id === opponentEffectId)) return;
+    finishPending({
+      effectId: pendingPick.effectId,
+      effectType: pendingPick.effectType,
+      opponentEffectId,
+    });
+  };
+
   const handleEffectClick = (effectId: string) => {
     if (!canInteract) return;
-
-    const pending = pendingPick;
-    if (pending?.step === 'opponent_effect') {
-      finishPending({
-        effectId: pending.effectId,
-        effectType: pending.effectType,
-        opponentEffectId: effectId,
-      });
-      return;
-    }
 
     if (pendingPick || slotsLeft <= 0) return;
     if (usedEffectIds.has(effectId)) return;
@@ -225,7 +262,7 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
   };
 
   const handleSlotClick = (ownerId: 'player' | 'bot', slotIndex: SlotIndex) => {
-    if (!canInteract || !pendingPick) return;
+    if (!canCompletePick || !pendingPick) return;
 
     if (pendingPick.step === 'opponent_slot') {
       const valid = getValidOpponentSlots(game, 'player', pendingPick.effectType);
@@ -270,21 +307,17 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
     }
   };
 
-  const handleRemoveQueued = (effectId: string) => {
-    if (!canInteract) return;
-    setCommitQueue(q => q.filter(a => a.effectId !== effectId));
-  };
 
   const handleCancelPick = () => setPendingPick(null);
 
   const validOwnSlots = pendingPick
-    ? new Set(getValidOwnSlots(displayGame, 'player', pendingPick.effectType))
+    ? new Set(getValidOwnSlots(game, 'player', pendingPick.effectType))
     : new Set<number>();
   const validOppSlots = pendingPick
-    ? new Set(getValidOpponentSlots(displayGame, 'player', pendingPick.effectType))
+    ? new Set(getValidOpponentSlots(game, 'player', pendingPick.effectType))
     : new Set<number>();
   const validCleanse = pendingPick?.step === 'cleanse_slot'
-    ? getValidCleanseTargets(displayGame)
+    ? getValidCleanseTargets(game)
     : [];
 
   const playerHand = displayGame.players.player.pokerHand;
@@ -298,13 +331,39 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
     [visual.inFlightCardIds, visual.hiddenCardIds],
   );
 
-  const activeResolver = visual.sequencer.activeResolver;
-  const isSequencerActive = resolving || (
-    visual.sequencer.roundBanner !== null
-    || visual.sequencer.sidePass !== null
-    || visual.sequencer.sideTransition !== null
-    || visual.sequencer.activeResolver !== null
-    || visual.sequencer.drawBeat
+  const activeLaneOwner = visual.commitLanes.find(l => l.active)?.ownerId ?? null;
+  const isSequencerActive = resolving || visual.isAnimating;
+
+  const hiddenEffectIds = useMemo(
+    () => new Set(visual.hiddenEffectIds),
+    [visual.hiddenEffectIds],
+  );
+
+  const renderTokenRow = (ownerId: 'player' | 'bot') => (
+    <div className={`token-slot-row token-slot-row--${ownerId}`}>
+      {Array.from({ length: HAND_SIZE }, (_, slotIndex) => {
+        const tokens = slotTokens.get(`${ownerId}-${slotIndex}`) ?? [];
+        return (
+          <div
+            key={`token-${ownerId}-${slotIndex}`}
+            className={`token-slot ${tokens.length === 0 ? 'token-slot--empty' : 'token-slot--filled'}`}
+            data-token-slot-anchor={`${ownerId}-${slotIndex}`}
+          >
+            {tokens.length > 0
+              ? <EffectTokenStack tokens={tokens} />
+              : <TokenSlotPlaceholder />}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderArenaRows = (ownerId: 'player' | 'bot') => (
+    <div className="arena-rows">
+      {ownerId === 'bot' && renderTokenRow('bot')}
+      {renderPokerHand(ownerId)}
+      {ownerId === 'player' && renderTokenRow('player')}
+    </div>
   );
 
   const renderPokerHand = (ownerId: 'player' | 'bot') => {
@@ -333,7 +392,7 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
           }
 
           let selectable = false;
-          if (canInteract && pendingPick) {
+          if (canCompletePick && pendingPick) {
             if (pendingPick.step === 'opponent_slot' && ownerId === 'bot' && validOppSlots.has(slotIndex)) {
               selectable = true;
             }
@@ -351,12 +410,21 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
             visual.targetCardIds,
           );
           const isShiftAnim = animClass === 'anim-shift' && visual.cardBefore?.id === card.id;
+          const blockedByStatus = Boolean(
+            canCompletePick
+            && pendingPick
+            && card
+            && (
+              (pendingPick.step === 'own_slot' && ownerId === 'player' && !canTargetCard(card, game.currentRound))
+              || (pendingPick.step === 'opponent_slot' && ownerId === 'bot' && !canTargetCard(card, game.currentRound))
+            ),
+          );
 
           return (
             <PlayingCardSlot
               key={card.id}
               card={card}
-              currentTurn={displayGame.currentRound}
+              currentTurn={game.currentRound}
               selected={selectable}
               animClass={animClass}
               flipping={visual.mechanical === 'transform' && visual.targetCardIds.includes(card.id)}
@@ -364,6 +432,7 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
               highlightGroup={highlights.get(card.id) ?? null}
               slotAnchor={slotAnchor}
               targeted={isTargeted}
+              untargetable={blockedByStatus}
               onClick={selectable ? () => handleSlotClick(ownerId, slot) : undefined}
             />
           );
@@ -374,15 +443,7 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
 
   const effectDisabled = !canInteract
     || slotsLeft <= 0
-    || (!!pendingPick && pendingPick.step !== 'opponent_effect');
-
-  const actionHint = getCommitHint(
-    displayGame,
-    pendingPick,
-    commitQueue.length,
-    resolving,
-    online ? { youLocked: online.youLocked, opponentLocked: online.opponentLocked } : undefined,
-  );
+    || !!pendingPick;
 
   const handleIntroComplete = useCallback(async () => {
     setShuffleDone(true);
@@ -391,7 +452,7 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
   }, [initialGame, runIntroReveal]);
 
   return (
-    <div className={`game-board ${isAnimating || resolving || !introReady ? 'is-animating' : ''}`}>
+    <div className={`game-board ${boardInputBlocked ? 'is-animating' : ''}`}>
       {!shuffleDone && <DeckShuffleIntro onComplete={handleIntroComplete} />}
 
       {visual.deckTravel && (
@@ -415,21 +476,58 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
         />
       )}
 
-      {visual.slotMachine && (
-        <SlotMachineReveal
-          request={visual.slotMachine}
-          onComplete={completeSlotMachine}
+      {visual.laneFlight && (
+        <CommitToLaneFlight
+          request={visual.laneFlight}
+          onComplete={completeCommitToLane}
         />
       )}
 
-      {visual.effectShred && (
-        <EffectShredOverlay
-          request={visual.effectShred}
-          onComplete={completeEffectShred}
+      {visual.fizzleToast && (
+        <EffectFizzleToast toast={visual.fizzleToast} />
+      )}
+
+      {visual.handToCenter && (
+        <EffectHandToCenterFlight
+          request={visual.handToCenter}
+          onComplete={completeHandToCenter}
+          onDepart={() => {
+            if (visual.handToCenter) departLaneCard(visual.handToCenter.effectId);
+          }}
         />
       )}
 
-      {visual.castOverlay && visual.castPhase && visual.castPhase !== 'impact' && (
+      {visual.inPlaceSpin && (
+        <InPlaceCardSpin
+          request={visual.inPlaceSpin}
+          onComplete={completeInPlaceSpin}
+        />
+      )}
+
+      {visual.spyReveal && (
+        <SpyRevealOverlay
+          request={visual.spyReveal}
+          onComplete={completeSpyReveal}
+        />
+      )}
+
+      {visual.forceDelete && (
+        <ForceDeleteOverlay
+          request={visual.forceDelete}
+          onComplete={completeForceDelete}
+        />
+      )}
+
+      {visual.effectToSlot && (
+        <EffectToSlotFlight
+          request={visual.effectToSlot}
+          onComplete={completeEffectToSlot}
+          onDepart={clearCenterHeld}
+        />
+      )}
+
+      {visual.castOverlay && visual.castPhase && visual.castPhase !== 'impact'
+        && visual.commitLanes.length === 0 && (
         <EffectCastOverlay cast={visual.castOverlay} phase={visual.castPhase} />
       )}
 
@@ -439,13 +537,22 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
         onFastForward={requestFastForward}
       />
 
-      <HandRankLadder
+      <LeftSidebar
         playerHand={playerHand.length > 0 ? playerHand : null}
         botHand={botHand.length > 0 ? botHand : null}
+        logEntries={displayGame.log}
       />
 
       {/* ═══ BATTLEFIELD ═══ */}
       <div className="battlefield">
+        <div className="cast-center-anchor">
+          <div className="cast-center-measure" data-cast-center-anchor="measure" aria-hidden />
+          {visual.centerHeldEffect && (
+            <CenterHeldEffect effect={visual.centerHeldEffect.effect} />
+          )}
+        </div>
+
+        <CommitRevealLanes lanes={visual.commitLanes} />
 
         {resolutionFeed && (
           <div className="resolution-feed-anchor">
@@ -459,79 +566,34 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
         )}
 
         {/* ── Enemy territory ── */}
-        <section className={`zone zone--bot ${activeResolver === 'bot' ? 'zone--resolving-active' : ''}`}>
+        <section className={`zone zone--bot ${activeLaneOwner === 'bot' ? 'zone--resolving-active' : ''}`}>
           <div className="zone-top-bar">
-            <span className="zone-label">Rakip</span>
             <HandRankBadge cards={botHand} />
             <OpponentEffectStack
               effects={displayGame.players.bot.effectHand}
               ownerId="bot"
-              onCardClick={handleEffectClick}
-              selectable={canInteract && pendingPick?.step === 'opponent_effect'}
+              onCardClick={handleOpponentEffectPick}
+              selectable={canPickOpponentEffects}
               revealedSpyIds={revealedSpyEffectIds}
               spyFlipEffectId={visual.spyFlipEffectId}
               targetEffectId={visual.targetEffectId}
+              hiddenEffectIds={hiddenEffectIds}
+              overlayMaskEffectId={
+                visual.spyReveal?.victimOwnerId === 'bot'
+                  ? visual.spyReveal.victimEffect.id
+                  : visual.forceDelete?.victimOwnerId === 'bot'
+                    ? visual.forceDelete.victimEffect.id
+                    : null
+              }
             />
           </div>
-          {renderPokerHand('bot')}
+          {renderArenaRows('bot')}
         </section>
 
-        {/* ── Battle center ── */}
+        {/* ── VS divider ── */}
         <section className="battle-center">
           <div className="battle-divider" />
-
-          <div className="battle-hub">
-            <h1 className="game-title">SHOWHAND</h1>
-            <div className="battle-meta">
-              <span className="round-indicator">Round {displayGame.currentRound} / {TOTAL_ROUNDS}</span>
-              <DeckPile count={displayGame.deck.length} />
-              {isCommitting && !isFinished && (
-                <span className="slots-left">{slotsLeft} kart</span>
-              )}
-            </div>
-          </div>
-
-          {actionHint && (
-            <div className="action-hint-container">
-              <div className="action-hint">{actionHint}</div>
-              {canInteract && pendingPick && (
-                <button type="button" className="btn-cancel" onClick={handleCancelPick}>
-                  İptal
-                </button>
-              )}
-            </div>
-          )}
-
-          {online?.youLocked && !online.opponentLocked && isCommitting && (
-            <div className="action-hint online-wait">Kilitledin — rakip bekleniyor…</div>
-          )}
-          {online?.opponentLocked && !online.youLocked && isCommitting && (
-            <div className="action-hint online-wait online-wait--urgent">Rakip kilitledi — sen de kilitle!</div>
-          )}
-
-          {commitQueue.length > 0 && isCommitting && (
-            <div className="commit-queue">
-              <strong>Seçilen hamleler:</strong>
-              <ul>
-                {commitQueue.map(a => (
-                  <li key={a.effectId}>
-                    {EFFECT_NAMES[a.effectType]}
-                    {canInteract && (
-                      <button type="button" className="btn-remove-commit" onClick={() => handleRemoveQueued(a.effectId)}>
-                        ×
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {displayGame.spyReveal && (
-            <div className="spy-reveal">
-              Casus: {EFFECT_NAMES[displayGame.spyReveal.type]}
-            </div>
-          )}
+          <span className="vs-label">— VS&ensp;Round {displayGame.currentRound}/{TOTAL_ROUNDS} —</span>
 
           {isFinished && (
             <div className="result-banner">
@@ -545,95 +607,72 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
               </button>
             </div>
           )}
-
-          {canInteract && (
-            <button type="button" className="btn-lock" onClick={handleLockCommit}>
-              {commitQueue.length === 0 ? 'Pas Geç' : 'Kilitle'}
-            </button>
-          )}
         </section>
 
         {/* ── Player territory ── */}
-        <section className={`zone zone--player ${activeResolver === 'player' ? 'zone--resolving-active' : ''}`}>
-          {renderPokerHand('player')}
-          <div className="zone-bottom-bar">
+        <section className={`zone zone--player ${activeLaneOwner === 'player' ? 'zone--resolving-active' : ''}`}>
+          {renderArenaRows('player')}
+
+          {/* ── Arena HUD strip ── */}
+          <div className="arena-hud">
             <HandRankBadge cards={playerHand} />
-            {isCommitting && !isFinished && <span className="zone-status">hamle seç</span>}
+            {isCommitting && !isFinished && (
+              <span className="slots-left">{slotsLeft} kart</span>
+            )}
+
+            {canCancelPick && (
+              <button type="button" className="btn-cancel" onClick={handleCancelPick}>
+                İptal
+              </button>
+            )}
+
+            {pendingPick?.step === 'opponent_effect' && canPickOpponentEffects && (
+              <span className="pick-hint">Rakibin efekt kartını seç</span>
+            )}
+
+            {canInteract && (
+              <button type="button" className="btn-lock" onClick={handleLockCommit}>
+                {commitQueue.length === 0 ? 'Pas Geç' : 'Kilitle'}
+              </button>
+            )}
+
+            {online?.youLocked && !online.opponentLocked && isCommitting && (
+              <span className="online-status-msg">Kilitledin — rakip bekleniyor…</span>
+            )}
+            {online?.opponentLocked && !online.youLocked && isCommitting && (
+              <span className="online-status-msg online-status-msg--urgent">Rakip kilitledi — sen de kilitle!</span>
+            )}
           </div>
+
           <div className="effect-tray">
             <span className="effect-tray-label">Efektler ({displayGame.players.player.effectHand.length})</span>
             <div className="effect-row">
-              {displayGame.players.player.effectHand.map(card => (
-                <EffectCardView
+              {displayGame.players.player.effectHand.map(card => {
+                if (hiddenEffectIds.has(card.id)) return null;
+                const overlayHidden = visual.spyReveal?.victimEffect.id === card.id
+                  || visual.forceDelete?.victimEffect.id === card.id;
+                return (
+                <div
                   key={card.id}
-                  card={card}
-                  onClick={() => handleEffectClick(card.id)}
-                  disabled={effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type)}
-                  selected={usedEffectIds.has(card.id)}
-                />
-              ))}
+                  className={`effect-flight-anchor${overlayHidden ? ' effect-flight-anchor--overlay-active' : ''}`}
+                  data-effect-anchor={`player-${card.id}`}
+                >
+                  <EffectCardView
+                    card={card}
+                    onClick={() => handleEffectClick(card.id)}
+                    disabled={effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type)}
+                    selected={usedEffectIds.has(card.id)}
+                    spyRevealed={revealedSpyEffectIds.has(card.id)}
+                    spyFlipping={visual.spyFlipEffectId === card.id}
+                  />
+                </div>
+                );
+              })}
             </div>
           </div>
         </section>
       </div>
-
-      {/* ═══ GAME LOG ═══ */}
-      <aside className="game-log">
-        <h3>Olaylar</h3>
-        <div className="log-entries">
-          {[...displayGame.log].reverse().slice(0, 20).map((entry, i) => (
-            <div key={i} className={`log-entry ${entry.playerId === 'player' ? 'player' : entry.playerId === 'bot' ? 'bot' : ''}`}>
-              <span className="log-turn">R{entry.turn}</span> {entry.message}
-            </div>
-          ))}
-        </div>
-      </aside>
     </div>
   );
 }
 
-function getCommitHint(
-  game: GameState,
-  pending: PendingPick | null,
-  queued: number,
-  resolving: boolean,
-  online?: { youLocked: boolean; opponentLocked: boolean },
-): string | null {
-  if (game.phase === 'finished') return null;
-  if (resolving) return 'Hamleler çözülüyor...';
-
-  if (pending) {
-    switch (pending.step) {
-      case 'opponent_slot':
-        return pending.effectType === 'steal_card'
-          ? 'Rakibin açık pozisyonunu seç (takas)'
-          : 'Rakibin açık pozisyonunu seç';
-      case 'own_slot':
-        return pending.effectType === 'steal_card'
-          ? 'Kendi vereceğin pozisyonu seç'
-          : 'Kendi pozisyonunu seç';
-      case 'opponent_effect':
-        return pending.effectType === 'spy'
-          ? 'Casus: rakip efekt kartını seç'
-          : 'Silinecek rakip efekt kartını seç';
-      case 'cleanse_slot':
-        return 'Dondurulmuş kartın pozisyonunu seç';
-    }
-  }
-
-  if (game.phase === 'committing') {
-    if (online?.youLocked && !online.opponentLocked) {
-      return 'Kilitledin — rakip bekleniyor…';
-    }
-    if (online?.opponentLocked && !online.youLocked) {
-      return 'Rakip kilitledi — sen de kilitle!';
-    }
-    const left = MAX_CARDS_PER_ROUND - queued;
-    if (left === MAX_CARDS_PER_ROUND) {
-      return 'Efekt seç veya pas geç — rakip görmeden kilitle';
-    }
-    return `${left} kart daha ekleyebilir veya kilitleyebilirsin`;
-  }
-
-  return null;
-}

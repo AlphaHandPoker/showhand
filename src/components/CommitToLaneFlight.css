@@ -1,0 +1,16 @@
+.commit-to-lane-flight {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9300;
+  pointer-events: none;
+  contain: layout style;
+  backface-visibility: hidden;
+  opacity: 1;
+}
+
+.commit-to-lane-flight .effect-card,
+.commit-to-lane-flight .effect-card-back {
+  width: 100%;
+  height: 100%;
+}

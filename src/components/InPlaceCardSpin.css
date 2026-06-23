@@ -1,0 +1,66 @@
+.in-place-card-spin {
+  position: fixed;
+  z-index: 220;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  perspective: 800px;
+}
+
+.in-place-card-spin-inner {
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.in-place-card-spin--active .in-place-card-spin-inner {
+  animation: in-place-spin-y 2200ms cubic-bezier(0.45, 0.05, 0.55, 0.95) forwards;
+}
+
+.in-place-card-spin--landed .in-place-card-spin-inner {
+  animation: none;
+  transform: rotateY(0deg);
+}
+
+.in-place-card-spin-inner .playing-card-face-mini {
+  width: 100%;
+  height: 100%;
+  border-radius: 11px;
+}
+
+.in-place-card-spin-flash {
+  position: absolute;
+  inset: -6px;
+  border-radius: 14px;
+  background: radial-gradient(circle, rgba(212, 168, 67, 0.4), transparent 70%);
+  animation: in-place-flash 400ms ease-out forwards;
+  pointer-events: none;
+}
+
+.in-place-card-spin-hint {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-display);
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--accent-gold);
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+@keyframes in-place-spin-y {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(360deg); }
+}
+
+@keyframes in-place-flash {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .in-place-card-spin--active .in-place-card-spin-inner {
+    animation: none;
+  }
+}

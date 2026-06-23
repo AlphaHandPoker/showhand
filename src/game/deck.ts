@@ -3,6 +3,20 @@ import type { PlayingCard, Suit, Rank } from './types';
 const SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
 const RANKS: Rank[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 
+const SUIT_NAMES_TR: Record<Suit, string> = {
+  spades: 'Maça',
+  hearts: 'Kupa',
+  diamonds: 'Karo',
+  clubs: 'Sinek',
+};
+
+const RANK_NAMES_TR: Partial<Record<Rank, string>> = {
+  14: 'As',
+  13: 'Papaz',
+  12: 'Kız',
+  11: 'Vale',
+};
+
 let idCounter = 0;
 function uid(prefix: string): string {
   return `${prefix}_${++idCounter}_${Math.random().toString(36).slice(2, 7)}`;
@@ -50,6 +64,13 @@ export function cardLabel(rank: Rank): string {
   if (rank === 12) return 'Q';
   if (rank === 11) return 'J';
   return String(rank);
+}
+
+/** Turkish playing-card name, e.g. "Kupa Papaz", "Sinek 2". */
+export function playingCardName(card: Pick<PlayingCard, 'suit' | 'rank'>): string {
+  const suit = SUIT_NAMES_TR[card.suit];
+  const rank = RANK_NAMES_TR[card.rank as Rank] ?? String(card.rank);
+  return `${suit} ${rank}`;
 }
 
 export function suitSymbol(suit: Suit): string {

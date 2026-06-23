@@ -1,6 +1,26 @@
 import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { GameState, PlayerId, PlayingCard } from '../game/types';
-import { getOpponent, getResolutionOrder } from '../game/gameEngine';
+import { getOpponent, getResolutionOrder, finishResolutionIfComplete } from '../game/gameEngine';
+import type { EffectToken } from '../ui/effectTokens';
+import {
+  shouldAddToken,
+  shouldPersistToken,
+  TOKEN_ROUNDS,
+  nextTokenId,
+  addTokenToSlot,
+  decrementAllTokens,
+  removeTokenFromSlot,
+  getTokenTargetSlots,
+  slotKey as tokenSlotKey,
+} from '../ui/effectTokens';
+import type { EffectToSlotRequest } from '../components/EffectToSlotFlight';
+import type { EffectHandToCenterRequest } from '../components/EffectHandToCenterFlight';
+import type { CommitToLaneRequest } from '../components/CommitToLaneFlight';
+import type { EffectCard } from '../game/types';
+import type { InPlaceCardSpinRequest } from '../components/InPlaceCardSpin';
+import { playHitCardSound } from '../audio/sounds';
+import type { SpyRevealRequest } from '../components/SpyRevealOverlay';
+import type { ForceDeleteRequest } from '../components/ForceDeleteOverlay';
 import {
   detectAnimations,
   type AnimationPlan,
@@ -10,29 +30,27 @@ import {
 import type { DeckTravelRequest } from '../components/CardFromDeckFlight';
 import type { CardToDeckRequest } from '../components/CardToDeckFlight';
 import type { CardSwapRequest } from '../components/CardSwapFlight';
-import type { SlotMachineRequest } from '../components/SlotMachineReveal';
-import type { EffectShredRequest } from '../components/EffectShredOverlay';
+import { buildSwapRequest } from '../components/CardSwapFlight';
 import {
   CAST_TARGET_MS,
-  CAST_RETIRE_MS,
-  CAST_FIZZLE_MS,
-  ROUND_BANNER_MS,
-  SIDE_PASS_MS,
-  SIDE_TRANSITION_MS,
+  CAST_CENTER_HOLD_MS,
+  COMMIT_TO_LANE_STAGGER_MS,
+  LANE_REVEAL_MS,
+  FIZZLE_TOAST_MS,
   DRAW_BEAT_MS,
 } from '../ui/resolutionTimings';
 import {
   getActionTargetSlots,
   getActionTargetEffectId,
-  playerLabel,
 } from '../ui/resolutionTargets';
 import type { SequencerUIState } from '../components/ResolutionSequencerUI';
 import { IDLE_SEQUENCER } from '../components/ResolutionSequencerUI';
 import type { TargetSlot } from '../ui/resolutionTargets';
+import { buildCommitLanes, type CommitLaneCard } from '../ui/commitLanes';
+import { formatFizzleToast, parseFizzleReason, type FizzleToastContent } from '../ui/fizzleMessages';
 
 // ── Timing constants ──
-const PRESENT_HOLD_MS = 800;
-const IMPACT_HOLD_MS = 400;
+const IMPACT_HOLD_MS = 550;
 const SETTLE_MS = 250;
 const BETWEEN_PLANS_MS = 200;
 const DRAW_BETWEEN_MS = 350;
@@ -53,7 +71,7 @@ function afterPaint(): Promise<void> {
 
 // ── Types ──
 
-export type CastPhase = 'present' | 'target' | 'impact' | 'retire' | 'result';
+export type CastPhase = 'present' | 'target' | 'fly' | 'impact' | 'result';
 
 export interface AnimationVisualState {
   isAnimating: boolean;
@@ -69,12 +87,21 @@ export interface AnimationVisualState {
   deckTravel: DeckTravelRequest | null;
   cardToDeck: CardToDeckRequest | null;
   cardSwap: CardSwapRequest | null;
-  slotMachine: SlotMachineRequest | null;
-  effectShred: EffectShredRequest | null;
+  handToCenter: EffectHandToCenterRequest | null;
+  inPlaceSpin: InPlaceCardSpinRequest | null;
+  spyReveal: SpyRevealRequest | null;
+  forceDelete: ForceDeleteRequest | null;
+  effectToSlot: EffectToSlotRequest | null;
+  laneFlight: CommitToLaneRequest | null;
+  centerHeldEffect: { effectId: string; effect: EffectCard } | null;
+  commitLanes: CommitLaneCard[];
+  fizzleToast: FizzleToastContent | null;
   inFlightCardIds: string[];
   hiddenCardIds: string[];
+  hiddenEffectIds: string[];
   spyFlipEffectId: string | null;
   sequencer: SequencerUIState;
+  slotTokens: Map<string, EffectToken[]>;
 }
 
 const IDLE_VISUAL: AnimationVisualState = {
@@ -91,13 +118,45 @@ const IDLE_VISUAL: AnimationVisualState = {
   deckTravel: null,
   cardToDeck: null,
   cardSwap: null,
-  slotMachine: null,
-  effectShred: null,
+  handToCenter: null,
+  inPlaceSpin: null,
+  spyReveal: null,
+  forceDelete: null,
+  effectToSlot: null,
+  laneFlight: null,
+  centerHeldEffect: null,
+  commitLanes: [],
+  fizzleToast: null,
   inFlightCardIds: [],
   hiddenCardIds: [],
+  hiddenEffectIds: [],
   spyFlipEffectId: null,
   sequencer: IDLE_SEQUENCER,
+  slotTokens: new Map(),
 };
+
+function captureCenterCastRect(): EffectToSlotRequest['fromRect'] {
+  const sourceCard = document.querySelector('[data-cast-flight-source] .effect-card');
+  if (sourceCard) {
+    const r = sourceCard.getBoundingClientRect();
+    if (r.width > 0) {
+      return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, w: r.width, h: r.height };
+    }
+  }
+  const measure = document.querySelector('[data-cast-center-anchor="measure"]');
+  if (measure) {
+    const r = measure.getBoundingClientRect();
+    if (r.width > 0) {
+      return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, w: r.width, h: r.height };
+    }
+  }
+  return {
+    cx: window.innerWidth / 2,
+    cy: window.innerHeight / 2,
+    w: 86,
+    h: 120,
+  };
+}
 
 // ── State helpers ──
 
@@ -165,7 +224,9 @@ function omitCardsFromHands(state: GameState, cardIds: string[]): GameState {
 }
 
 function isDeckDrawEffect(plan: AnimationPlan): boolean {
-  return plan.mechanical === 'send_back' || plan.effect?.type === 'last_draw';
+  return plan.mechanical === 'send_back'
+    || plan.effect?.type === 'last_draw'
+    || plan.effect?.type === 'send_back';
 }
 
 /** Round-end draw plans only — NOT effect replacement cards. */
@@ -182,6 +243,20 @@ function getRoundEndDrawIds(plans: AnimationPlan[]): string[] {
  */
 function displayWithEffectResult(next: GameState, roundEndDrawIds: string[]): GameState {
   return roundEndDrawIds.length > 0 ? omitCardsFromHands(next, roundEndDrawIds) : next;
+}
+
+function collectNewRoundCards(
+  prev: GameState,
+  next: GameState,
+): { ownerId: PlayerId; card: PlayingCard }[] {
+  const entries: { ownerId: PlayerId; card: PlayingCard }[] = [];
+  for (const pid of ['player', 'bot'] as PlayerId[]) {
+    const prevIds = new Set(prev.players[pid].pokerHand.map(c => c.id));
+    for (const card of next.players[pid].pokerHand) {
+      if (!prevIds.has(card.id)) entries.push({ ownerId: pid, card });
+    }
+  }
+  return entries;
 }
 
 // ── Overlay promise helpers ──
@@ -220,6 +295,8 @@ async function runDeckTravel(
   setVisual(v => ({ ...v, deckTravel: null, inFlightCardIds: hiddenCardIds }));
 }
 
+// ── Token helpers ──
+
 // ═══════════════════════════════════════
 // Main hook
 // ═══════════════════════════════════════
@@ -228,22 +305,34 @@ export function useAnimatedGame(initial: GameState) {
   const [game, setGame] = useState<GameState>(initial);
   const [displayGame, setDisplayGame] = useState<GameState>(initial);
   const [visual, setVisual] = useState<AnimationVisualState>(IDLE_VISUAL);
+  const visualRef = useRef(visual);
+  visualRef.current = visual;
   const queueRef = useRef<Promise<void>>(Promise.resolve());
   const gameRef = useRef(game);
   const deckTravelResolveRef = useRef<(() => void) | null>(null);
   const cardToDeckResolveRef = useRef<(() => void) | null>(null);
   const cardSwapResolveRef = useRef<(() => void) | null>(null);
-  const slotMachineResolveRef = useRef<(() => void) | null>(null);
-  const effectShredResolveRef = useRef<(() => void) | null>(null);
+  const handToCenterResolveRef = useRef<(() => void) | null>(null);
+  const commitToLaneResolveRef = useRef<(() => void) | null>(null);
+  const inPlaceSpinResolveRef = useRef<(() => void) | null>(null);
+  const spyRevealResolveRef = useRef<(() => void) | null>(null);
+  const forceDeleteResolveRef = useRef<(() => void) | null>(null);
+  const effectToSlotResolveRef = useRef<(() => void) | null>(null);
   const skipRef = useRef(false);
-  gameRef.current = game;
+  // gameRef is updated only inside applyUpdate / resetGame / runResolutionCinematic.
+  // Do NOT mirror React `game` here — re-renders during resolution would rewind
+  // gameRef to the pre-resolution committing state and break detectAnimations.
 
   const resolveAllOverlays = useCallback(() => {
     deckTravelResolveRef.current?.();
     cardToDeckResolveRef.current?.();
     cardSwapResolveRef.current?.();
-    slotMachineResolveRef.current?.();
-    effectShredResolveRef.current?.();
+    handToCenterResolveRef.current?.();
+    commitToLaneResolveRef.current?.();
+    inPlaceSpinResolveRef.current?.();
+    spyRevealResolveRef.current?.();
+    forceDeleteResolveRef.current?.();
+    effectToSlotResolveRef.current?.();
   }, []);
 
   const wait = async (ms: number) => {
@@ -270,17 +359,147 @@ export function useAnimatedGame(initial: GameState) {
     resolveAllOverlays();
   }, [resolveAllOverlays]);
 
-  const completeDeckTravel = useCallback(createOverlayRunner(deckTravelResolveRef), []);
+  const completeDeckTravel = useCallback(() => {
+    playHitCardSound();
+    deckTravelResolveRef.current?.();
+    deckTravelResolveRef.current = null;
+  }, []);
+
   const completeCardToDeck = useCallback(createOverlayRunner(cardToDeckResolveRef), []);
   const completeCardSwap = useCallback(createOverlayRunner(cardSwapResolveRef), []);
-  const completeSlotMachine = useCallback(createOverlayRunner(slotMachineResolveRef), []);
-  const completeEffectShred = useCallback(createOverlayRunner(effectShredResolveRef), []);
+  const completeHandToCenter = useCallback(createOverlayRunner(handToCenterResolveRef), []);
+  const completeCommitToLane = useCallback(createOverlayRunner(commitToLaneResolveRef), []);
+  const completeInPlaceSpin = useCallback(() => {
+    playHitCardSound();
+    inPlaceSpinResolveRef.current?.();
+    inPlaceSpinResolveRef.current = null;
+  }, []);
+  const completeSpyReveal = useCallback(createOverlayRunner(spyRevealResolveRef), []);
+  const completeForceDelete = useCallback(createOverlayRunner(forceDeleteResolveRef), []);
+  const completeEffectToSlot = useCallback(createOverlayRunner(effectToSlotResolveRef), []);
 
   const finishInstant = (next: GameState) => {
     setDisplayGame(next);
     setGame(next);
     gameRef.current = next;
-    setVisual(v => ({ ...IDLE_VISUAL, sequencer: v.sequencer }));
+    setVisual(v => ({ ...IDLE_VISUAL, sequencer: v.sequencer, slotTokens: v.slotTokens }));
+  };
+
+  const markLaneDeparted = useCallback((effectId: string) => {
+    setVisual(v => ({
+      ...v,
+      commitLanes: v.commitLanes.map(c =>
+        c.effectId === effectId ? { ...c, departed: true, active: false } : c,
+      ),
+    }));
+  }, []);
+
+  const clearCenterHeld = useCallback(() => {
+    setVisual(v => ({ ...v, centerHeldEffect: null }));
+  }, []);
+
+  const markLaneConsumed = (effectId: string) => {
+    setVisual(v => ({
+      ...v,
+      commitLanes: v.commitLanes.map(c =>
+        c.effectId === effectId ? { ...c, consumed: true, active: false } : c,
+      ),
+    }));
+  };
+
+  const revealLaneCard = async (effectId: string) => {
+    const lane = visualRef.current.commitLanes.find(c => c.effectId === effectId);
+    const needsFlip = lane?.faceDown;
+
+    setVisual(v => ({
+      ...v,
+      commitLanes: v.commitLanes.map(c =>
+        c.effectId === effectId
+          ? { ...c, active: true, revealed: true }
+          : { ...c, active: false },
+      ),
+    }));
+
+    if (needsFlip) {
+      await holdForMs(LANE_REVEAL_MS);
+    } else {
+      await holdForMs(220);
+    }
+  };
+
+  const runCommitToLanesPhase = async (startState: GameState) => {
+    const lanes = buildCommitLanes(startState);
+    if (lanes.length === 0) return;
+
+    setVisual(v => ({
+      ...v,
+      isAnimating: true,
+      commitLanes: lanes,
+      hiddenEffectIds: lanes.map(l => l.effectId),
+    }));
+    await afterPaint();
+
+    for (const card of lanes) {
+      if (skipRef.current) return;
+      await waitOverlay(commitToLaneResolveRef, () => {
+        setVisual(v => ({
+          ...v,
+          laneFlight: {
+            effectId: card.effectId,
+            effect: card.effect,
+            ownerId: card.ownerId,
+            laneIndex: card.laneIndex,
+            faceDown: card.faceDown,
+          },
+        }));
+      });
+      setVisual(v => ({
+        ...v,
+        laneFlight: null,
+        hiddenEffectIds: v.hiddenEffectIds.filter(id => id !== card.effectId),
+      }));
+      await holdForMs(COMMIT_TO_LANE_STAGGER_MS);
+    }
+  };
+
+  // ── Sequential round-end draws (after resolution → new round) ──
+  const runSequentialRoundDraws = async (prev: GameState, next: GameState) => {
+    const entries = collectNewRoundCards(prev, next);
+    if (entries.length === 0 || skipRef.current) return;
+
+    const drawIds = entries.map(e => e.card.id);
+
+    setDisplayGame(omitCardsFromHands(prev, drawIds));
+    setVisual(v => ({
+      ...v,
+      isAnimating: true,
+      hiddenCardIds: drawIds,
+      inFlightCardIds: drawIds,
+      deckTravel: null,
+    }));
+    await afterPaint();
+
+    for (let i = 0; i < entries.length; i++) {
+      if (skipRef.current) break;
+      const { ownerId, card } = entries[i]!;
+      const stillHidden = drawIds.slice(i + 1);
+      const request = buildDeckTravelRequest(ownerId, card);
+
+      await runDeckTravel(setVisual, deckTravelResolveRef, request, stillHidden);
+      setDisplayGame(current => mergeDrawnCard(current, next, request));
+      setVisual(v => ({
+        ...v,
+        deckTravel: null,
+        inFlightCardIds: stillHidden,
+        hiddenCardIds: stillHidden,
+      }));
+
+      if (i < entries.length - 1) {
+        await holdForMs(DRAW_BETWEEN_MS);
+      } else {
+        await holdForMs(SETTLE_MS);
+      }
+    }
   };
 
   // ── Draw plan (round-end card from deck) ──
@@ -324,13 +543,17 @@ export function useAnimatedGame(initial: GameState) {
     if (skipRef.current) return;
 
     const effectNewCardId = plan.targetCardIds[0];
-    const oldCard = plan.cardBefore;
-    const newCardReq = getDeckTravelFromPlan(plan, next);
+    const action = plan.committedAction;
     const ownerId = plan.effect?.type === 'last_draw'
       ? plan.playerId
       : getOpponent(plan.playerId);
-
-    // During choreography, hide the effect replacement + round-end cards.
+    const oldCard = plan.cardBefore
+      ?? (action?.opponentSlot !== undefined && plan.effect?.type === 'send_back'
+        ? _prev.players[ownerId].pokerHand.find(c => c.slotIndex === action.opponentSlot)
+        : action?.ownSlot !== undefined && plan.effect?.type === 'last_draw'
+          ? _prev.players[ownerId].pokerHand.find(c => c.slotIndex === action.ownSlot)
+          : undefined);
+    const newCardReq = getDeckTravelFromPlan(plan, next);
     // Round-end cards stay hidden until their own draw animations.
     const hideDuringChoreo = [
       ...(effectNewCardId ? [effectNewCardId] : []),
@@ -403,17 +626,24 @@ export function useAnimatedGame(initial: GameState) {
   ) => {
     if (skipRef.current) { finishInstant(next); return; }
 
-    const isInstant = plan.mechanical === 'instant';
-    const action = plan.committedAction;
-    const deckDraw = isDeckDrawEffect(plan);
+    const effectId = plan.effect?.id;
+    const fromCommitLane = Boolean(
+      effectId && visualRef.current.commitLanes.some(c => c.effectId === effectId),
+    );
+
+    // ── 0. REVEAL at commit lane ──
+    if (effectId && visualRef.current.commitLanes.some(c => c.effectId === effectId)) {
+      await revealLaneCard(effectId);
+      if (skipRef.current) { finishInstant(next); return; }
+    }
 
     // ── 1. PRESENT ──
-    setSequencer({ activeResolver: plan.playerId });
     setVisual(v => ({
       ...v,
       isAnimating: true,
-      castOverlay: plan,
-      castPhase: 'present',
+      castOverlay: fromCommitLane ? null : plan,
+      castPhase: fromCommitLane ? null : 'present',
+      centerHeldEffect: null,
       mechanical: null,
       targetCardIds: [],
       targetSlots: [],
@@ -424,30 +654,75 @@ export function useAnimatedGame(initial: GameState) {
       deckTravel: null,
       cardToDeck: null,
       cardSwap: null,
-      slotMachine: null,
-      effectShred: null,
+      handToCenter: null,
+      inPlaceSpin: null,
+      spyReveal: null,
+      forceDelete: null,
+      effectToSlot: null,
       inFlightCardIds: [],
       hiddenCardIds: [],
+      hiddenEffectIds: fromCommitLane ? v.hiddenEffectIds : [],
       spyFlipEffectId: null,
-      sequencer: { ...v.sequencer, activeResolver: plan.playerId },
     }));
-    await holdForMs(PRESENT_HOLD_MS);
-    if (skipRef.current) { finishInstant(next); return; }
 
-    // Fizzled effects: brief result panel then done
-    if (isInstant) {
+    const isInstant = plan.mechanical === 'instant';
+    const action = plan.committedAction;
+    const deckDraw = isDeckDrawEffect(plan);
+
+    // ── 1. PRESENT: lane/hand → center ──
+    if (plan.effect && !skipRef.current) {
+      await afterPaint();
+      await waitOverlay(handToCenterResolveRef, () => {
+        setVisual(v => ({
+          ...v,
+          handToCenter: {
+            effectId: plan.effect!.id,
+            effect: plan.effect!,
+            fromOwnerId: plan.playerId,
+          },
+          hiddenEffectIds: fromCommitLane
+            ? v.hiddenEffectIds
+            : plan.effect ? [plan.effect.id] : [],
+        }));
+      });
       setVisual(v => ({
         ...v,
-        castPhase: 'result',
-        mechanical: null,
-        targetSlots: [],
-        targetEffectId: null,
+        handToCenter: null,
+        centerHeldEffect: plan.effect
+          ? { effectId: plan.effect.id, effect: plan.effect }
+          : null,
       }));
-      await holdForMs(CAST_FIZZLE_MS);
+      await holdForMs(CAST_CENTER_HOLD_MS);
+    }
+    if (skipRef.current) { finishInstant(next); return; }
+
+    // Fizzled effects: toast at lane, then done
+    if (isInstant) {
+      const reason = parseFizzleReason(plan.logMessage);
+      const toast = plan.effect
+        ? formatFizzleToast(plan.effect.type, reason)
+        : { title: 'Etki geçersiz oldu', body: 'Etki uygulanamadı.' };
+
+      setVisual(v => ({
+        ...v,
+        castOverlay: null,
+        castPhase: null,
+        centerHeldEffect: null,
+        fizzleToast: toast,
+        hiddenEffectIds: v.hiddenEffectIds,
+      }));
+      await holdForMs(FIZZLE_TOAST_MS);
+      if (effectId) markLaneConsumed(effectId);
       setDisplayGame(displayWithEffectResult(next, roundEndDrawIds));
       setGame(next);
       gameRef.current = next;
-      setVisual(v => ({ ...IDLE_VISUAL, sequencer: v.sequencer }));
+      setVisual(v => ({
+        ...IDLE_VISUAL,
+        sequencer: v.sequencer,
+        slotTokens: v.slotTokens,
+        commitLanes: v.commitLanes,
+        fizzleToast: null,
+      }));
       await wait(SETTLE_MS);
       return;
     }
@@ -460,47 +735,208 @@ export function useAnimatedGame(initial: GameState) {
 
     setVisual(v => ({
       ...v,
-      castPhase: 'target',
+      castPhase: fromCommitLane ? null : 'target',
+      castOverlay: fromCommitLane ? null : v.castOverlay,
       targetSlots,
       targetEffectId,
     }));
     await holdForMs(CAST_TARGET_MS);
     if (skipRef.current) { finishInstant(next); return; }
 
+    const victimOwner = getOpponent(plan.playerId);
+    const victimEffectId = plan.opponentEffectId ?? action?.opponentEffectId;
+    const victimEffect = victimEffectId
+      ? prev.players[victimOwner].effectHand.find(e => e.id === victimEffectId)
+      : undefined;
+
+    // ── 3. Fly: center → token slot ──
+    const tokenTargets = plan.effect && action && shouldAddToken(plan.effect.type)
+      ? getTokenTargetSlots(action, plan.playerId)
+      : [];
+
+    if (tokenTargets.length > 0 && plan.effect && !skipRef.current) {
+      await afterPaint();
+      const centerRect = captureCenterCastRect();
+
+      for (const target of tokenTargets) {
+        const targetKey = tokenSlotKey(target.ownerId, target.slotIndex);
+
+        setVisual(v => ({ ...v, castPhase: fromCommitLane ? null : 'fly' }));
+        await afterPaint();
+
+        await waitOverlay(effectToSlotResolveRef, () => {
+          setVisual(v => ({
+            ...v,
+            effectToSlot: {
+              effectId: plan.effect!.id,
+              effect: plan.effect!,
+              toSlotKey: targetKey,
+              from: 'center',
+              fromRect: centerRect,
+            },
+          }));
+        });
+        setVisual(v => ({ ...v, effectToSlot: null }));
+
+        if (shouldPersistToken(plan.effect.type)) {
+          const newToken: EffectToken = {
+            id: nextTokenId(),
+            effect: plan.effect,
+            roundsLeft: TOKEN_ROUNDS[plan.effect.type],
+          };
+          setVisual(v => ({
+            ...v,
+            slotTokens: addTokenToSlot(v.slotTokens, targetKey, newToken),
+          }));
+        }
+        await holdForMs(280);
+      }
+
+      setVisual(v => ({
+        ...v,
+        castOverlay: null,
+        castPhase: null,
+        centerHeldEffect: null,
+        hiddenEffectIds: fromCommitLane ? v.hiddenEffectIds : [],
+      }));
+      await holdForMs(200);
+    } else if (!skipRef.current && plan.mechanical !== 'spy' && plan.mechanical !== 'force_delete') {
+      setVisual(v => ({
+        ...v,
+        castOverlay: null,
+        castPhase: null,
+        centerHeldEffect: null,
+        hiddenEffectIds: fromCommitLane ? v.hiddenEffectIds : [],
+      }));
+      await holdForMs(100);
+    }
+
+    // ── 4. Mechanical overlays ──
+    if (plan.mechanical === 'swap' && plan.swapCardIds) {
+      const swapReq = buildSwapRequest(prev, plan.swapCardIds);
+      if (swapReq && !skipRef.current) {
+        await afterPaint();
+        await waitOverlay(cardSwapResolveRef, () => {
+          setVisual(v => ({
+            ...v,
+            cardSwap: swapReq,
+            hiddenCardIds: [...plan.swapCardIds!, ...roundEndDrawIds],
+          }));
+        });
+        setVisual(v => ({ ...v, cardSwap: null }));
+      }
+    } else if (
+      (plan.mechanical === 'transform' || plan.mechanical === 'shift')
+      && plan.cardBefore
+      && plan.cardAfter
+      && !skipRef.current
+    ) {
+      await afterPaint();
+      await waitOverlay(inPlaceSpinResolveRef, () => {
+        setVisual(v => ({
+          ...v,
+          inPlaceSpin: {
+            mode: plan.mechanical === 'transform' ? 'transform' : 'shift',
+            cardBefore: plan.cardBefore!,
+            cardAfter: plan.cardAfter!,
+            ownerId: plan.playerId,
+          },
+          hiddenCardIds: [plan.cardBefore!.id, ...roundEndDrawIds],
+        }));
+      });
+      setVisual(v => ({ ...v, inPlaceSpin: null }));
+    } else if (plan.mechanical === 'spy' && victimEffect && !skipRef.current) {
+      setVisual(v => ({
+        ...v,
+        castOverlay: null,
+        castPhase: null,
+        centerHeldEffect: null,
+        spyFlipEffectId: victimEffect.id,
+      }));
+      await afterPaint();
+      await waitOverlay(spyRevealResolveRef, () => {
+        setVisual(v => ({
+          ...v,
+          spyReveal: { victimEffect, victimOwnerId: victimOwner },
+        }));
+      });
+      setVisual(v => ({ ...v, spyReveal: null, spyFlipEffectId: null }));
+    } else if (plan.mechanical === 'force_delete' && victimEffect && !skipRef.current) {
+      setVisual(v => ({
+        ...v,
+        castOverlay: null,
+        castPhase: null,
+        centerHeldEffect: null,
+      }));
+      await afterPaint();
+      await waitOverlay(forceDeleteResolveRef, () => {
+        setVisual(v => ({
+          ...v,
+          forceDelete: { victimEffect, victimOwnerId: victimOwner },
+        }));
+      });
+      setVisual(v => ({ ...v, forceDelete: null }));
+    }
+
+    if (skipRef.current) { finishInstant(next); return; }
+
+    // ── Cleanse: remove freeze token with leaving animation ──
+    if (plan.mechanical === 'cleanse' && !skipRef.current) {
+      const cleanseAction = plan.committedAction;
+      if (cleanseAction?.cleanseOwnerId !== undefined && cleanseAction.cleanseSlot !== undefined) {
+        const cleanseKey = `${cleanseAction.cleanseOwnerId}-${cleanseAction.cleanseSlot}`;
+        const freezeTokens = visualRef.current.slotTokens.get(cleanseKey)?.filter(t => t.effect.type === 'freeze') ?? [];
+        if (freezeTokens.length > 0) {
+          const tokenToRemove = freezeTokens[0]!;
+          setVisual(v => {
+            let tokens = removeTokenFromSlot(v.slotTokens, cleanseKey, tokenToRemove.id);
+            tokens = addTokenToSlot(tokens, cleanseKey, { ...tokenToRemove, leaving: true });
+            return { ...v, slotTokens: tokens };
+          });
+          await holdForMs(250);
+          setVisual(v => ({
+            ...v,
+            slotTokens: removeTokenFromSlot(v.slotTokens, cleanseKey, tokenToRemove.id),
+          }));
+        }
+      }
+    }
+
     // ── 3. IMPACT ──
+    const useOverlayMechanical =
+      plan.mechanical === 'swap'
+      || plan.mechanical === 'transform'
+      || plan.mechanical === 'shift'
+      || plan.mechanical === 'spy'
+      || plan.mechanical === 'force_delete';
+
     setVisual(v => ({
       ...v,
       castPhase: 'impact',
       castOverlay: null,
       targetSlots: [],
       targetEffectId: null,
-      mechanical: plan.mechanical !== 'none' ? plan.mechanical : null,
-      targetCardIds: plan.targetCardIds,
+      hiddenEffectIds: fromCommitLane ? v.hiddenEffectIds : [],
+      mechanical: plan.mechanical !== 'none' && !useOverlayMechanical ? plan.mechanical : null,
+      targetCardIds: useOverlayMechanical ? [] : plan.targetCardIds,
     }));
 
     if (deckDraw) {
-      // Board still shows prev state; choreography handles the card swap.
       await holdForMs(CHOREO_PAUSE_MS);
       await runDeckDrawChoreography(prev, next, plan, roundEndDrawIds);
-    } else {
-      // Normal effects: show result now, omit only round-end draw cards.
+    } else if (plan.mechanical === 'swap' && plan.swapCardIds) {
+      // Swap already animated above — apply board state now
       setDisplayGame(displayWithEffectResult(next, roundEndDrawIds));
+      setVisual(v => ({ ...v, hiddenCardIds: roundEndDrawIds }));
+      await holdForMs(IMPACT_HOLD_MS);
+    } else {
+      setDisplayGame(displayWithEffectResult(next, roundEndDrawIds));
+      setVisual(v => ({ ...v, hiddenCardIds: roundEndDrawIds }));
       await holdForMs(IMPACT_HOLD_MS);
     }
 
     if (skipRef.current) { finishInstant(next); return; }
 
-    // ── 4. RETIRE ──
-    setVisual(v => ({
-      ...v,
-      castPhase: 'retire',
-      castOverlay: plan,
-      mechanical: null,
-      targetCardIds: [],
-    }));
-    await holdForMs(CAST_RETIRE_MS);
-
-    // Effect result must stay visible; only round-end draws remain hidden.
     setDisplayGame(displayWithEffectResult(next, roundEndDrawIds));
     setVisual(v => ({
       ...v,
@@ -510,11 +946,13 @@ export function useAnimatedGame(initial: GameState) {
       targetCardIds: [],
       targetSlots: [],
       targetEffectId: null,
+      hiddenEffectIds: [],
       hiddenCardIds: roundEndDrawIds,
       inFlightCardIds: [],
     }));
     setGame(next);
     gameRef.current = next;
+    if (effectId) markLaneConsumed(effectId);
     await wait(SETTLE_MS);
     void prev;
   };
@@ -563,12 +1001,29 @@ export function useAnimatedGame(initial: GameState) {
 
   // ── Apply a single state transition with animation ──
   const applyUpdate = useCallback((next: GameState) => {
-    const prev = gameRef.current;
-    if (prev === next) return Promise.resolve();
-
-    const plans = detectAnimations(prev, next);
-
     queueRef.current = queueRef.current.then(async () => {
+      const prev = gameRef.current;
+      if (prev === next) return;
+
+      // After effects resolve, round cards must animate one-by-one (like intro / pass).
+      if (prev.phase === 'resolving' && next.phase === 'committing') {
+        const roundDraws = collectNewRoundCards(prev, next);
+        if (roundDraws.length > 0) {
+          await runSequentialRoundDraws(prev, next);
+          setGame(next);
+          setDisplayGame(next);
+          gameRef.current = next;
+          setVisual(v => ({
+            ...IDLE_VISUAL,
+            sequencer: v.sequencer,
+            slotTokens: v.slotTokens,
+          }));
+          return;
+        }
+      }
+
+      const plans = detectAnimations(prev, next);
+
       if (plans.length === 0) {
         setGame(next);
         setDisplayGame(next);
@@ -576,14 +1031,8 @@ export function useAnimatedGame(initial: GameState) {
         return;
       }
 
-      const hasEffectPlan = plans.some(p => p.kind === 'effect');
-      const hasRoundEndDraws = plans.some(p => p.kind === 'draw');
-      const hasStandaloneDraw = hasRoundEndDraws && !hasEffectPlan;
-
-      if (hasStandaloneDraw && !skipRef.current) {
-        setSequencer({ drawBeat: true, activeResolver: null });
-        await holdForMs(DRAW_BEAT_MS);
-        setSequencer({ drawBeat: false });
+      if (next.phase === 'resolving' && prev.phase === 'committing') {
+        skipRef.current = false;
       }
 
       setVisual(v => ({ ...v, isAnimating: true }));
@@ -592,21 +1041,19 @@ export function useAnimatedGame(initial: GameState) {
       // Effect replacement cards are revealed by the effect plan itself.
       const roundEndDrawIds = getRoundEndDrawIds(plans);
 
+      if (roundEndDrawIds.length > 0) {
+        setDisplayGame(cur => omitCardsFromHands(cur, roundEndDrawIds));
+        setVisual(v => ({
+          ...v,
+          hiddenCardIds: roundEndDrawIds,
+          inFlightCardIds: roundEndDrawIds,
+        }));
+        await afterPaint();
+      }
+
       let stepState = prev;
       for (let i = 0; i < plans.length; i++) {
         if (skipRef.current) break;
-
-        // Brief beat before round-end draws when an effect just resolved
-        if (
-          !skipRef.current
-          && i > 0
-          && plans[i]?.kind === 'draw'
-          && plans[i - 1]?.kind === 'effect'
-        ) {
-          setSequencer({ drawBeat: true, activeResolver: null });
-          await holdForMs(DRAW_BEAT_MS);
-          setSequencer({ drawBeat: false });
-        }
 
         await runPlan(stepState, next, plans[i]!, roundEndDrawIds);
         stepState = next;
@@ -620,7 +1067,12 @@ export function useAnimatedGame(initial: GameState) {
       setGame(next);
       setDisplayGame(next);
       gameRef.current = next;
-      setVisual(v => ({ ...IDLE_VISUAL, sequencer: v.sequencer }));
+      setVisual(v => ({
+        ...IDLE_VISUAL,
+        sequencer: v.sequencer,
+        slotTokens: v.slotTokens,
+        commitLanes: next.phase === 'resolving' ? v.commitLanes : [],
+      }));
     });
 
     return queueRef.current;
@@ -633,44 +1085,19 @@ export function useAnimatedGame(initial: GameState) {
     onProgress?: (state: GameState) => void,
   ): Promise<GameState> => {
     skipRef.current = false;
+    gameRef.current = startState;
+    setGame(startState);
+    setDisplayGame(startState);
     let current = startState;
-    const order = getResolutionOrder(startState);
-    const first = order[0]!;
 
-    setVisual(v => ({
-      ...v,
-      isAnimating: true,
-      sequencer: {
-        ...IDLE_SEQUENCER,
-        roundBanner: `Round ${startState.currentRound} — ${playerLabel(first)} hamleleri önce çözülüyor`,
-      },
-    }));
-    await holdForMs(ROUND_BANNER_MS);
-    setSequencer({ roundBanner: null });
+    setVisual(v => ({ ...v, isAnimating: true }));
+    await runCommitToLanesPhase(startState);
 
     const queue = startState.resolutionQueue;
     let queueIdx = 0;
-    let sideIdx = 0;
 
-    for (const pid of order) {
+    for (const pid of getResolutionOrder(startState)) {
       if (skipRef.current) break;
-
-      const count = startState.roundCommits[pid].actions.length;
-      if (count === 0) {
-        setSequencer({ sidePass: pid, activeResolver: pid });
-        await holdForMs(SIDE_PASS_MS);
-        setSequencer({ sidePass: null, activeResolver: null });
-        sideIdx++;
-        continue;
-      }
-
-      if (sideIdx > 0) {
-        setSequencer({ sideTransition: pid, activeResolver: pid });
-        await holdForMs(SIDE_TRANSITION_MS);
-        setSequencer({ sideTransition: null });
-      } else {
-        setSequencer({ activeResolver: pid });
-      }
 
       while (queueIdx < queue.length && queue[queueIdx]!.playerId === pid) {
         if (skipRef.current) break;
@@ -680,21 +1107,54 @@ export function useAnimatedGame(initial: GameState) {
         queueIdx++;
         if (current.phase !== 'resolving') break;
       }
-      sideIdx++;
       if (current.phase !== 'resolving') break;
+    }
+
+    // Round-end draws are a separate transition so deck effects animate first.
+    if (
+      !skipRef.current
+      && current.phase === 'resolving'
+      && current.resolutionIndex >= queue.length
+    ) {
+      await holdForMs(DRAW_BEAT_MS);
+      const beforeFinish = current;
+      current = finishResolutionIfComplete(current);
+      await runSequentialRoundDraws(beforeFinish, current);
+      setGame(current);
+      setDisplayGame(current);
+      gameRef.current = current;
+      onProgress?.(current);
     }
 
     if (skipRef.current && current.phase === 'resolving') {
       resolveAllOverlays();
       while (current.phase === 'resolving') {
-        current = resolveStep(current);
+        if (current.resolutionIndex >= current.resolutionQueue.length) {
+          current = finishResolutionIfComplete(current);
+        } else {
+          current = resolveStep(current);
+        }
       }
       setGame(current);
       setDisplayGame(current);
       gameRef.current = current;
     }
 
-    setVisual(IDLE_VISUAL);
+    // ── Decrement all token round counters ──
+    const { updated: updatedTokens, expired: expiredTokens } = decrementAllTokens(visualRef.current.slotTokens);
+    if (expiredTokens.length > 0 && !skipRef.current) {
+      setVisual(v => {
+        let tokens = v.slotTokens;
+        for (const { slotKey, token } of expiredTokens) {
+          tokens = addTokenToSlot(tokens, slotKey, token);
+        }
+        return { ...v, slotTokens: tokens };
+      });
+      await holdForMs(250);
+    }
+    setVisual(v => ({ ...v, slotTokens: updatedTokens }));
+
+    setVisual(v => ({ ...IDLE_VISUAL, slotTokens: v.slotTokens }));
     setSequencer(null);
     skipRef.current = false;
     return current;
@@ -705,13 +1165,14 @@ export function useAnimatedGame(initial: GameState) {
     setGame(fresh);
     setDisplayGame(fresh);
     gameRef.current = fresh;
-    setVisual(IDLE_VISUAL);
+    setVisual({ ...IDLE_VISUAL, slotTokens: new Map() });
   }, []);
 
   return {
     game,
     displayGame,
     visual,
+    slotTokens: visual.slotTokens,
     applyUpdate,
     runResolutionCinematic,
     requestFastForward,
@@ -720,8 +1181,14 @@ export function useAnimatedGame(initial: GameState) {
     completeDeckTravel,
     completeCardToDeck,
     completeCardSwap,
-    completeSlotMachine,
-    completeEffectShred,
+    completeHandToCenter,
+    departLaneCard: markLaneDeparted,
+    clearCenterHeld,
+    completeCommitToLane,
+    completeInPlaceSpin,
+    completeSpyReveal,
+    completeForceDelete,
+    completeEffectToSlot,
     isAnimating: visual.isAnimating,
   };
 }

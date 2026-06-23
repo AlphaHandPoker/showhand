@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import type { PlayingCard, PlayerId } from '../game/types';
 import { cardLabel, suitSymbol, suitColor } from '../game/deck';
 import {
-  playHitCardSound,
   CARD_TRAVEL_MS,
   CARD_DECK_FLIP_MS,
   CARD_REVEAL_REDUCED_MS,
@@ -92,10 +91,7 @@ export function CardFromDeckFlight({ request, onComplete }: CardFromDeckFlightPr
     }
     if (phase === 'flip') {
       const dur = reduced ? CARD_REVEAL_REDUCED_MS : CARD_DECK_FLIP_MS;
-      const t = window.setTimeout(() => {
-        playHitCardSound();
-        finish();
-      }, dur);
+      const t = window.setTimeout(finish, dur);
       return () => window.clearTimeout(t);
     }
   }, [phase, reduced]);

@@ -43,7 +43,7 @@ export function HandRankLadder({ playerHand, botHand }: HandRankLadderProps) {
   const botPartial = botHand !== null && botHand.length > 0 && botHand.length < HAND_SIZE;
 
   return (
-    <aside className="hand-rank-ladder" aria-label="El sıralaması">
+    <div className="hand-rank-ladder" aria-label="El sıralaması">
       <h3 className="ladder-title">El Sırası</h3>
       {(playerPartial || botPartial) && (
         <p className="ladder-subtitle">Tahmini el (kısmi)</p>
@@ -89,6 +89,6 @@ export function HandRankLadder({ playerHand, botHand }: HandRankLadderProps) {
           );
         })}
       </ol>
-    </aside>
+    </div>
   );
 }

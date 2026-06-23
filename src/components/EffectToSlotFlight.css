@@ -1,0 +1,16 @@
+.effect-to-slot-flight {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9500;
+  pointer-events: none;
+  contain: layout style;
+  backface-visibility: hidden;
+  opacity: 1;
+}
+
+.effect-to-slot-flight .effect-card {
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+}

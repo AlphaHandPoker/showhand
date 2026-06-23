@@ -19,6 +19,12 @@ export function canTargetCard(card: PlayingCard, round: number): boolean {
   return true;
 }
 
+export function getTargetBlockReason(card: PlayingCard, round: number): string | null {
+  if (isCardProtected(card, round)) return 'hedef korumalı';
+  if (isCardFrozen(card, round)) return 'hedef dondurulmuş';
+  return null;
+}
+
 export function getAvailableInDeck(deck: PlayingCard[]): Set<string> {
   return new Set(deck.map(c => cardKey(c.suit, c.rank)));
 }

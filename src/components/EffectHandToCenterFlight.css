@@ -1,0 +1,17 @@
+.effect-hand-to-center-flight {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9400;
+  pointer-events: none;
+  contain: layout style;
+  backface-visibility: hidden;
+  opacity: 1;
+}
+
+.effect-hand-to-center-flight .effect-card,
+.effect-hand-to-center-flight .effect-card-back {
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+}

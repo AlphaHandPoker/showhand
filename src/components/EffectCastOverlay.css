@@ -38,7 +38,7 @@
 /* Backdrop fades in with the overlay */
 .phase-present .cast-backdrop { animation: fade-in 300ms ease-out forwards; }
 .phase-target .cast-backdrop  { opacity: 1; }
-.phase-retire .cast-backdrop  { animation: fade-out 360ms ease-in forwards; }
+.phase-fly .cast-backdrop      { opacity: 1; }
 .phase-result .cast-backdrop  { animation: fade-in 280ms ease-out forwards; }
 
 /* ── card wrapper ── */
@@ -52,33 +52,7 @@
   will-change: transform, opacity;
 }
 
-/* ── PRESENT: card rises to center ── */
-/* Player → rises from bottom */
-.from-player.phase-present .cast-card-wrapper {
-  animation: rise-from-bottom 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-/* Bot → rises from top */
-.from-bot.phase-present .cast-card-wrapper {
-  animation: rise-from-top 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* ── TARGET: card settles slightly smaller, holds at center ── */
-.phase-target .cast-card-wrapper {
-  animation: none;
-  opacity: 0.95;
-  transform: translate3d(0, 0, 0) scale(0.88);
-  transition: transform 300ms ease-out, opacity 300ms ease-out;
-}
-
-/* ── RETIRE: card fades back toward its side ── */
-.from-player.phase-retire .cast-card-wrapper,
-.from-player.phase-retire .cast-card-wrapper--retire {
-  animation: retire-to-bottom 360ms ease-in forwards;
-}
-.from-bot.phase-retire .cast-card-wrapper,
-.from-bot.phase-retire .cast-card-wrapper--retire {
-  animation: retire-to-top 360ms ease-in forwards;
-}
+/* ── PRESENT / FLY: card flown via portal; overlay shows backdrop only ── */
 
 /* ── RESULT: fizzle panel ── */
 .phase-result {
@@ -170,7 +144,7 @@
 @keyframes rise-from-bottom {
   0% {
     opacity: 0;
-    transform: translate3d(0, 40vh, 0) scale(0.45);
+    transform: translate3d(0, 18vh, 0) scale(0.75);
   }
   100% {
     opacity: 1;
@@ -181,7 +155,7 @@
 @keyframes rise-from-top {
   0% {
     opacity: 0;
-    transform: translate3d(0, -40vh, 0) scale(0.45);
+    transform: translate3d(0, -18vh, 0) scale(0.75);
   }
   100% {
     opacity: 1;
@@ -189,26 +163,13 @@
   }
 }
 
-@keyframes retire-to-bottom {
-  0% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(0.88);
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(0, 34vh, 0) scale(0.3);
-  }
+.phase-target .cast-card-wrapper--center {
+  animation: cast-center-settle 280ms ease-out forwards;
 }
 
-@keyframes retire-to-top {
-  0% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(0.88);
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(0, -34vh, 0) scale(0.3);
-  }
+@keyframes cast-center-settle {
+  from { opacity: 0.9; transform: translate3d(0, 0, 0) scale(1); }
+  to   { opacity: 1;   transform: translate3d(0, 0, 0) scale(0.92); }
 }
 
 @keyframes fade-in {
@@ -232,8 +193,7 @@
   .from-bot.phase-present .cast-card-wrapper {
     animation-duration: 150ms;
   }
-  .from-player.phase-retire .cast-card-wrapper,
-  .from-bot.phase-retire .cast-card-wrapper {
-    animation-duration: 100ms;
+  .phase-target .cast-card-wrapper {
+    animation-duration: 120ms;
   }
 }
