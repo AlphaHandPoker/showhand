@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Children, type ReactNode } from 'react';
 
 const CARDS_PER_LANE = 5;
 
@@ -9,7 +9,7 @@ interface EffectCardLanesProps {
 
 /** Split effect cards into two lanes of 5 on mobile. */
 export function EffectCardLanes({ children, className }: EffectCardLanesProps) {
-  const items = (Array.isArray(children) ? children : [children]).filter(Boolean);
+  const items = Children.toArray(children);
   const lane1 = items.slice(0, CARDS_PER_LANE);
   const lane2 = items.slice(CARDS_PER_LANE);
 
