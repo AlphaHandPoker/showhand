@@ -6,7 +6,7 @@
 .hand-rank-ladder {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   overflow: hidden;
 }
 
@@ -16,11 +16,11 @@
   font-size: 0.62rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-muted);
-  text-align: center;
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  letter-spacing: 0.2em;
+  color: var(--text-secondary);
+  text-align: left;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .ladder-subtitle {
@@ -38,8 +38,9 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   flex: 1;
+  justify-content: space-between;
 }
 
 .ladder-rung {
@@ -47,15 +48,15 @@
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  padding: 5px 6px;
-  border-radius: 6px;
+  padding: 7px 9px;
+  border-radius: 7px;
   border: 1px solid transparent;
   transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
 .ladder-label {
   font-family: var(--font-body);
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   font-weight: 500;
   line-height: 1.2;
   color: var(--text-secondary);

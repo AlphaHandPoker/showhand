@@ -1,0 +1,128 @@
+.match-end-ranks {
+  position: fixed;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  pointer-events: none;
+}
+
+.match-end-rank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 24px;
+  border-radius: var(--radius-md);
+  background: rgba(7, 17, 29, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  animation: match-rank-bounce 500ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.match-end-rank--bot { animation-delay: 0ms; }
+.match-end-rank--player { animation-delay: 120ms; }
+
+.match-end-rank-label {
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.match-end-rank-name {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--accent-gold);
+}
+
+.match-end-rank--winner {
+  border-color: rgba(212, 168, 67, 0.6);
+  box-shadow: 0 0 24px var(--accent-gold-glow);
+}
+
+.match-end-rank--loser {
+  opacity: 0.4;
+}
+
+.match-end-banner-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.match-end-banner {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  color: var(--accent-gold);
+  text-shadow: 0 0 40px var(--accent-gold-glow);
+  animation: match-banner-bounce 600ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.match-end-banner--tie {
+  color: var(--text-secondary);
+  text-shadow: none;
+}
+
+.match-end-restart-wrap {
+  position: fixed;
+  bottom: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  animation: fade-in 400ms ease-out forwards;
+}
+
+.match-end-restart {
+  pointer-events: auto;
+}
+
+/* Zone highlight classes applied during match end */
+.zone--match-winner .hand-row .playing-card {
+  box-shadow:
+    0 0 0 2.5px var(--accent-gold),
+    0 0 22px var(--accent-gold-glow),
+    0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.zone--match-loser {
+  opacity: 0.4;
+  transition: opacity 500ms ease-out;
+}
+
+.zone--match-loser .hand-row .playing-card {
+  filter: grayscale(0.3);
+}
+
+@keyframes match-rank-bounce {
+  from { opacity: 0; transform: scale(0.6) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes match-banner-bounce {
+  from { opacity: 0; transform: scale(0.5); }
+  60% { transform: scale(1.08); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .match-end-rank,
+  .match-end-banner { animation-duration: 200ms; }
+}

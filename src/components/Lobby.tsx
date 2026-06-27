@@ -1,13 +1,17 @@
 import { useState } from 'react';
+import type { GameMode } from '../game/types';
+import { GAME_MODE_INFO } from '../game/gameModes';
 import type { UseOnlineGame } from '../hooks/useOnlineGame';
 import './Lobby.css';
+import './GameModePicker.css';
 
 interface LobbyProps {
   online: UseOnlineGame;
+  createMode: GameMode;
   onBack: () => void;
 }
 
-export function Lobby({ online, onBack }: LobbyProps) {
+export function Lobby({ online, createMode, onBack }: LobbyProps) {
   const [joinCode, setJoinCode] = useState('');
   const { socketConnected, roomState, error, createRoom, joinRoom, leaveRoom, clearError } = online;
 
@@ -15,6 +19,8 @@ export function Lobby({ online, onBack }: LobbyProps) {
   const bothConnected = connectedCount >= 2;
   const inMatch = roomState?.status === 'playing' || roomState?.status === 'finished';
   const inDraft = roomState?.status === 'drafting' || roomState?.status === 'draft_ready';
+  const roomMode = roomState?.gameMode ?? createMode;
+  const modeInfo = GAME_MODE_INFO[roomMode];
 
   if (roomState) {
     if (inMatch) {
@@ -40,6 +46,7 @@ export function Lobby({ online, onBack }: LobbyProps) {
         <div className="lobby-room-card">
           <span className="lobby-room-label">Oda kodu</span>
           <code className="lobby-room-code">{roomState.code}</code>
+          <span className="lobby-mode-badge">{modeInfo.title}</span>
           <p className="lobby-room-hint">Arkadaşına bu kodu gönder</p>
         </div>
 
@@ -74,7 +81,13 @@ export function Lobby({ online, onBack }: LobbyProps) {
           </p>
         )}
 
-        {bothConnected && roomState.status === 'waiting' && (
+        {bothConnected && roomState.status === 'waiting' && roomMode === 'full_deck' && (
+          <p className="lobby-next-step">
+            İkiniz de bağlandınız — maç başlıyor…
+          </p>
+        )}
+
+        {bothConnected && roomState.status === 'waiting' && roomMode === 'draft' && (
           <p className="lobby-next-step">
             İkiniz de bağlandınız. Draft bir sonraki adımda başlayacak.
           </p>
@@ -105,11 +118,17 @@ export function Lobby({ online, onBack }: LobbyProps) {
           {socketConnected ? 'Sunucuya bağlı' : 'Sunucuya bağlanılıyor…'}
         </div>
 
+        <div className="lobby-mode-select">
+          <span className="lobby-mode-label">Seçilen mod</span>
+          <span className="lobby-mode-badge">{modeInfo.title}</span>
+          <span className="lobby-room-hint">{modeInfo.subtitle}</span>
+        </div>
+
         <button
           type="button"
           className="lobby-btn lobby-btn--primary"
           disabled={!socketConnected}
-          onClick={createRoom}
+          onClick={() => createRoom(createMode)}
         >
           Oda oluştur
         </button>

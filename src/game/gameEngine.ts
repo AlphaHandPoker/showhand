@@ -1,11 +1,12 @@
 import type {
   GameState, PlayerId, EffectType, CommittedAction,
-  ResolutionItem, SlotIndex, GameLogKind,
+  ResolutionItem, SlotIndex, GameLogKind, GameMode,
 } from './types';
 import {
-  TOTAL_ROUNDS, EFFECT_NAMES, HAND_SIZE, MAX_CARDS_PER_ROUND,
+  TOTAL_ROUNDS, EFFECT_NAMES, HAND_SIZE,
 } from './types';
-import { createPlayingDeck, resetIdCounter, playingCardName } from './deck';
+import { maxCardsForState } from './gameModes';
+import { createPlayingDeck, resetIdCounter, playingCardName, shuffle } from './deck';
 import { createEffectCards, resetEffectIdCounter } from './deckBuilder';
 import {
   getOpponent, canTargetCard, getTargetBlockReason, applyTransform, applyShiftChance,
@@ -240,12 +241,12 @@ function resolveCommittedAction(state: GameState, actorId: PlayerId, action: Com
         break;
       }
       removeEffectFromHand(state, actorId, action.effectId);
-      card.protectedUntilTurn = round + 3;
+      card.protectedUntilTurn = round + 1;
       logEffect(
         state,
         actorId,
         EFFECT_NAMES.protect,
-        `${playingCardName(card)} korundu (3 round)`,
+        `${playingCardName(card)} korundu (bu round + sonraki)`,
       );
       break;
     }
@@ -444,7 +445,11 @@ function resolveCommittedAction(state: GameState, actorId: PlayerId, action: Com
   }
 }
 
-export function createGame(playerEffectTypes: EffectType[], botEffectTypes: EffectType[]): GameState {
+export function createGame(
+  playerEffectTypes: EffectType[],
+  botEffectTypes: EffectType[],
+  gameMode: GameMode = 'draft',
+): GameState {
   resetIdCounter();
   resetEffectIdCounter();
   resetBotIntel();
@@ -452,17 +457,18 @@ export function createGame(playerEffectTypes: EffectType[], botEffectTypes: Effe
   const startingPlayer: PlayerId = Math.random() < 0.5 ? 'player' : 'bot';
 
   const state: GameState = {
+    gameMode,
     deck: createPlayingDeck(),
     players: {
       player: {
         id: 'player',
         pokerHand: [],
-        effectHand: createEffectCards(playerEffectTypes),
+        effectHand: shuffle(createEffectCards(playerEffectTypes)),
       },
       bot: {
         id: 'bot',
         pokerHand: [],
-        effectHand: createEffectCards(botEffectTypes),
+        effectHand: shuffle(createEffectCards(botEffectTypes)),
       },
     },
     currentRound: 1,
@@ -490,8 +496,8 @@ export function validateCommittedActions(
   actorId: PlayerId,
   actions: CommittedAction[],
 ): string | null {
-  if (actions.length > MAX_CARDS_PER_ROUND) {
-    return `En fazla ${MAX_CARDS_PER_ROUND} kart seçebilirsin`;
+  if (actions.length > maxCardsForState(state)) {
+    return `En fazla ${maxCardsForState(state)} kart seçebilirsin`;
   }
 
   const usedEffects = new Set<string>();

@@ -1,5 +1,5 @@
 import type { GameState, CommittedAction, EffectType, EffectCard, SlotIndex } from './types';
-import { MAX_CARDS_PER_ROUND } from './types';
+import { maxCardsForState } from './gameModes';
 import {
   canCommitEffectType, getValidOwnSlots, getValidOpponentSlots, getValidCleanseTargets,
 } from './gameEngine';
@@ -13,6 +13,35 @@ import { getCardAtSlot, sortHandBySlot } from './effects';
 
 const PLAY_THRESHOLD = 22;
 const SECOND_PLAY_THRESHOLD = 14;
+
+/** Threat weights for force_delete — weighted random, not fixed priority */
+const FORCE_DELETE_WEIGHTS: Partial<Record<EffectType, number>> = {
+  freeze: 12,
+  force_delete: 11,
+  steal_card: 10,
+  send_back: 8,
+  transform: 7,
+  shift_chance: 7,
+  last_draw: 6,
+  protect: 6,
+  spy: 4,
+  cleanse: 3,
+};
+
+function pickWeightedEffect(hand: EffectCard[], weights: Partial<Record<EffectType, number>>): EffectCard {
+  let total = 0;
+  const scored = hand.map(card => {
+    const w = weights[card.type] ?? 5;
+    total += w;
+    return w;
+  });
+  let roll = Math.random() * total;
+  for (let i = 0; i < hand.length; i++) {
+    roll -= scored[i];
+    if (roll <= 0) return hand[i];
+  }
+  return hand[hand.length - 1];
+}
 
 export interface BotMovePlan {
   actions: CommittedAction[];
@@ -199,17 +228,9 @@ function buildActionForEffect(state: GameState, effect: EffectCard): CommittedAc
     case 'force_delete': {
       const hand = state.players.player.effectHand;
       if (hand.length === 0) return null;
-      if (effect.type === 'force_delete') {
-        const priority: EffectType[] = [
-          'freeze', 'force_delete', 'steal_card', 'send_back',
-          'transform', 'shift_chance', 'last_draw', 'protect',
-        ];
-        for (const t of priority) {
-          const found = hand.find(e => e.type === t);
-          if (found) return { effectId: effect.id, effectType: effect.type, opponentEffectId: found.id };
-        }
-      }
-      const pick = hand[Math.floor(Math.random() * hand.length)];
+      const pick = effect.type === 'force_delete'
+        ? pickWeightedEffect(hand, FORCE_DELETE_WEIGHTS)
+        : hand[Math.floor(Math.random() * hand.length)];
       return { effectId: effect.id, effectType: effect.type, opponentEffectId: pick.id };
     }
     case 'cleanse': {
@@ -244,7 +265,9 @@ export function evaluateBotMove(state: GameState): BotMovePlan {
   const actions: CommittedAction[] = [];
   const usedIds = new Set<string>();
 
-  for (let pick = 0; pick < MAX_CARDS_PER_ROUND; pick++) {
+  const maxCards = maxCardsForState(state);
+
+  for (let pick = 0; pick < maxCards; pick++) {
     const threshold = pick === 0 ? PLAY_THRESHOLD : SECOND_PLAY_THRESHOLD;
     const scored: { effect: EffectCard; value: number }[] = [];
 

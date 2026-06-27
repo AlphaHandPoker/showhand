@@ -4,9 +4,10 @@ import './CommitRevealLanes.css';
 
 interface Props {
   lanes: CommitLaneCard[];
+  overlayMaskEffectId?: string | null;
 }
 
-export function CommitRevealLanes({ lanes }: Props) {
+export function CommitRevealLanes({ lanes, overlayMaskEffectId = null }: Props) {
   if (lanes.length === 0) return null;
 
   const playerLanes = lanes.filter(l => l.ownerId === 'player' && !l.consumed);
@@ -16,21 +17,27 @@ export function CommitRevealLanes({ lanes }: Props) {
     <div className="commit-reveal-lanes" aria-hidden>
       <div className="commit-lane commit-lane--player">
         {playerLanes.map(card => (
-          <CommitLaneSlot key={card.effectId} card={card} />
+          <CommitLaneSlot key={card.effectId} card={card} overlayMaskEffectId={overlayMaskEffectId} />
         ))}
       </div>
       <div className="commit-lane commit-lane--bot">
         {botLanes.map(card => (
-          <CommitLaneSlot key={card.effectId} card={card} />
+          <CommitLaneSlot key={card.effectId} card={card} overlayMaskEffectId={overlayMaskEffectId} />
         ))}
       </div>
     </div>
   );
 }
 
-function CommitLaneSlot({ card }: { card: CommitLaneCard }) {
+function CommitLaneSlot({
+  card,
+  overlayMaskEffectId,
+}: {
+  card: CommitLaneCard;
+  overlayMaskEffectId?: string | null;
+}) {
   const showFlip = card.faceDown;
-  const showCard = !card.departed;
+  const overlayMasked = overlayMaskEffectId === card.effectId;
 
   return (
     <div
@@ -40,9 +47,17 @@ function CommitLaneSlot({ card }: { card: CommitLaneCard }) {
         card.revealed && showFlip ? 'commit-lane-slot--revealed' : '',
       ].filter(Boolean).join(' ')}
       data-commit-lane-slot={`${card.ownerId}-${card.laneIndex}`}
+      data-commit-lane-effect={card.effectId}
     >
-      {showCard && (
-        <div className="commit-lane-card" data-commit-lane-card={card.effectId}>
+      {!card.departed && (
+        <div
+          className={[
+            'commit-lane-card',
+            overlayMasked ? 'commit-lane-card--masked' : '',
+          ].filter(Boolean).join(' ')}
+          data-commit-lane-card={card.effectId}
+          aria-hidden={overlayMasked || undefined}
+        >
           {showFlip ? (
             <div className="commit-lane-flip">
               <div className="commit-lane-face commit-lane-face--back">

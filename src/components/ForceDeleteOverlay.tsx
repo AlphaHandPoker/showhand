@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type { EffectCard, PlayerId } from '../game/types';
 import { EffectCardView } from './Cards';
 import { prefersReducedMotion } from '../ui/motion';
-import { readAnchorRect, type AnchorRect } from '../ui/anchorRect';
+import { readEffectAnchorRect, type AnchorRect } from '../ui/anchorRect';
 import { FORCE_SHRED_HOLD_MS, FORCE_SHRED_MS } from '../ui/effectTimings';
 import './ForceDeleteOverlay.css';
 
@@ -38,18 +38,35 @@ export function ForceDeleteOverlay({ request, onComplete }: Props) {
   useLayoutEffect(() => {
     completedRef.current = false;
     setAnchor(null);
-    setPhase('prep');
 
-    const start = readAnchorRect(
-      `[data-effect-anchor="${request.victimOwnerId}-${request.victimEffect.id}"]`,
-    );
-    if (!start) {
-      finish();
+    let raf = 0;
+
+    const applyStart = (start: AnchorRect) => {
+      setAnchor(start);
+      setPhase(reduced ? 'shredding' : 'shred-hold');
+    };
+
+    const measure = () =>
+      readEffectAnchorRect(request.victimOwnerId, request.victimEffect.id);
+
+    const start = measure();
+    if (start) {
+      applyStart(start);
       return;
     }
 
-    setAnchor(start);
-    setPhase(reduced ? 'shredding' : 'shred-hold');
+    raf = requestAnimationFrame(() => {
+      const retry = measure();
+      if (!retry) {
+        finish();
+        return;
+      }
+      applyStart(retry);
+    });
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, [request.victimEffect.id, request.victimOwnerId, reduced]);
 
   useEffect(() => {

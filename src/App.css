@@ -12,7 +12,35 @@ body {
   background: var(--bg-deep);
   color: var(--text-primary);
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   overflow-x: hidden;
+}
+
+html.game-board-active,
+body.game-board-active {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html.game-board-active #root,
+body.game-board-active #root {
+  height: 100%;
+  min-height: 0;
+  max-height: 100vh;
+  max-height: 100svh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+body.game-board-active .app {
+  height: 100%;
+  min-height: 0;
+  max-height: 100vh;
+  max-height: 100svh;
+  max-height: 100dvh;
+  overflow: hidden;
 }
 
 body::before {
@@ -40,7 +68,10 @@ body::after {
 
 .app {
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   position: relative;
+  width: 100%;
 }
 
 button {
@@ -109,6 +140,18 @@ button {
   border: 1.5px solid rgba(212, 168, 67, 0.45);
   background: rgba(212, 168, 67, 0.08);
   color: var(--accent-gold);
+}
+
+.home-btn--guide {
+  border: 1.5px solid rgba(96, 165, 250, 0.4);
+  background: rgba(96, 165, 250, 0.08);
+  color: #93c5fd;
+}
+
+.home-btn--cosmetics {
+  border: 1.5px solid rgba(139, 92, 246, 0.4);
+  background: rgba(139, 92, 246, 0.08);
+  color: #c4b5fd;
 }
 
 

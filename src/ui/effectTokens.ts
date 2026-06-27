@@ -12,7 +12,7 @@ export interface EffectToken {
 
 export const TOKEN_ROUNDS: Partial<Record<EffectType, number>> = {
   freeze: 2,
-  protect: 3,
+  protect: 2,
 };
 
 export function shouldAddToken(effectType: EffectType): boolean {

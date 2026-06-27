@@ -1,15 +1,61 @@
 /* ═══════════════════════════════════════════════════════
    SHOWHAND — Full-viewport battlefield layout
-   Optimized for 1920×1080 Chrome 100% zoom
+   Fluid sizing for cross-browser 100% zoom (1280×720+)
    ═══════════════════════════════════════════════════════ */
 
 .game-board {
+  --sidebar-width: clamp(200px, 12.1vw, 232px);
+  --sidebar-header-h: 56px;
+  --sidebar-divider-h: 36px;
+  --board-pad-x: clamp(12px, 1.25vw, 24px);
+  --center-width: calc(100vw - 2 * var(--sidebar-width));
+  --poker-gap: clamp(6px, 0.65vw, 10px);
+  --poker-card-w-width: clamp(
+    62px,
+    calc((var(--center-width) - 2 * var(--board-pad-x) - 4 * var(--poker-gap)) / 5),
+    110px
+  );
+  --poker-card-w-height: clamp(62px, calc((100vh - 500px) / 2.8), 110px);
+  --poker-card-w: min(var(--poker-card-w-width), var(--poker-card-w-height));
+  --poker-card-h: calc(var(--poker-card-w) * 1.4);
+  --poker-card-radius: clamp(9px, calc(var(--poker-card-w) * 0.118), 13px);
+  --effect-card-w: clamp(
+    52px,
+    calc((var(--center-width) - 2 * var(--board-pad-x)) / 6.2),
+    100px
+  );
+  --effect-card-h: calc(var(--effect-card-w) * 120 / 86);
+  --effect-hover-pad-bot: clamp(20px, 4vh, 44px);
+  --effect-hover-pad-player: clamp(16px, 3.5vh, 36px);
+  --arena-row-gap: clamp(12px, 1.6vh, 18px);
+
   display: grid;
-  grid-template-columns: 210px 1fr;
-  grid-template-rows: 1fr;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--sidebar-width);
+  grid-template-rows: minmax(0, 1fr);
+  width: 100%;
   height: 100vh;
+  height: 100svh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100svh;
+  max-height: 100dvh;
   overflow: hidden;
   padding: 0;
+  min-height: 0;
+  min-width: 0;
+  color: var(--text-primary);
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(34, 58, 92, 0.35) 0%, transparent 55%),
+    radial-gradient(90% 60% at 50% 110%, rgba(20, 40, 70, 0.28) 0%, transparent 60%),
+    linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-mid) 50%, var(--bg-deep) 100%);
+}
+
+.game-board--full-deck {
+  --effect-card-w: clamp(
+    46px,
+    calc((var(--center-width) - 2 * var(--board-pad-x)) / 10.6),
+    82px
+  );
 }
 
 .game-board.is-animating {
@@ -28,74 +74,135 @@
   grid-row: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: stretch;
   min-width: 0;
-  height: 100vh;
-  padding: 12px 16px;
+  min-height: 0;
+  height: 100%;
+  max-height: 100vh;
+  max-height: 100svh;
+  max-height: 100dvh;
+  padding: 0;
   position: relative;
+  overflow: hidden;
 }
 
-/* Resolution feed — sol alt, ortayı kapatmaz */
-.resolution-feed-anchor {
+/* Ambient table lighting — edge vignette only (no center spotlight) */
+.battlefield::before {
+  content: '';
   position: absolute;
-  bottom: 14px;
-  left: 14px;
-  z-index: 25;
+  inset: 0;
+  z-index: 1;
   pointer-events: none;
-  max-width: min(280px, 36vw);
+  background:
+    radial-gradient(120% 100% at 50% 50%, transparent 58%, rgba(0, 0, 0, 0.42) 100%);
 }
 
+/* Main play column — exact 50/50 vertical split */
+.battlefield-stack {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--board-pad-x);
+  overflow: visible;
+}
 
-/* ═══ ZONES — bot (top) and player (bottom) ═══ */
+.battlefield-half {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
 
-.zone {
+.battlefield-half .zone {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 0;
+  overflow: visible;
+}
+
+.battlefield-half-core {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  flex-shrink: 0;
+  width: 100%;
 }
 
-.zone--bot {
-  padding: 8px 0;
+/* Bot: effect band at top of half, cards+hud anchored to center line */
+.battlefield-half--bot {
+  padding-top: 8px;
+  padding-bottom: 0;
 }
 
-.zone--player {
-  padding: 8px 0;
+.battlefield-half--bot .effect-band {
+  flex-shrink: 0;
+}
+
+.battlefield-half--bot .battlefield-half-core {
+  padding-bottom: 0;
+}
+
+.battlefield-half--bot .arena-rows {
+  margin-bottom: var(--arena-row-gap);
+}
+
+/* Player: cards+hud anchored to center line, effect band at bottom */
+.battlefield-half--player {
+  padding-top: 0;
+  padding-bottom: 8px;
+}
+
+.battlefield-half--player .battlefield-half-core {
+  padding-top: 0;
+}
+
+.battlefield-half--player .arena-rows {
+  margin-top: var(--arena-row-gap);
+}
+
+.battlefield-half--player .effect-band {
+  flex-shrink: 0;
 }
 
 
-/* ── Arena rows — symmetric token + card columns ── */
+/* ── Arena rows ── */
 
 .arena-rows {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
-.battlefield .arena-rows .hand-row,
-.battlefield .arena-rows .token-slot-row {
-  gap: 8px;
+.battlefield .arena-rows .hand-row {
+  gap: var(--poker-gap);
+  max-width: 100%;
 }
 
 .battlefield .arena-rows .hand-row .playing-card,
 .battlefield .arena-rows .hand-row .playing-card-empty-slot {
-  width: 88px;
-  height: 122px;
-  border-radius: 11px;
+  width: var(--poker-card-w);
+  height: var(--poker-card-h);
+  border-radius: var(--poker-card-radius);
+  flex: 0 0 auto;
 }
 
-.battlefield .arena-rows .hand-row .card-rank { font-size: 0.92rem; }
-.battlefield .arena-rows .hand-row .card-suit-sm { font-size: 0.65rem; }
-.battlefield .arena-rows .hand-row .card-suit-center { font-size: 1.65rem; }
-.battlefield .arena-rows .hand-row .card-corner-tl { top: 6px; left: 7px; }
-.battlefield .arena-rows .hand-row .card-corner-br { bottom: 6px; right: 7px; }
-.battlefield .arena-rows .hand-row .playing-empty-icon { font-size: 1.4rem; }
-
-.battlefield .arena-rows .token-slot {
-  width: 88px;
-  height: 122px;
-}
+.battlefield .arena-rows .hand-row .card-rank { font-size: clamp(0.82rem, calc(var(--poker-card-w) * 0.095), 1.05rem); }
+.battlefield .arena-rows .hand-row .card-suit-sm { font-size: clamp(0.58rem, calc(var(--poker-card-w) * 0.064), 0.7rem); }
+.battlefield .arena-rows .hand-row .card-suit-center { font-size: clamp(1.4rem, calc(var(--poker-card-w) * 0.173), 1.9rem); }
+.battlefield .arena-rows .hand-row .card-corner-tl { top: clamp(5px, calc(var(--poker-card-w) * 0.064), 7px); left: clamp(6px, calc(var(--poker-card-w) * 0.073), 8px); }
+.battlefield .arena-rows .hand-row .card-corner-br { bottom: clamp(5px, calc(var(--poker-card-w) * 0.064), 7px); right: clamp(6px, calc(var(--poker-card-w) * 0.073), 8px); }
+.battlefield .arena-rows .hand-row .playing-empty-icon { font-size: clamp(1.2rem, calc(var(--poker-card-w) * 0.145), 1.6rem); }
 
 
 /* ── Zone info bars ── */
@@ -142,56 +249,16 @@
 }
 
 
-/* ═══ BATTLE CENTER — thin VS divider ═══ */
-
-.battle-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  padding: 4px 0;
-  min-height: 28px;
-}
-
-.battle-divider {
-  position: absolute;
-  top: 50%;
-  left: 5%;
-  right: 5%;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(212, 168, 67, 0.15) 20%,
-    rgba(212, 168, 67, 0.3) 50%,
-    rgba(212, 168, 67, 0.15) 80%,
-    transparent 100%
-  );
-  pointer-events: none;
-}
-
-.vs-label {
-  position: relative;
-  z-index: 1;
-  font-family: var(--font-display);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--accent-gold);
-  opacity: 0.7;
-  padding: 2px 16px;
-  background: var(--bg-base, #0b1220);
-}
-
 .slots-left {
   font-family: var(--font-body);
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   font-weight: 600;
   color: var(--accent-purple);
-  padding: 3px 10px;
+  padding: 3px 11px;
   border-radius: var(--radius-pill);
   background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  letter-spacing: 0.02em;
 }
 
 
@@ -201,9 +268,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 6px 0;
-  min-height: 36px;
+  gap: 14px;
+  padding: 4px 0;
+  min-height: 52px;
+  width: 100%;
+}
+
+.arena-hud--compact {
+  min-height: 52px;
+  padding: 4px 0;
 }
 
 .online-status-msg {
@@ -249,25 +322,46 @@
 }
 
 .btn-lock {
-  padding: 10px 28px;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(212, 168, 67, 0.3);
-  background: linear-gradient(180deg, rgba(212, 168, 67, 0.15), rgba(212, 168, 67, 0.08));
-  color: var(--accent-gold);
+  padding: 11px 38px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(244, 208, 122, 0.55);
+  background: linear-gradient(180deg, #e7be58 0%, var(--accent-gold) 55%, var(--accent-gold-dim) 100%);
+  color: #1a1206;
   font-family: var(--font-display);
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: transform var(--anim-fast), box-shadow var(--anim-fast), background var(--anim-fast);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  transition: transform var(--anim-fast), box-shadow var(--anim-fast), filter var(--anim-fast);
+  box-shadow:
+    0 4px 16px rgba(212, 168, 67, 0.35),
+    0 0 0 4px rgba(212, 168, 67, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
   z-index: 1;
+  animation: cta-breathe 2.8s ease-in-out infinite;
 }
 
 .btn-lock:hover {
   transform: translateY(-2px);
-  background: linear-gradient(180deg, rgba(212, 168, 67, 0.22), rgba(212, 168, 67, 0.12));
-  box-shadow: 0 4px 16px rgba(212, 168, 67, 0.15);
+  filter: brightness(1.06);
+  box-shadow:
+    0 8px 26px rgba(212, 168, 67, 0.45),
+    0 0 0 4px rgba(212, 168, 67, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.btn-lock:active {
+  transform: translateY(0);
+}
+
+@keyframes cta-breathe {
+  0%, 100% { box-shadow: 0 4px 16px rgba(212, 168, 67, 0.32), 0 0 0 4px rgba(212, 168, 67, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+  50% { box-shadow: 0 4px 22px rgba(212, 168, 67, 0.5), 0 0 0 6px rgba(212, 168, 67, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-lock { animation: none; }
 }
 
 .btn-restart {
@@ -320,23 +414,50 @@
 }
 
 
-/* ── Effect tray (player's effect cards) ── */
+/* ── Effect band — full-width centered card rows ── */
 
-.effect-tray {
+.effect-band {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+  z-index: 20;
+  overflow: visible;
+  flex-shrink: 1;
+  min-height: 0;
+}
+
+.effect-band__cards {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  width: 100%;
+  gap: 3px;
+  overflow: visible;
 }
 
-.effect-tray-label {
-  font-family: var(--font-display);
-  font-size: 0.58rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
+.effect-band .effect-row {
+  width: 100%;
+  max-width: 100%;
+  justify-content: center;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  overflow: visible;
+  padding: 4px 16px 6px;
+}
+
+/* Room for hover lift — bot row needs more headroom at the top of the table */
+.effect-band--bot .effect-row {
+  padding-top: var(--effect-hover-pad-bot);
+  padding-bottom: 4px;
+}
+
+.effect-band--player .effect-row {
+  padding-top: var(--effect-hover-pad-player);
+  padding-bottom: 4px;
 }
 
 
@@ -354,8 +475,8 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 86px;
-  height: 120px;
+  width: var(--effect-card-w);
+  height: var(--effect-card-h);
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 20;
@@ -377,4 +498,32 @@
 .effect-flight-anchor.effect-flight-anchor--overlay-active {
   opacity: 0;
   pointer-events: none;
+}
+
+/* ── Height / width breakpoints for tighter viewports ── */
+@media (max-height: 820px) {
+  .game-board {
+    --sidebar-header-h: 52px;
+    --effect-hover-pad-bot: clamp(16px, 3vh, 32px);
+    --effect-hover-pad-player: clamp(14px, 2.5vh, 28px);
+    --arena-row-gap: clamp(10px, 1.2vh, 14px);
+  }
+
+  .arena-hud,
+  .arena-hud--compact {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .game-board {
+    --sidebar-width: 200px;
+    --board-pad-x: 16px;
+  }
+}
+
+@supports (height: 100dvh) {
+  .game-board {
+    --poker-card-w-height: clamp(62px, calc((100dvh - 500px) / 2.8), 110px);
+  }
 }

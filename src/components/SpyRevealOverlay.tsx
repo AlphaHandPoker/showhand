@@ -4,7 +4,7 @@ import type { EffectCard, PlayerId } from '../game/types';
 import { EFFECT_NAMES } from '../game/types';
 import { EffectCardView } from './Cards';
 import { prefersReducedMotion } from '../ui/motion';
-import { readAnchorRect, type AnchorRect } from '../ui/anchorRect';
+import { readEffectAnchorRect, type AnchorRect } from '../ui/anchorRect';
 import { SPY_FLIP_MS, SPY_REVEAL_HOLD_MS } from '../ui/effectTimings';
 import './SpyRevealOverlay.css';
 
@@ -53,22 +53,38 @@ export function SpyRevealOverlay({ request, onComplete }: Props) {
     setAnchor(null);
     setPhase('prep');
 
-    const start = readAnchorRect(
-      `[data-effect-anchor="${request.victimOwnerId}-${request.victimEffect.id}"]`,
-    );
-    if (!start) {
-      finish();
+    let raf = 0;
+
+    const applyStart = (start: AnchorRect) => {
+      setAnchor(start);
+      if (reduced) {
+        setPhase('hold');
+      } else {
+        setPhase('spin');
+      }
+    };
+
+    const measure = () =>
+      readEffectAnchorRect(request.victimOwnerId, request.victimEffect.id);
+
+    const start = measure();
+    if (start) {
+      applyStart(start);
       return;
     }
 
-    setAnchor(start);
+    raf = requestAnimationFrame(() => {
+      const retry = measure();
+      if (!retry) {
+        finish();
+        return;
+      }
+      applyStart(retry);
+    });
 
-    if (reduced) {
-      setPhase('hold');
-      return;
-    }
-
-    setPhase('spin');
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, [request.victimEffect.id, request.victimOwnerId, reduced]);
 
   useEffect(() => {

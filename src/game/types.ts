@@ -36,6 +36,9 @@ export interface EffectCard {
 
 export type PlayerId = 'player' | 'bot';
 
+/** draft = 5-card pick; full_deck = all 10 effects, 1 play per round */
+export type GameMode = 'draft' | 'full_deck';
+
 export interface Player {
   id: PlayerId;
   pokerHand: PlayingCard[];
@@ -77,6 +80,7 @@ export interface GameLogEntry {
 }
 
 export interface GameState {
+  gameMode: GameMode;
   deck: PlayingCard[];
   players: Record<PlayerId, Player>;
   currentRound: number;
@@ -109,7 +113,7 @@ export const EFFECT_NAMES: Record<EffectType, string> = {
 export const EFFECT_DESCRIPTIONS: Record<EffectType, string> = {
   steal_card: 'Rakibin açık pozisyonundaki kartla kendi kartını takas et',
   send_back: 'Rakibin açık kartını desteye gönder, yerine rastgele yeni kart',
-  protect: 'Kendi kartını 3 round boyunca koru',
+  protect: 'Kendi kartını bu round ve sonraki round boyunca koru',
   transform: 'Kendi kartının sembolünü rastgele değiştir',
   shift_chance: 'Kendi kartının sayısını sarmal ±2 komşulardan rastgele değiştir',
   freeze: 'Rakibin açık kartını 2 round boyunca dondur',

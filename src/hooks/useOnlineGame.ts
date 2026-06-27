@@ -8,14 +8,15 @@ import {
   type RoomErrorPayload,
   type RoomStatePayload,
 } from '../../shared/protocol';
-import type { CommittedAction } from '../game/types';
+import type { CommittedAction, GameMode } from '../game/types';
+import type { CreateRoomPayload } from '../../shared/protocol';
 
 export interface UseOnlineGame {
   socketConnected: boolean;
   roomState: RoomStatePayload | null;
   gamePayload: GameStatePayload | null;
   error: string | null;
-  createRoom: () => void;
+  createRoom: (mode: GameMode) => void;
   joinRoom: (code: string) => void;
   submitDraft: (deck: string[]) => void;
   lockCommit: (actions: CommittedAction[]) => void;
@@ -67,9 +68,10 @@ export function useOnlineGame(): UseOnlineGame {
     return () => window.clearTimeout(t);
   }, [roomState, gamePayload]);
 
-  const createRoom = useCallback(() => {
+  const createRoom = useCallback((mode: GameMode = 'draft') => {
     setError(null);
-    socketRef.current?.emit(ClientEvents.CREATE_ROOM);
+    const payload: CreateRoomPayload = { mode };
+    socketRef.current?.emit(ClientEvents.CREATE_ROOM, payload);
   }, []);
 
   const joinRoom = useCallback((code: string) => {

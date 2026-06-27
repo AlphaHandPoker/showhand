@@ -2,7 +2,8 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 12;
+  z-index: 15;
+  overflow: hidden;
 }
 
 .commit-lane {
@@ -11,24 +12,24 @@
   transform: translateY(-50%);
   display: flex;
   align-items: center;
-  gap: 10px;
-  max-width: min(48%, 420px);
+  gap: clamp(6px, 0.65vw, 10px);
+  max-width: min(38%, calc(var(--effect-card-w) * 3.5));
 }
 
 .commit-lane--player {
-  left: 6px;
+  left: clamp(4px, 0.5vw, 8px);
   flex-direction: row-reverse;
 }
 
 .commit-lane--bot {
-  right: 6px;
+  right: clamp(4px, 0.5vw, 8px);
   flex-direction: row;
 }
 
 .commit-lane-slot {
   position: relative;
-  width: 86px;
-  height: 120px;
+  width: var(--effect-card-w);
+  height: var(--effect-card-h);
   flex-shrink: 0;
   perspective: 800px;
 }
@@ -40,6 +41,12 @@
 .commit-lane-card {
   width: 100%;
   height: 100%;
+}
+
+/* Keep anchor in DOM for spy / force-delete overlays — hide visually only */
+.commit-lane-card--masked {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .commit-lane-flip {
@@ -57,6 +64,7 @@
 .commit-lane-face {
   position: absolute;
   inset: 0;
+  -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }
 
@@ -66,6 +74,6 @@
 
 .commit-lane-card .effect-card,
 .commit-lane-card .effect-card-back {
-  width: 86px;
-  height: 120px;
+  width: 100%;
+  height: 100%;
 }

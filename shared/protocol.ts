@@ -1,7 +1,7 @@
 /** Shared Socket.io event names and payloads (client + server). */
 
 import type { CommittedAction } from '../src/game/types';
-import type { GameState } from '../src/game/types';
+import type { GameState, GameMode } from '../src/game/types';
 
 export const ClientEvents = {
   CREATE_ROOM: 'CREATE_ROOM',
@@ -10,6 +10,12 @@ export const ClientEvents = {
   LOCK_COMMIT: 'LOCK_COMMIT',
   REQUEST_SYNC: 'REQUEST_SYNC',
 } as const;
+
+export type { GameMode };
+
+export interface CreateRoomPayload {
+  mode: GameMode;
+}
 
 export const ServerEvents = {
   ROOM_STATE: 'ROOM_STATE',
@@ -51,6 +57,7 @@ export interface RoomStatePayload {
   code: string;
   yourSlot: 0 | 1;
   status: RoomStatus;
+  gameMode: GameMode;
   players: RoomPlayerInfo[];
   /** Human-readable lobby status line */
   message: string;

@@ -20,19 +20,22 @@ export interface CommitToLaneRequest {
 interface Props {
   request: CommitToLaneRequest;
   onComplete: () => void;
+  onDepart?: () => void;
 }
 
 type Phase = 'prep' | 'start' | 'travel' | 'done';
 
 const FLIGHT_MS = 620;
 
-export function CommitToLaneFlight({ request, onComplete }: Props) {
+export function CommitToLaneFlight({ request, onComplete, onDepart }: Props) {
   const reduced = prefersReducedMotion();
   const [geometry, setGeometry] = useState<{ start: AnchorRect; end: AnchorRect } | null>(null);
   const [phase, setPhase] = useState<Phase>('prep');
   const completedRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
+  const onDepartRef = useRef(onDepart);
   onCompleteRef.current = onComplete;
+  onDepartRef.current = onDepart;
 
   const finish = () => {
     if (completedRef.current) return;
@@ -61,6 +64,7 @@ export function CommitToLaneFlight({ request, onComplete }: Props) {
     }
 
     setGeometry({ start, end });
+    onDepartRef.current?.();
     setPhase('start');
 
     let raf2 = 0;

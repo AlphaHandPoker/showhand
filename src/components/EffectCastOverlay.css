@@ -52,7 +52,14 @@
   will-change: transform, opacity;
 }
 
-/* ── PRESENT / FLY: card flown via portal; overlay shows backdrop only ── */
+/* ── PRESENT / FLY: card rises from player bottom or bot top ── */
+.from-player.phase-present .cast-card-wrapper {
+  animation: rise-from-bottom 420ms ease-out forwards;
+}
+
+.from-bot.phase-present .cast-card-wrapper {
+  animation: rise-from-top 420ms ease-out forwards;
+}
 
 /* ── RESULT: fizzle panel ── */
 .phase-result {
@@ -163,13 +170,15 @@
   }
 }
 
-.phase-target .cast-card-wrapper--center {
-  animation: cast-center-settle 280ms ease-out forwards;
+.phase-target .cast-card-wrapper,
+.phase-target .cast-card-wrapper--center,
+.phase-target .cast-card-wrapper--target {
+  animation: settle-to-target 300ms ease-out forwards;
 }
 
-@keyframes cast-center-settle {
-  from { opacity: 0.9; transform: translate3d(0, 0, 0) scale(1); }
-  to   { opacity: 1;   transform: translate3d(0, 0, 0) scale(0.92); }
+@keyframes settle-to-target {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1.45); }
+  to   { opacity: 0.95; transform: translate3d(0, 0, 0) scale(0.88); }
 }
 
 @keyframes fade-in {
@@ -193,7 +202,9 @@
   .from-bot.phase-present .cast-card-wrapper {
     animation-duration: 150ms;
   }
-  .phase-target .cast-card-wrapper {
+  .phase-target .cast-card-wrapper,
+  .phase-target .cast-card-wrapper--center,
+  .phase-target .cast-card-wrapper--target {
     animation-duration: 120ms;
   }
 }

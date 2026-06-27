@@ -46,3 +46,8 @@ export function laneSlotSelector(ownerId: PlayerId, laneIndex: number): string {
 export function laneCardSelector(effectId: string): string {
   return `[data-commit-lane-card="${effectId}"]`;
 }
+
+/** Effect ids still shown on commit lanes — hide the same cards in effect hands. */
+export function activeLaneHiddenIds(lanes: CommitLaneCard[]): string[] {
+  return lanes.filter(l => !l.consumed).map(l => l.effectId);
+}

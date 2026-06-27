@@ -1,0 +1,146 @@
+.cosmetics-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.cosmetics-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 10, 18, 0.82);
+  backdrop-filter: blur(4px);
+}
+
+.cosmetics-panel {
+  position: relative;
+  z-index: 1;
+  width: min(720px, 100%);
+  padding: 24px 28px 28px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(165deg, rgba(12, 25, 41, 0.98), rgba(7, 17, 29, 0.98));
+  border: 1px solid rgba(212, 168, 67, 0.2);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  animation: cosmetics-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes cosmetics-pop {
+  from { opacity: 0; transform: scale(0.92) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.cosmetics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.cosmetics-header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--accent-gold);
+  letter-spacing: 0.08em;
+}
+
+.cosmetics-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cosmetics-sub {
+  margin: 0 0 20px;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.cosmetics-grid {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.cosmetics-theme-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: transform 180ms ease-out, border-color 180ms ease-out, box-shadow 180ms ease-out;
+  min-width: 110px;
+}
+
+.cosmetics-theme-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(212, 168, 67, 0.35);
+}
+
+.cosmetics-theme-card--active {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 1px var(--accent-gold), 0 0 18px var(--accent-gold-glow);
+}
+
+.cosmetics-preview {
+  position: relative;
+  width: 64px;
+  height: 88px;
+  border-radius: 8px;
+  border: 1.5px solid;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 6px;
+  overflow: hidden;
+}
+
+.cosmetics-preview-rank {
+  font-family: var(--font-card);
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.cosmetics-preview-suit {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.cosmetics-preview-back {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  width: 36px;
+  height: 48px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  color: rgba(212, 168, 67, 0.5);
+  transform: rotate(12deg);
+}
+
+.cosmetics-theme-name {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+}

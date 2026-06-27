@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type { EffectCard, PlayerId } from '../game/types';
 import { EffectCardView } from './Cards';
 import { prefersReducedMotion } from '../ui/motion';
-import { readAnchorRect, readCastCenterRect, type AnchorRect } from '../ui/anchorRect';
+import { readEffectAnchorRect, readCastCenterRect, type AnchorRect } from '../ui/anchorRect';
 import {
   FLIGHT_EASE,
   HAND_TO_CENTER_MS,
@@ -46,8 +46,7 @@ export function EffectHandToCenterFlight({ request, onComplete, onDepart }: Prop
     setGeometry(null);
     setPhase('prep');
 
-    const start = readAnchorRect(`[data-commit-lane-card="${request.effectId}"]`)
-      ?? readAnchorRect(`[data-effect-anchor="${request.fromOwnerId}-${request.effectId}"]`);
+    const start = readEffectAnchorRect(request.fromOwnerId, request.effectId);
     if (!start) {
       finish();
       return;

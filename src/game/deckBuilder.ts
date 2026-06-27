@@ -1,5 +1,5 @@
 import type { EffectType, EffectCard } from './types';
-import { DECK_SIZE, MAX_PER_EFFECT_TYPE } from './types';
+import { ALL_EFFECT_TYPES, DECK_SIZE, MAX_PER_EFFECT_TYPE } from './types';
 
 let idCounter = 0;
 function uid(prefix: string): string {
@@ -12,6 +12,11 @@ export function resetEffectIdCounter(): void {
 
 export function createEffectCards(types: EffectType[]): EffectCard[] {
   return types.map(type => ({ id: uid('effect'), type }));
+}
+
+/** Full-deck mode: one copy of every effect type. */
+export function buildFullEffectDeck(): EffectType[] {
+  return [...ALL_EFFECT_TYPES];
 }
 
 export function validateDeckSelection(selection: EffectType[]): string | null {

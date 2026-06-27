@@ -1,3 +1,5 @@
+import type { PlayerId } from '../game/types';
+
 export interface AnchorRect {
   cx: number;
   cy: number;
@@ -22,6 +24,17 @@ export function readAnchorRect(selector: string): AnchorRect | null {
   const anchor = document.querySelector(selector);
   if (!anchor) return null;
   return readElementRect(anchor);
+}
+
+/** Resolve effect position from commit lane first, then effect hand anchor. */
+export function readEffectAnchorRect(ownerId: PlayerId, effectId: string): AnchorRect | null {
+  const laneCard = readAnchorRect(`[data-commit-lane-card="${effectId}"]`);
+  if (laneCard) return laneCard;
+
+  const laneSlot = document.querySelector(`[data-commit-lane-effect="${effectId}"]`);
+  if (laneSlot) return readElementRect(laneSlot);
+
+  return readAnchorRect(`[data-effect-anchor="${ownerId}-${effectId}"]`);
 }
 
 export function readCastCenterRect(): AnchorRect {

@@ -32,6 +32,13 @@ export function EffectCastOverlay({ cast, phase }: EffectCastOverlayProps) {
     return (
       <div className={`effect-cast-overlay phase-${phase} ${fromBottom ? 'from-player' : 'from-bot'}`}>
         <div className="cast-backdrop cast-backdrop--light" />
+        {phase === 'present' && cast.effect && (
+          <div className="cast-card-wrapper cast-card-wrapper--center">
+            <EffectCardView card={cast.effect} large castGlow />
+            <p className="cast-effect-name">{effectName}</p>
+            <p className="cast-player-label">{actorLabel} oynuyor…</p>
+          </div>
+        )}
       </div>
     );
   }

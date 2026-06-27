@@ -22,16 +22,7 @@ const TIER_CLASS: Record<number, string> = {
 };
 
 export function HandRankBadge({ cards }: HandRankBadgeProps) {
-  if (cards.length === 0) return null;
-
-  if (cards.length < HAND_SIZE) {
-    return (
-      <div className="hand-rank-badge tier-partial">
-        <span className="hand-rank-name">{cards.length}/{HAND_SIZE} kart</span>
-        <span className="hand-rank-detail">(desteden çekiliyor)</span>
-      </div>
-    );
-  }
+  if (cards.length < HAND_SIZE) return null;
 
   const ev = evaluateHand(cards);
   const detail = ev.tiebreakers.slice(0, 3).map(r => cardLabel(r as Parameters<typeof cardLabel>[0])).join(', ');

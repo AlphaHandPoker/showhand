@@ -10,6 +10,7 @@ import {
   type LockCommitPayload,
   type RoomErrorPayload,
   type SubmitDraftPayload,
+  type CreateRoomPayload,
 } from '../shared/protocol.js';
 import { GameRoomManager } from './gameRoom.js';
 
@@ -89,12 +90,13 @@ function emitError(socketId: string, message: string): void {
 io.on('connection', (socket) => {
   console.log(`[socket] connected ${socket.id}`);
 
-  socket.on(ClientEvents.CREATE_ROOM, () => {
+  socket.on(ClientEvents.CREATE_ROOM, (payload?: CreateRoomPayload) => {
     try {
-      const { code } = rooms.createRoom(socket.id);
+      const mode = payload?.mode === 'full_deck' ? 'full_deck' : 'draft';
+      const { code } = rooms.createRoom(socket.id, mode);
       void socket.join(code);
       emitRoomState(code);
-      console.log(`[room] created ${code} host=${socket.id}`);
+      console.log(`[room] created ${code} host=${socket.id} mode=${mode}`);
     } catch (err) {
       emitError(socket.id, err instanceof Error ? err.message : 'Could not create room');
     }

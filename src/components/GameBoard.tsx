@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CommittedAction, EffectType, GameState, SlotIndex, ResolutionItem } from '../game/types';
-import { HAND_SIZE, TOTAL_ROUNDS, MAX_CARDS_PER_ROUND } from '../game/types';
+import type { CommittedAction, EffectType, GameState, SlotIndex, GameMode } from '../game/types';
+import { HAND_SIZE } from '../game/types';
+import { maxCardsForState } from '../game/gameModes';
 import {
   createGame, lockPlayerCommit, resolveNextInQueue,
   getValidOwnSlots, getValidOpponentSlots, getValidCleanseTargets,
@@ -13,27 +14,30 @@ import {
 } from './Cards';
 import { HandRankBadge } from './HandRankBadge';
 import { LeftSidebar } from './LeftSidebar';
+import { RightSidebar } from './RightSidebar';
 import { EffectCastOverlay } from './EffectCastOverlay';
-import { ResolutionFeed } from './ResolutionFeed';
 import { DeckShuffleIntro } from './DeckShuffleIntro';
 import { CardFromDeckFlight } from './CardFromDeckFlight';
 import { CardToDeckFlight } from './CardToDeckFlight';
 import { CardSwapFlight } from './CardSwapFlight';
-import { ResolutionSequencerUI } from './ResolutionSequencerUI';
 import { CommitRevealLanes } from './CommitRevealLanes';
 import { CommitToLaneFlight } from './CommitToLaneFlight';
 import { EffectFizzleToast } from './EffectFizzleToast';
 import { CenterHeldEffect } from './CenterHeldEffect';
-import { EffectTokenStack, TokenSlotPlaceholder } from './EffectTokenStack';
+// EffectTokenStack removed — tokens now render inside PlayingCardSlot
 import { EffectToSlotFlight } from './EffectToSlotFlight';
 import { EffectHandToCenterFlight } from './EffectHandToCenterFlight';
 import { InPlaceCardSpin } from './InPlaceCardSpin';
+import { SlotMachineReveal } from './SlotMachineReveal';
+import { EffectShredOverlay } from './EffectShredOverlay';
 import { SpyRevealOverlay } from './SpyRevealOverlay';
 import { ForceDeleteOverlay } from './ForceDeleteOverlay';
+import { VsIntroScreen } from './VsIntroScreen';
+import { BattlefieldArena } from './BattlefieldArena';
+import { MatchEndCinematic, getMatchEndZoneClass } from './MatchEndCinematic';
 import { useAnimatedGame } from '../hooks/useAnimatedGame';
 import { getCardAnimationClass } from '../ui/detectAnimations';
 import './GameBoard.css';
-import './ResolutionFeed.css';
 import './DeckShuffleIntro.css';
 import './CardFromDeckFlight.css';
 import './CardToDeckFlight.css';
@@ -42,18 +46,27 @@ import './CommitRevealLanes.css';
 import './CommitToLaneFlight.css';
 import './EffectFizzleToast.css';
 import './LeftSidebar.css';
+import './RightSidebar.css';
 import './HandRankLadder.css';
 import './GameLogPanel.css';
-import './ResolutionSequencerUI.css';
 import './EffectHandToCenterFlight.css';
 import './InPlaceCardSpin.css';
+import './SlotMachineReveal.css';
+import './EffectShredOverlay.css';
 import './SpyRevealOverlay.css';
 import './ForceDeleteOverlay.css';
+import './VsIntroScreen.css';
+import './BattlefieldArena.css';
+import './PlayerAvatar.css';
+import './MatchEndCinematic.css';
 import './EffectToSlotFlight.css';
+import { HowToPlayFab, HowToPlayGuide } from './HowToPlayGuide';
+import './HowToPlayGuide.css';
 
 interface GameBoardProps {
   playerDeck: EffectType[];
   botDeck: EffectType[];
+  gameMode?: GameMode;
   onRestart: () => void;
   online?: {
     youLocked: boolean;
@@ -70,11 +83,11 @@ type PendingPick =
   | { effectId: string; effectType: EffectType; step: 'opponent_effect' }
   | { effectId: string; effectType: EffectType; step: 'cleanse_slot' };
 
-export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardProps) {
+export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, online }: GameBoardProps) {
   const initialGame = useMemo(
-    () => (online ? online.syncedGame : createGame(playerDeck, botDeck)),
+    () => (online ? online.syncedGame : createGame(playerDeck, botDeck, gameMode)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [online?.syncedGame, playerDeck, botDeck],
+    [online?.syncedGame, playerDeck, botDeck, gameMode],
   );
 
   const {
@@ -84,7 +97,6 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
     slotTokens,
     applyUpdate,
     runResolutionCinematic,
-    requestFastForward,
     runIntroReveal,
     completeDeckTravel,
     completeCardToDeck,
@@ -93,7 +105,10 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
     departLaneCard,
     clearCenterHeld,
     completeCommitToLane,
+    hideEffectInHand,
     completeInPlaceSpin,
+    completeSlotMachine,
+    completeEffectShred,
     completeSpyReveal,
     completeForceDelete,
     completeEffectToSlot,
@@ -108,16 +123,33 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
   const [commitQueue, setCommitQueue] = useState<CommittedAction[]>([]);
   const [pendingPick, setPendingPick] = useState<PendingPick | null>(null);
   const [resolving, setResolving] = useState(false);
+  const [vsIntroDone, setVsIntroDone] = useState(false);
   const [shuffleDone, setShuffleDone] = useState(false);
   const [introReady, setIntroReady] = useState(false);
+  const [matchEndPhase, setMatchEndPhase] = useState<'idle' | 'highlight' | 'done'>('idle');
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
   const resolvingRef = useRef(false);
-  const [resolutionFeed, setResolutionFeed] = useState<{
-    queue: ResolutionItem[];
-    completed: number;
-    latestLog?: string;
-  } | null>(null);
-
   const isFinished = game.phase === 'finished';
+  const opponentLabel = online?.opponentLabel ?? 'Bot';
+
+  useEffect(() => {
+    document.documentElement.classList.add('game-board-active');
+    document.body.classList.add('game-board-active');
+    return () => {
+      document.documentElement.classList.remove('game-board-active');
+      document.body.classList.remove('game-board-active');
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isFinished) {
+      setMatchEndPhase('idle');
+      return;
+    }
+    const t = window.setTimeout(() => setMatchEndPhase('highlight'), 1800);
+    return () => window.clearTimeout(t);
+  }, [isFinished]);
+
   const isCommitting = game.phase === 'committing';
   const canInteract = introReady && isCommitting && !isFinished && !isAnimating && !resolving
     && (!online || !online.youLocked);
@@ -141,7 +173,6 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
 
     syncQueueRef.current = syncQueueRef.current.then(async () => {
       if (g.phase === 'resolving' && game.phase === 'committing') {
-        setResolutionFeed({ queue: g.resolutionQueue, completed: 0 });
         setResolving(true);
       }
       await applyUpdate(g);
@@ -161,29 +192,21 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
     }
   }, [isCommitting, resolving]);
 
-  const slotsLeft = MAX_CARDS_PER_ROUND - commitQueue.length;
+  const maxCardsPerRound = maxCardsForState(game);
+  const slotsLeft = maxCardsPerRound - commitQueue.length;
   const usedEffectIds = new Set(commitQueue.map(a => a.effectId));
 
   const runResolution = useCallback(async (startState: GameState) => {
     if (resolvingRef.current) return;
     resolvingRef.current = true;
     setResolving(true);
-    const queue = startState.resolutionQueue;
-    setResolutionFeed({ queue, completed: 0 });
     try {
-      await runResolutionCinematic(startState, resolveNextInQueue, (current) => {
-        setResolutionFeed({
-          queue,
-          completed: current.resolutionIndex,
-          latestLog: current.log[current.log.length - 1]?.message,
-        });
-      });
+      await runResolutionCinematic(startState, resolveNextInQueue);
     } finally {
       resolvingRef.current = false;
       setResolving(false);
       setCommitQueue([]);
       setPendingPick(null);
-      setTimeout(() => setResolutionFeed(null), 2800);
     }
   }, [runResolutionCinematic]);
 
@@ -332,37 +355,21 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
   );
 
   const activeLaneOwner = visual.commitLanes.find(l => l.active)?.ownerId ?? null;
-  const isSequencerActive = resolving || visual.isAnimating;
 
   const hiddenEffectIds = useMemo(
     () => new Set(visual.hiddenEffectIds),
     [visual.hiddenEffectIds],
   );
 
-  const renderTokenRow = (ownerId: 'player' | 'bot') => (
-    <div className={`token-slot-row token-slot-row--${ownerId}`}>
-      {Array.from({ length: HAND_SIZE }, (_, slotIndex) => {
-        const tokens = slotTokens.get(`${ownerId}-${slotIndex}`) ?? [];
-        return (
-          <div
-            key={`token-${ownerId}-${slotIndex}`}
-            className={`token-slot ${tokens.length === 0 ? 'token-slot--empty' : 'token-slot--filled'}`}
-            data-token-slot-anchor={`${ownerId}-${slotIndex}`}
-          >
-            {tokens.length > 0
-              ? <EffectTokenStack tokens={tokens} />
-              : <TokenSlotPlaceholder />}
-          </div>
-        );
-      })}
-    </div>
-  );
+  const overlayMaskEffectId =
+    visual.spyReveal?.victimEffect.id
+    ?? visual.forceDelete?.victimEffect.id
+    ?? visual.effectShred?.effectId
+    ?? null;
 
   const renderArenaRows = (ownerId: 'player' | 'bot') => (
     <div className="arena-rows">
-      {ownerId === 'bot' && renderTokenRow('bot')}
       {renderPokerHand(ownerId)}
-      {ownerId === 'player' && renderTokenRow('player')}
     </div>
   );
 
@@ -377,6 +384,8 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
           const card = hand.find(c => c.slotIndex === slotIndex);
           const slot = slotIndex as SlotIndex;
           const slotAnchor = `${slotAnchorPrefix}-${slotIndex}`;
+          const tokenKey = `${ownerId}-${slotIndex}`;
+          const tokens = slotTokens.get(tokenKey) ?? [];
           const isTargeted = visual.targetSlots.some(
             t => t.ownerId === ownerId && t.slotIndex === slotIndex,
           );
@@ -386,6 +395,7 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
               <PokerCardEmptySlot
                 key={`empty-${ownerId}-${slotIndex}`}
                 slotAnchor={slotAnchor}
+                tokenSlotKey={tokenKey}
                 targeted={isTargeted}
               />
             );
@@ -431,6 +441,8 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
               shiftDisplayRank={isShiftAnim ? visual.cardAfter?.rank : undefined}
               highlightGroup={highlights.get(card.id) ?? null}
               slotAnchor={slotAnchor}
+              tokenSlotKey={tokenKey}
+              tokens={tokens}
               targeted={isTargeted}
               untargetable={blockedByStatus}
               onClick={selectable ? () => handleSlotClick(ownerId, slot) : undefined}
@@ -452,8 +464,17 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
   }, [initialGame, runIntroReveal]);
 
   return (
-    <div className={`game-board ${boardInputBlocked ? 'is-animating' : ''}`}>
-      {!shuffleDone && <DeckShuffleIntro onComplete={handleIntroComplete} />}
+    <div className={`game-board ${game.gameMode === 'full_deck' ? 'game-board--full-deck' : ''} ${boardInputBlocked ? 'is-animating' : ''}`}>
+      <HowToPlayFab onClick={() => setShowHowToPlay(true)} />
+      {showHowToPlay && <HowToPlayGuide onClose={() => setShowHowToPlay(false)} />}
+
+      {!vsIntroDone && (
+        <VsIntroScreen
+          opponentLabel={opponentLabel}
+          onComplete={() => setVsIntroDone(true)}
+        />
+      )}
+      {vsIntroDone && !shuffleDone && <DeckShuffleIntro onComplete={handleIntroComplete} />}
 
       {visual.deckTravel && (
         <CardFromDeckFlight
@@ -480,6 +501,7 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
         <CommitToLaneFlight
           request={visual.laneFlight}
           onComplete={completeCommitToLane}
+          onDepart={() => hideEffectInHand(visual.laneFlight!.effectId)}
         />
       )}
 
@@ -492,8 +514,26 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
           request={visual.handToCenter}
           onComplete={completeHandToCenter}
           onDepart={() => {
-            if (visual.handToCenter) departLaneCard(visual.handToCenter.effectId);
+            if (!visual.handToCenter) return;
+            const id = visual.handToCenter.effectId;
+            const onLane = visual.commitLanes.some(c => c.effectId === id && !c.departed);
+            if (onLane) departLaneCard(id);
+            else hideEffectInHand(id);
           }}
+        />
+      )}
+
+      {visual.slotMachine && (
+        <SlotMachineReveal
+          request={visual.slotMachine}
+          onComplete={completeSlotMachine}
+        />
+      )}
+
+      {visual.effectShred && (
+        <EffectShredOverlay
+          request={visual.effectShred}
+          onComplete={completeEffectShred}
         />
       )}
 
@@ -531,11 +571,13 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
         <EffectCastOverlay cast={visual.castOverlay} phase={visual.castPhase} />
       )}
 
-      <ResolutionSequencerUI
-        sequencer={visual.sequencer}
-        showFastForward={isSequencerActive}
-        onFastForward={requestFastForward}
-      />
+      {isFinished && (
+        <MatchEndCinematic
+          game={game}
+          online={!!online}
+          onRestart={onRestart}
+        />
+      )}
 
       <LeftSidebar
         playerHand={playerHand.length > 0 ? playerHand : null}
@@ -543,79 +585,14 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
         logEntries={displayGame.log}
       />
 
-      {/* ═══ BATTLEFIELD ═══ */}
-      <div className="battlefield">
-        <div className="cast-center-anchor">
-          <div className="cast-center-measure" data-cast-center-anchor="measure" aria-hidden />
-          {visual.centerHeldEffect && (
-            <CenterHeldEffect effect={visual.centerHeldEffect.effect} />
-          )}
-        </div>
-
-        <CommitRevealLanes lanes={visual.commitLanes} />
-
-        {resolutionFeed && (
-          <div className="resolution-feed-anchor">
-            <ResolutionFeed
-              queue={resolutionFeed.queue}
-              completedCount={resolutionFeed.completed}
-              isAnimating={isAnimating || resolving}
-              latestLog={resolutionFeed.latestLog}
-            />
-          </div>
-        )}
-
-        {/* ── Enemy territory ── */}
-        <section className={`zone zone--bot ${activeLaneOwner === 'bot' ? 'zone--resolving-active' : ''}`}>
-          <div className="zone-top-bar">
-            <HandRankBadge cards={botHand} />
-            <OpponentEffectStack
-              effects={displayGame.players.bot.effectHand}
-              ownerId="bot"
-              onCardClick={handleOpponentEffectPick}
-              selectable={canPickOpponentEffects}
-              revealedSpyIds={revealedSpyEffectIds}
-              spyFlipEffectId={visual.spyFlipEffectId}
-              targetEffectId={visual.targetEffectId}
-              hiddenEffectIds={hiddenEffectIds}
-              overlayMaskEffectId={
-                visual.spyReveal?.victimOwnerId === 'bot'
-                  ? visual.spyReveal.victimEffect.id
-                  : visual.forceDelete?.victimOwnerId === 'bot'
-                    ? visual.forceDelete.victimEffect.id
-                    : null
-              }
-            />
-          </div>
-          {renderArenaRows('bot')}
-        </section>
-
-        {/* ── VS divider ── */}
-        <section className="battle-center">
-          <div className="battle-divider" />
-          <span className="vs-label">— VS&ensp;Round {displayGame.currentRound}/{TOTAL_ROUNDS} —</span>
-
-          {isFinished && (
-            <div className="result-banner">
-              <span className="result-text">
-                {game.winner === 'player' && 'Kazandın!'}
-                {game.winner === 'bot' && (online ? 'Rakip kazandı' : 'Bot kazandı')}
-                {game.winner === 'tie' && 'Berabere'}
-              </span>
-              <button type="button" className="btn-restart" onClick={onRestart}>
-                {online ? 'Ana Menü' : 'Yeni Maç'}
-              </button>
-            </div>
-          )}
-        </section>
-
-        {/* ── Player territory ── */}
-        <section className={`zone zone--player ${activeLaneOwner === 'player' ? 'zone--resolving-active' : ''}`}>
-          {renderArenaRows('player')}
-
-          {/* ── Arena HUD strip ── */}
-          <div className="arena-hud">
-            <HandRankBadge cards={playerHand} />
+      <RightSidebar
+        opponentLabel={opponentLabel}
+        isFinished={isFinished}
+        winner={game.winner}
+        game={displayGame}
+        resolving={resolving}
+        actions={(
+          <>
             {isCommitting && !isFinished && (
               <span className="slots-left">{slotsLeft} kart</span>
             )}
@@ -642,35 +619,105 @@ export function GameBoard({ playerDeck, botDeck, onRestart, online }: GameBoardP
             {online?.opponentLocked && !online.youLocked && isCommitting && (
               <span className="online-status-msg online-status-msg--urgent">Rakip kilitledi — sen de kilitle!</span>
             )}
-          </div>
+          </>
+        )}
+      />
 
-          <div className="effect-tray">
-            <span className="effect-tray-label">Efektler ({displayGame.players.player.effectHand.length})</span>
-            <div className="effect-row">
-              {displayGame.players.player.effectHand.map(card => {
-                if (hiddenEffectIds.has(card.id)) return null;
-                const overlayHidden = visual.spyReveal?.victimEffect.id === card.id
-                  || visual.forceDelete?.victimEffect.id === card.id;
-                return (
-                <div
-                  key={card.id}
-                  className={`effect-flight-anchor${overlayHidden ? ' effect-flight-anchor--overlay-active' : ''}`}
-                  data-effect-anchor={`player-${card.id}`}
-                >
-                  <EffectCardView
-                    card={card}
-                    onClick={() => handleEffectClick(card.id)}
-                    disabled={effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type)}
-                    selected={usedEffectIds.has(card.id)}
-                    spyRevealed={revealedSpyEffectIds.has(card.id)}
-                    spyFlipping={visual.spyFlipEffectId === card.id}
+      {/* ═══ BATTLEFIELD ═══ */}
+      <div className="battlefield">
+        <BattlefieldArena />
+
+        <CommitRevealLanes
+          lanes={visual.commitLanes}
+          overlayMaskEffectId={overlayMaskEffectId}
+        />
+
+        <div className="cast-center-anchor">
+          <div className="cast-center-measure" data-cast-center-anchor="measure" aria-hidden />
+          {visual.centerHeldEffect && (
+            <CenterHeldEffect effect={visual.centerHeldEffect.effect} />
+          )}
+        </div>
+
+        <div className="battlefield-stack">
+          {/* ── Top half — bot (mirrors bottom half) ── */}
+          <div className="battlefield-half battlefield-half--bot">
+            <section className={`zone zone--bot ${activeLaneOwner === 'bot' ? 'zone--resolving-active' : ''} ${getMatchEndZoneClass('bot', game.winner, matchEndPhase)}`}>
+              <div className="effect-band effect-band--bot">
+                <div className="effect-band__cards">
+                  <OpponentEffectStack
+                    effects={displayGame.players.bot.effectHand}
+                    ownerId="bot"
+                    onCardClick={handleOpponentEffectPick}
+                    selectable={canPickOpponentEffects}
+                    revealedSpyIds={revealedSpyEffectIds}
+                    spyFlipEffectId={visual.spyFlipEffectId}
+                    targetEffectId={visual.targetEffectId}
+                    hiddenEffectIds={hiddenEffectIds}
+                    overlayMaskEffectId={
+                      overlayMaskEffectId && visual.spyReveal?.victimOwnerId === 'bot'
+                        ? overlayMaskEffectId
+                        : overlayMaskEffectId && visual.forceDelete?.victimOwnerId === 'bot'
+                          ? overlayMaskEffectId
+                          : overlayMaskEffectId && visual.effectShred?.ownerId === 'bot'
+                            ? overlayMaskEffectId
+                            : null
+                    }
                   />
                 </div>
-                );
-              })}
-            </div>
+              </div>
+
+              <div className="battlefield-half-core">
+                <div className="arena-hud arena-hud--compact">
+                  <HandRankBadge cards={botHand} />
+                </div>
+                {renderArenaRows('bot')}
+              </div>
+            </section>
           </div>
-        </section>
+
+          {/* ── Bottom half — player (mirrors top half) ── */}
+          <div className="battlefield-half battlefield-half--player">
+            <section className={`zone zone--player ${activeLaneOwner === 'player' ? 'zone--resolving-active' : ''} ${getMatchEndZoneClass('player', game.winner, matchEndPhase)}`}>
+              <div className="battlefield-half-core">
+                {renderArenaRows('player')}
+
+                <div className="arena-hud arena-hud--compact">
+                  <HandRankBadge cards={playerHand} />
+                </div>
+              </div>
+
+              <div className="effect-band effect-band--player">
+                <div className="effect-band__cards">
+                  <div className="effect-row">
+                    {displayGame.players.player.effectHand.map(card => {
+                      if (hiddenEffectIds.has(card.id)) return null;
+                      const overlayHidden = visual.spyReveal?.victimEffect.id === card.id
+                        || visual.forceDelete?.victimEffect.id === card.id
+                        || visual.effectShred?.effectId === card.id;
+                      return (
+                        <div
+                          key={card.id}
+                          className={`effect-flight-anchor${overlayHidden ? ' effect-flight-anchor--overlay-active' : ''}`}
+                          data-effect-anchor={`player-${card.id}`}
+                        >
+                          <EffectCardView
+                            card={card}
+                            onClick={() => handleEffectClick(card.id)}
+                            disabled={effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type)}
+                            selected={usedEffectIds.has(card.id)}
+                            spyRevealed={revealedSpyEffectIds.has(card.id)}
+                            spyFlipping={visual.spyFlipEffectId === card.id}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
       </div>
     </div>
   );

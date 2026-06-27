@@ -24,11 +24,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 76px;
-  height: 106px;
-  border-radius: 10px;
-  border: 1.5px solid rgba(0, 0, 0, 0.1);
-  background: var(--card-bg);
+  width: 96px;
+  height: 134px;
+  border-radius: var(--theme-card-face-radius, 10px);
+  border: 1.5px solid var(--theme-card-face-border, rgba(0, 0, 0, 0.1));
+  background: var(--theme-card-face-bg, var(--card-bg));
   box-shadow:
     0 2px 4px rgba(0, 0, 0, 0.15),
     0 6px 16px rgba(0, 0, 0, 0.2),
@@ -47,29 +47,29 @@
 
 /* ── Player cards — LARGER ── */
 .hand-row--player .playing-card {
-  width: 100px;
-  height: 140px;
-  border-radius: 12px;
+  width: 124px;
+  height: 173px;
+  border-radius: 14px;
 }
 
-.hand-row--player .card-rank { font-size: 1.05rem; }
-.hand-row--player .card-suit-sm { font-size: 0.7rem; }
-.hand-row--player .card-suit-center { font-size: 1.8rem; }
-.hand-row--player .card-corner-tl { top: 7px; left: 8px; }
-.hand-row--player .card-corner-br { bottom: 7px; right: 8px; }
+.hand-row--player .card-rank { font-size: 1.25rem; }
+.hand-row--player .card-suit-sm { font-size: 0.82rem; }
+.hand-row--player .card-suit-center { font-size: 2.2rem; }
+.hand-row--player .card-corner-tl { top: 8px; left: 9px; }
+.hand-row--player .card-corner-br { bottom: 8px; right: 9px; }
 
 /* ── Player empty slots also larger ── */
 .hand-row--player .playing-card-empty-slot {
-  width: 100px;
-  height: 140px;
-  border-radius: 12px;
+  width: 124px;
+  height: 173px;
+  border-radius: 14px;
 }
 
-.hand-row--player .playing-empty-icon { font-size: 1.6rem; }
+.hand-row--player .playing-empty-icon { font-size: 1.9rem; }
 
 /* Card colors */
-.playing-card.red { color: #b91c1c; }
-.playing-card.black { color: #1a1a2e; }
+.playing-card.red { color: var(--theme-red-suit, #b91c1c); }
+.playing-card.black { color: var(--theme-black-suit, #1a1a2e); }
 
 /* ── Hover — dramatic 3D lift ── */
 .playing-card:hover:not(:disabled) {
@@ -122,8 +122,8 @@
 
 /* ── Card back (hidden/mystery) ── */
 .playing-card-back-face {
-  background: linear-gradient(155deg, #152a45 0%, #1c3758 50%, #112238 100%);
-  border-color: rgba(28, 55, 88, 0.6);
+  background: var(--theme-card-back-bg, linear-gradient(155deg, #152a45 0%, #1c3758 50%, #112238 100%));
+  border-color: var(--theme-card-back-border, rgba(28, 55, 88, 0.6));
   color: rgba(212, 168, 67, 0.4);
   cursor: default;
 }
@@ -449,8 +449,8 @@
 .effect-card-compact .effect-card-gem { width: 6px; height: 6px; }
 
 .effect-card--board {
-  width: 88px;
-  height: 122px;
+  width: 110px;
+  height: 154px;
 }
 
 .effect-card--board .effect-card-header { padding: 5px 4px 0; }
@@ -461,8 +461,8 @@
 .effect-card--board .effect-card-gem { width: 7px; height: 7px; }
 
 .effect-card--board-bot {
-  width: 76px;
-  height: 106px;
+  width: 96px;
+  height: 134px;
 }
 
 .effect-card--board-bot .effect-card-header { padding: 4px 3px 0; }
@@ -473,16 +473,16 @@
 .effect-card--board-bot .effect-card-gem { width: 7px; height: 7px; }
 
 .effect-card--board-player {
-  width: 100px;
-  height: 140px;
+  width: 124px;
+  height: 173px;
 }
 
-.effect-card--board-player .effect-card-header { padding: 6px 4px 0; }
-.effect-card--board-player .effect-card-name { font-size: 0.52rem; }
-.effect-card--board-player .effect-card-art { min-height: 48px; padding: 4px 0; }
-.effect-card--board-player .effect-card-icon-badge { width: 36px; height: 36px; border-radius: 10px; }
-.effect-card--board-player .effect-card-desc { font-size: 0.44rem; -webkit-line-clamp: 2; padding: 0 4px 6px; }
-.effect-card--board-player .effect-card-gem { width: 8px; height: 8px; }
+.effect-card--board-player .effect-card-header { padding: 7px 5px 0; }
+.effect-card--board-player .effect-card-name { font-size: 0.56rem; }
+.effect-card--board-player .effect-card-art { min-height: 56px; padding: 4px 0; }
+.effect-card--board-player .effect-card-icon-badge { width: 40px; height: 40px; border-radius: 11px; }
+.effect-card--board-player .effect-card-desc { font-size: 0.46rem; -webkit-line-clamp: 2; padding: 0 5px 7px; }
+.effect-card--board-player .effect-card-gem { width: 9px; height: 9px; }
 
 .effect-card-back.compact {
   width: 46px;
@@ -550,8 +550,8 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border: 1.5px solid;
-  background: var(--effect-card-bg);
+  border: var(--theme-effect-card-border, 1.5px solid);
+  background: var(--theme-effect-card-bg, var(--effect-card-bg));
   box-shadow:
     0 4px 14px rgba(0, 0, 0, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -776,8 +776,8 @@
   width: 46px;
   height: 64px;
   border-radius: 8px;
-  border: 2px solid rgba(74, 48, 96, 0.6);
-  background: linear-gradient(155deg, #1c0e38 0%, #30205c 50%, #140a2c 100%);
+  border: 2px solid var(--theme-card-back-border, rgba(74, 48, 96, 0.6));
+  background: var(--theme-card-back-bg, linear-gradient(155deg, #1c0e38 0%, #30205c 50%, #140a2c 100%));
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
   cursor: default;
   padding: 0;
@@ -928,7 +928,101 @@
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  gap: 6px;
+  gap: clamp(4px, 0.5vw, 7px);
+}
+
+/* Effect band — fluid width tied to game-board layout vars */
+.effect-band .effect-row .effect-card,
+.effect-band .effect-row .effect-card-back {
+  width: var(--effect-card-w);
+  height: auto;
+  aspect-ratio: 86 / 120;
+  flex: 0 0 auto;
+  transform-origin: bottom center;
+}
+
+.effect-band .effect-row .effect-card-back {
+  width: var(--effect-card-w);
+  height: auto;
+  aspect-ratio: 86 / 120;
+  border-radius: 10px;
+}
+
+.effect-band .effect-row .effect-back-emblem {
+  font-size: clamp(0.9rem, 1.8vw, 1.2rem);
+}
+
+.effect-band .effect-row .effect-card-name {
+  font-size: clamp(0.46rem, 0.95vw, 0.58rem);
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+}
+
+.effect-band .effect-row .effect-card-header {
+  padding: 5px 4px 1px;
+}
+
+.effect-band .effect-row .effect-card-art {
+  min-height: 0;
+  flex: 1;
+  padding: 2px 0;
+}
+
+.effect-band .effect-row .effect-card-icon-badge {
+  width: clamp(26px, 3.6vw, 36px);
+  height: clamp(26px, 3.6vw, 36px);
+  border-radius: 8px;
+}
+
+.effect-band .effect-row .effect-card-desc {
+  display: -webkit-box;
+  font-size: clamp(0.40rem, 0.78vw, 0.48rem);
+  line-height: 1.25;
+  -webkit-line-clamp: 2;
+  padding: 2px 4px 6px;
+}
+
+.effect-band .effect-row .effect-card:hover:not(:disabled),
+.effect-band .effect-row .effect-card-back:hover:not(:disabled) {
+  transform: translateY(-4px) scale(1.28);
+  z-index: 200;
+}
+
+.effect-band .effect-row .effect-card:hover:not(:disabled) .effect-card-name {
+  font-size: clamp(0.56rem, 1.1vw, 0.68rem);
+}
+
+.effect-band .effect-row .effect-card:hover:not(:disabled) .effect-card-desc {
+  display: block;
+  -webkit-line-clamp: unset;
+  font-size: clamp(0.46rem, 0.9vw, 0.56rem);
+  line-height: 1.3;
+}
+
+.effect-band .effect-row .effect-card:hover:not(:disabled) .effect-card-icon-badge {
+  width: clamp(34px, 4.8vw, 48px);
+  height: clamp(34px, 4.8vw, 48px);
+  border-radius: 10px;
+}
+
+.effect-band .effect-row .effect-card:hover:not(:disabled) .effect-card-frame {
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.55),
+    0 0 20px var(--effect-accent-glow);
+}
+
+.effect-band--player .effect-row .effect-card.selected {
+  transform: scale(1.12);
+}
+
+/* Tam Deste: 10 cards — width from .game-board--full-deck */
+.game-board--full-deck .effect-band .effect-row {
+  gap: clamp(3px, 0.4vw, 7px);
+}
+
+.game-board--full-deck .effect-band--player .effect-row .effect-card-desc {
+  -webkit-line-clamp: 2;
+  font-size: clamp(0.38rem, 0.68vw, 0.46rem);
 }
 
 
@@ -975,68 +1069,71 @@
 
 
 /* ═══ Token Slot Rows — full card-sized slots ═══ */
-.token-slot-row {
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-}
+/* ═══════════════════════════════════════════════════════
+   UNDER-CARD TOKEN BADGES
+   Effect token icons that peek out from under the poker card
+   ═══════════════════════════════════════════════════════ */
 
-.token-slot {
+.playing-card-slot {
   position: relative;
-  flex-shrink: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
 }
 
-.token-slot-placeholder {
-  width: 100%;
-  height: 100%;
-  border: 2px dashed rgba(255, 255, 255, 0.1);
-  border-radius: 11px;
-  background: rgba(10, 20, 35, 0.3);
-}
-
-.token-slot-stack {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-.token-slot-card {
+.card-under-tokens {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.token-slot-card .effect-card {
+  bottom: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+  z-index: 0;
   pointer-events: none;
-  opacity: 1;
 }
 
-.token-slot-card--leaving {
-  animation: token-pop-out 0.2s ease-in forwards;
+.card-under-token {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(15, 25, 50, 0.92);
+  border: 1.5px solid rgba(212, 168, 67, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  animation: token-badge-enter 200ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-@keyframes token-pop-out {
+@keyframes token-badge-enter {
+  from { opacity: 0; transform: scale(0.5) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.card-under-token--leaving {
+  animation: token-badge-leave 200ms ease-in forwards;
+}
+
+@keyframes token-badge-leave {
   from { opacity: 1; transform: scale(1); }
-  to   { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 0; transform: scale(0.6) translateY(4px); }
 }
 
-.token-rounds {
+.card-under-token-icon {
+  opacity: 0.9;
+}
+
+.card-under-token-rounds {
   position: absolute;
-  top: -5px;
-  right: -5px;
-  width: 14px;
-  height: 14px;
+  top: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: var(--accent-gold, #d4a843);
   color: #000;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10;
+  line-height: 1;
 }

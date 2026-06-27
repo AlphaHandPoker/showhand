@@ -6,6 +6,8 @@ import { EFFECT_NAMES } from '../game/types';
 import { EFFECT_CATEGORY, getEffectDescription } from '../game/effectMeta';
 import { EffectIcon } from '../ui/EffectIcon';
 import { getEffectDrawClass } from '../ui/detectAnimations';
+import { useTheme } from '../theme/ThemeContext';
+import type { EffectToken } from '../ui/effectTokens';
 import './Card.css';
 
 interface PlayingCardViewProps {
@@ -23,6 +25,8 @@ interface PlayingCardViewProps {
   slotAnchor?: string;
   untargetable?: boolean;
   targeted?: boolean;
+  tokens?: EffectToken[];
+  tokenSlotKey?: string;
 }
 
 export function PlayingCardSlot({
@@ -38,21 +42,23 @@ export function PlayingCardSlot({
   slotAnchor,
   untargetable,
   targeted,
+  tokens = [],
+  tokenSlotKey,
 }: PlayingCardViewProps) {
+  const { theme } = useTheme();
   const slotClass = ['playing-card-slot', targeted && 'playing-card-slot--targeted'].filter(Boolean).join(' ');
 
   if (hidden) {
     return (
-      <div className={slotClass} data-slot-anchor={slotAnchor}>
+      <div className={slotClass} data-slot-anchor={slotAnchor} data-token-slot-anchor={tokenSlotKey}>
         <button
           type="button"
           className={['playing-card', 'playing-card-back-face', selected && 'selected', animClass].filter(Boolean).join(' ')}
           onClick={onClick}
           disabled={!onClick}
         >
-          <span className="playing-back-emblem">?</span>
+          <span className="playing-back-emblem">{theme.cardBackEmblem}</span>
         </button>
-        <div className="status-slot status-empty" aria-hidden />
       </div>
     );
   }
@@ -65,7 +71,25 @@ export function PlayingCardSlot({
   const protectTurns = isProtected ? card.protectedUntilTurn - currentTurn + 1 : 0;
 
   return (
-    <div className={slotClass} data-slot-anchor={slotAnchor}>
+    <div className={slotClass} data-slot-anchor={slotAnchor} data-token-slot-anchor={tokenSlotKey}>
+      {/* Tokens peek out from under the card */}
+      {tokens.length > 0 && (
+        <div className="card-under-tokens" aria-hidden>
+          {tokens.map((tok, i) => (
+            <div
+              key={tok.id}
+              className={['card-under-token', tok.leaving && 'card-under-token--leaving'].filter(Boolean).join(' ')}
+              style={{ zIndex: i + 1 }}
+              title={EFFECT_NAMES[tok.effect.type]}
+            >
+              <EffectIcon type={tok.effect.type} size={11} className="card-under-token-icon" />
+              {tok.roundsLeft !== undefined && (
+                <span className="card-under-token-rounds">{tok.roundsLeft}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
       <button
         type="button"
         className={[
@@ -111,9 +135,6 @@ export function PlayingCardSlot({
           </div>
         )}
       </button>
-      <div className="status-slot-row">
-        <div className="status-slot status-empty" aria-hidden />
-      </div>
     </div>
   );
 }
@@ -247,6 +268,7 @@ export function EffectCardBack({
   targeted,
   readOnly,
 }: EffectCardBackProps) {
+  const { theme } = useTheme();
   const className = [
     'effect-card-back',
     selected && 'selected',
@@ -261,7 +283,7 @@ export function EffectCardBack({
   const inner = (
     <>
       <div className="effect-back-pattern" />
-      <span className="effect-back-emblem">✦</span>
+      <span className="effect-back-emblem">{theme.cardBackEmblem}</span>
     </>
   );
 
@@ -312,54 +334,49 @@ export function OpponentEffectStack({
   overlayMaskEffectId = null,
 }: OpponentEffectStackProps) {
   return (
-    <div className="opponent-effect-stack">
-      <span className="effect-count-label">{effects.length} efekt kartı</span>
-      <div className="effect-back-row">
-        {effects.map(effect => {
-          if (hiddenEffectIds.has(effect.id)) return null;
-          const isFlipping = spyFlipEffectId === effect.id;
-          const isRevealed = revealedSpyIds.has(effect.id) && !isFlipping;
-          const isTargeted = targetEffectId === effect.id;
-          const overlayMasked = overlayMaskEffectId === effect.id;
+    <div className="effect-row">
+      {effects.map(effect => {
+        if (hiddenEffectIds.has(effect.id)) return null;
+        const isFlipping = spyFlipEffectId === effect.id;
+        const isRevealed = revealedSpyIds.has(effect.id) && !isFlipping;
+        const isTargeted = targetEffectId === effect.id;
+        const overlayMasked = overlayMaskEffectId === effect.id;
 
-          if (isRevealed) {
-            return (
-              <div
-                key={effect.id}
-                className={overlayMasked ? 'effect-flight-anchor--overlay-active' : undefined}
-                data-effect-anchor={`${ownerId}-${effect.id}`}
-              >
-                <EffectCardView
-                  card={effect}
-                  compact
-                  spyRevealed
-                  spyFlipping={isFlipping}
-                  targeted={isTargeted}
-                  onClick={selectable && onCardClick ? () => onCardClick(effect.id) : undefined}
-                  disabled={!selectable}
-                />
-              </div>
-            );
-          }
-
+        if (isRevealed) {
           return (
             <div
               key={effect.id}
-              className={overlayMasked ? 'effect-flight-anchor--overlay-active' : undefined}
+              className={`effect-flight-anchor${overlayMasked ? ' effect-flight-anchor--overlay-active' : ''}`}
               data-effect-anchor={`${ownerId}-${effect.id}`}
             >
-              <EffectCardBack
+              <EffectCardView
+                card={effect}
+                spyRevealed
                 spyFlipping={isFlipping}
                 targeted={isTargeted}
-                animClass={getEffectDrawClass(effect.id, drawingEffectIds)}
                 onClick={selectable && onCardClick ? () => onCardClick(effect.id) : undefined}
                 disabled={!selectable}
-                compact
               />
             </div>
           );
-        })}
-      </div>
+        }
+
+        return (
+          <div
+            key={effect.id}
+            className={`effect-flight-anchor${overlayMasked ? ' effect-flight-anchor--overlay-active' : ''}`}
+            data-effect-anchor={`${ownerId}-${effect.id}`}
+          >
+            <EffectCardBack
+              spyFlipping={isFlipping}
+              targeted={isTargeted}
+              animClass={getEffectDrawClass(effect.id, drawingEffectIds)}
+              onClick={selectable && onCardClick ? () => onCardClick(effect.id) : undefined}
+              disabled={!selectable}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -375,14 +392,13 @@ export function DeckPile({ count }: { count: number }) {
   );
 }
 
-export function PokerCardEmptySlot({ slotAnchor, targeted }: { slotAnchor?: string; targeted?: boolean }) {
+export function PokerCardEmptySlot({ slotAnchor, targeted, tokenSlotKey }: { slotAnchor?: string; targeted?: boolean; tokenSlotKey?: string }) {
   const slotClass = ['playing-card-slot', targeted && 'playing-card-slot--targeted'].filter(Boolean).join(' ');
   return (
-    <div className={slotClass} data-slot-anchor={slotAnchor}>
+    <div className={slotClass} data-slot-anchor={slotAnchor} data-token-slot-anchor={tokenSlotKey}>
       <div className="playing-card playing-card-empty-slot" aria-hidden>
         <span className="playing-empty-icon">+</span>
       </div>
-      <div className="status-slot status-empty" aria-hidden />
     </div>
   );
 }

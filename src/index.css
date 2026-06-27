@@ -1,9 +1,22 @@
-/* Reset Vite defaults — our App.css handles everything */
+/* Reset Vite defaults — App.css handles global layout */
 :root {
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html,
+body {
+  width: 100%;
+  margin: 0;
+  overflow-x: hidden;
 }
 
 #root {
@@ -13,10 +26,8 @@
   text-align: left;
   border: none;
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   display: block;
   box-sizing: border-box;
-}
-
-body {
-  margin: 0;
 }

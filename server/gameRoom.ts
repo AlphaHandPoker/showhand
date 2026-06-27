@@ -1,7 +1,8 @@
 import type { EffectType } from '../src/game/types.js';
-import type { CommittedAction, GameState } from '../src/game/types.js';
+import type { CommittedAction, GameState, GameMode } from '../src/game/types.js';
 import { createGame, lockBothPlayerCommits, resolveNextInQueue, validateCommittedActions } from '../src/game/gameEngine.js';
-import { validateDeckSelection } from '../src/game/deckBuilder.js';
+import { buildFullEffectDeck, validateDeckSelection } from '../src/game/deckBuilder.js';
+import { skipsDraft } from '../src/game/gameModes.js';
 import { toViewerState, viewerActionsToServer } from '../src/game/gameView.js';
 import type {
   RoomCommitStatus,
@@ -19,6 +20,7 @@ export interface GameRoom {
   /** socket.id per slot; null = empty */
   slots: [string | null, string | null];
   status: RoomStatus;
+  gameMode: GameMode;
   createdAt: number;
   /** Submitted effect decks per slot */
   drafts: [EffectType[] | null, EffectType[] | null];
@@ -61,7 +63,7 @@ export class GameRoomManager {
   /** socket.id → room code */
   private socketRoom = new Map<string, string>();
 
-  createRoom(socketId: string): { code: string; slot: 0 | 1 } {
+  createRoom(socketId: string, gameMode: GameMode = 'draft'): { code: string; slot: 0 | 1 } {
     if (this.socketRoom.has(socketId)) {
       const existingCode = this.socketRoom.get(socketId)!;
       const room = this.rooms.get(existingCode);
@@ -80,6 +82,7 @@ export class GameRoomManager {
       code,
       slots: [socketId, null],
       status: 'waiting',
+      gameMode,
       createdAt: Date.now(),
       drafts: [null, null],
       gameState: null,
@@ -105,7 +108,11 @@ export class GameRoomManager {
     this.socketRoom.set(socketId, code);
 
     if (bothConnected(room) && room.status === 'waiting') {
-      room.status = 'drafting';
+      if (skipsDraft(room.gameMode)) {
+        this.startMatch(room);
+      } else {
+        room.status = 'drafting';
+      }
     }
 
     return { code, slot };
@@ -204,9 +211,13 @@ export class GameRoomManager {
   }
 
   private startMatch(room: GameRoom): void {
-    if (!room.drafts[0] || !room.drafts[1]) return;
-
-    room.gameState = createGame(room.drafts[0], room.drafts[1]);
+    if (skipsDraft(room.gameMode)) {
+      const deck = buildFullEffectDeck();
+      room.gameState = createGame(deck, deck, 'full_deck');
+    } else {
+      if (!room.drafts[0] || !room.drafts[1]) return;
+      room.gameState = createGame(room.drafts[0], room.drafts[1], 'draft');
+    }
     room.status = 'playing';
     room.pendingCommits = [null, null];
     room.resolving = false;
@@ -290,9 +301,10 @@ export class GameRoomManager {
 
     let message: string;
     if (room.status === 'waiting') {
+      const modeLabel = room.gameMode === 'full_deck' ? 'Tam Deste' : 'Klasik';
       message = yourSlot === 0
-        ? 'Oda oluşturuldu — arkadaşının katılmasını bekliyorsun'
-        : 'Bağlandın — oda sahibi bekleniyor';
+        ? `Oda oluşturuldu (${modeLabel}) — arkadaşının katılmasını bekliyorsun`
+        : `Bağlandın (${modeLabel}) — oda sahibi bekleniyor`;
     } else if (room.status === 'drafting') {
       if (!youSubmitted) {
         message = 'Efekt desteni seç ve kilitle';
@@ -330,6 +342,7 @@ export class GameRoomManager {
       code: room.code,
       yourSlot,
       status: room.status,
+      gameMode: room.gameMode,
       players,
       message,
       draft,

@@ -18,6 +18,8 @@ import type { EffectHandToCenterRequest } from '../components/EffectHandToCenter
 import type { CommitToLaneRequest } from '../components/CommitToLaneFlight';
 import type { EffectCard } from '../game/types';
 import type { InPlaceCardSpinRequest } from '../components/InPlaceCardSpin';
+import type { SlotMachineRequest } from '../components/SlotMachineReveal';
+import type { EffectShredRequest } from '../components/EffectShredOverlay';
 import { playHitCardSound } from '../audio/sounds';
 import type { SpyRevealRequest } from '../components/SpyRevealOverlay';
 import type { ForceDeleteRequest } from '../components/ForceDeleteOverlay';
@@ -46,7 +48,7 @@ import {
 import type { SequencerUIState } from '../components/ResolutionSequencerUI';
 import { IDLE_SEQUENCER } from '../components/ResolutionSequencerUI';
 import type { TargetSlot } from '../ui/resolutionTargets';
-import { buildCommitLanes, type CommitLaneCard } from '../ui/commitLanes';
+import { buildCommitLanes, activeLaneHiddenIds, type CommitLaneCard } from '../ui/commitLanes';
 import { formatFizzleToast, parseFizzleReason, type FizzleToastContent } from '../ui/fizzleMessages';
 
 // ── Timing constants ──
@@ -89,6 +91,8 @@ export interface AnimationVisualState {
   cardSwap: CardSwapRequest | null;
   handToCenter: EffectHandToCenterRequest | null;
   inPlaceSpin: InPlaceCardSpinRequest | null;
+  slotMachine: SlotMachineRequest | null;
+  effectShred: EffectShredRequest | null;
   spyReveal: SpyRevealRequest | null;
   forceDelete: ForceDeleteRequest | null;
   effectToSlot: EffectToSlotRequest | null;
@@ -120,6 +124,8 @@ const IDLE_VISUAL: AnimationVisualState = {
   cardSwap: null,
   handToCenter: null,
   inPlaceSpin: null,
+  slotMachine: null,
+  effectShred: null,
   spyReveal: null,
   forceDelete: null,
   effectToSlot: null,
@@ -315,6 +321,8 @@ export function useAnimatedGame(initial: GameState) {
   const handToCenterResolveRef = useRef<(() => void) | null>(null);
   const commitToLaneResolveRef = useRef<(() => void) | null>(null);
   const inPlaceSpinResolveRef = useRef<(() => void) | null>(null);
+  const slotMachineResolveRef = useRef<(() => void) | null>(null);
+  const effectShredResolveRef = useRef<(() => void) | null>(null);
   const spyRevealResolveRef = useRef<(() => void) | null>(null);
   const forceDeleteResolveRef = useRef<(() => void) | null>(null);
   const effectToSlotResolveRef = useRef<(() => void) | null>(null);
@@ -330,6 +338,8 @@ export function useAnimatedGame(initial: GameState) {
     handToCenterResolveRef.current?.();
     commitToLaneResolveRef.current?.();
     inPlaceSpinResolveRef.current?.();
+    slotMachineResolveRef.current?.();
+    effectShredResolveRef.current?.();
     spyRevealResolveRef.current?.();
     forceDeleteResolveRef.current?.();
     effectToSlotResolveRef.current?.();
@@ -374,6 +384,8 @@ export function useAnimatedGame(initial: GameState) {
     inPlaceSpinResolveRef.current?.();
     inPlaceSpinResolveRef.current = null;
   }, []);
+  const completeSlotMachine = useCallback(createOverlayRunner(slotMachineResolveRef), []);
+  const completeEffectShred = useCallback(createOverlayRunner(effectShredResolveRef), []);
   const completeSpyReveal = useCallback(createOverlayRunner(spyRevealResolveRef), []);
   const completeForceDelete = useCallback(createOverlayRunner(forceDeleteResolveRef), []);
   const completeEffectToSlot = useCallback(createOverlayRunner(effectToSlotResolveRef), []);
@@ -391,6 +403,15 @@ export function useAnimatedGame(initial: GameState) {
       commitLanes: v.commitLanes.map(c =>
         c.effectId === effectId ? { ...c, departed: true, active: false } : c,
       ),
+    }));
+  }, []);
+
+  const hideEffectInHand = useCallback((effectId: string) => {
+    setVisual(v => ({
+      ...v,
+      hiddenEffectIds: v.hiddenEffectIds.includes(effectId)
+        ? v.hiddenEffectIds
+        : [...v.hiddenEffectIds, effectId],
     }));
   }, []);
 
@@ -435,7 +456,7 @@ export function useAnimatedGame(initial: GameState) {
       ...v,
       isAnimating: true,
       commitLanes: lanes,
-      hiddenEffectIds: lanes.map(l => l.effectId),
+      hiddenEffectIds: [],
     }));
     await afterPaint();
 
@@ -456,10 +477,14 @@ export function useAnimatedGame(initial: GameState) {
       setVisual(v => ({
         ...v,
         laneFlight: null,
-        hiddenEffectIds: v.hiddenEffectIds.filter(id => id !== card.effectId),
       }));
       await holdForMs(COMMIT_TO_LANE_STAGGER_MS);
     }
+
+    setVisual(v => ({
+      ...v,
+      hiddenEffectIds: activeLaneHiddenIds(lanes),
+    }));
   };
 
   // ── Sequential round-end draws (after resolution → new round) ──
@@ -656,6 +681,8 @@ export function useAnimatedGame(initial: GameState) {
       cardSwap: null,
       handToCenter: null,
       inPlaceSpin: null,
+      slotMachine: null,
+      effectShred: null,
       spyReveal: null,
       forceDelete: null,
       effectToSlot: null,
@@ -721,6 +748,7 @@ export function useAnimatedGame(initial: GameState) {
         sequencer: v.sequencer,
         slotTokens: v.slotTokens,
         commitLanes: v.commitLanes,
+        hiddenEffectIds: activeLaneHiddenIds(v.commitLanes),
         fizzleToast: null,
       }));
       await wait(SETTLE_MS);
@@ -832,19 +860,18 @@ export function useAnimatedGame(initial: GameState) {
       && !skipRef.current
     ) {
       await afterPaint();
-      await waitOverlay(inPlaceSpinResolveRef, () => {
+      await waitOverlay(slotMachineResolveRef, () => {
         setVisual(v => ({
           ...v,
-          inPlaceSpin: {
+          slotMachine: {
             mode: plan.mechanical === 'transform' ? 'transform' : 'shift',
             cardBefore: plan.cardBefore!,
             cardAfter: plan.cardAfter!,
-            ownerId: plan.playerId,
           },
           hiddenCardIds: [plan.cardBefore!.id, ...roundEndDrawIds],
         }));
       });
-      setVisual(v => ({ ...v, inPlaceSpin: null }));
+      setVisual(v => ({ ...v, slotMachine: null }));
     } else if (plan.mechanical === 'spy' && victimEffect && !skipRef.current) {
       setVisual(v => ({
         ...v,
@@ -946,7 +973,7 @@ export function useAnimatedGame(initial: GameState) {
       targetCardIds: [],
       targetSlots: [],
       targetEffectId: null,
-      hiddenEffectIds: [],
+      hiddenEffectIds: activeLaneHiddenIds(v.commitLanes),
       hiddenCardIds: roundEndDrawIds,
       inFlightCardIds: [],
     }));
@@ -1072,6 +1099,7 @@ export function useAnimatedGame(initial: GameState) {
         sequencer: v.sequencer,
         slotTokens: v.slotTokens,
         commitLanes: next.phase === 'resolving' ? v.commitLanes : [],
+        hiddenEffectIds: next.phase === 'resolving' ? activeLaneHiddenIds(v.commitLanes) : [],
       }));
     });
 
@@ -1183,9 +1211,12 @@ export function useAnimatedGame(initial: GameState) {
     completeCardSwap,
     completeHandToCenter,
     departLaneCard: markLaneDeparted,
+    hideEffectInHand,
     clearCenterHeld,
     completeCommitToLane,
     completeInPlaceSpin,
+    completeSlotMachine,
+    completeEffectShred,
     completeSpyReveal,
     completeForceDelete,
     completeEffectToSlot,
