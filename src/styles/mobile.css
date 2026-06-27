@@ -31,6 +31,8 @@
     --poker-card-w-width: clamp(46px, calc((100vw - 12px - 16px) / 5), 84px);
     --poker-card-w-height: clamp(46px, calc((100dvh - 320px) / 2.6), 84px);
     --effect-card-w: clamp(44px, calc((100vw - 16px) / 6.4), 70px);
+    --mobile-effect-focus-w: clamp(92px, 27vw, 124px);
+    --mobile-effect-focus-h: calc(var(--mobile-effect-focus-w) * 120 / 86);
     --effect-hover-pad-bot: 8px;
     --effect-hover-pad-player: 8px;
     --arena-row-gap: 6px;
@@ -87,7 +89,7 @@
   }
 
   /* ─────────────────────────────────────────────
-     MOBILE — description-only cards, grow in place
+     MOBILE — description chips + focus slot (full card)
      ───────────────────────────────────────────── */
   .game-board--mobile .effect-band,
   .game-board--mobile .effect-band__cards,
@@ -154,49 +156,80 @@
       0 0 10px rgba(212, 168, 67, 0.35);
   }
 
-  /* Scale up from the card's slot — stays in the row */
-  .game-board--mobile .playing-card-slot--mobile-expanded,
-  .game-board--mobile .effect-flight-anchor--mobile-expanded {
+  /* Hide the source chip while the full card sits in the focus slot */
+  .game-board--mobile .effect-flight-anchor--mobile-source-hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Full-format card between poker row and effect hand */
+  .mobile-effect-focus {
+    display: none;
+  }
+
+  .game-board--mobile .mobile-effect-focus {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    min-height: calc(var(--mobile-effect-focus-h) + 10px);
+    padding: 6px 0 8px;
+    flex-shrink: 0;
+    z-index: 40;
+    animation: mobile-effect-focus-in 240ms cubic-bezier(0.34, 1.2, 0.64, 1);
+  }
+
+  @keyframes mobile-effect-focus-in {
+    from { opacity: 0; transform: scale(0.88); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .game-board--mobile .mobile-effect-focus .effect-card {
+    width: var(--mobile-effect-focus-w) !important;
+    height: var(--mobile-effect-focus-h) !important;
+    flex-shrink: 0;
+    transform: none !important;
+    pointer-events: auto;
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.38),
+      0 0 0 2px rgba(212, 168, 67, 0.28);
+  }
+
+  .game-board--mobile .mobile-effect-focus .effect-card:hover:not(:disabled) {
+    transform: none !important;
+  }
+
+  .game-board--mobile .mobile-effect-focus .effect-card.selected {
+    transform: none !important;
+    box-shadow:
+      0 0 0 2px var(--accent-gold),
+      0 0 18px rgba(212, 168, 67, 0.45),
+      0 8px 24px rgba(0, 0, 0, 0.38);
+  }
+
+  .game-board--mobile .mobile-effect-focus .effect-card-name {
+    font-size: 0.58rem !important;
+  }
+
+  .game-board--mobile .mobile-effect-focus .effect-card-desc {
+    display: -webkit-box !important;
+    font-size: 0.48rem !important;
+    line-height: 1.35 !important;
+    -webkit-line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    padding: 0 7px 8px !important;
+  }
+
+  .game-board--mobile .mobile-effect-focus .effect-card-icon-badge {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  /* Poker cards still scale in place when tapped for inspect */
+  .game-board--mobile .playing-card-slot--mobile-expanded {
     z-index: 280 !important;
     position: relative;
-  }
-
-  .game-board--mobile .mobile-card-expanded {
-    position: relative !important;
-    z-index: 280 !important;
-    transition:
-      transform 220ms cubic-bezier(0.34, 1.25, 0.64, 1),
-      box-shadow 220ms ease;
-    box-shadow:
-      0 10px 28px rgba(0, 0, 0, 0.45),
-      0 0 0 2px rgba(212, 168, 67, 0.35) !important;
-  }
-
-  .game-board--mobile .effect-band--player .effect-card.mobile-card-expanded {
-    transform: scale(2.25) !important;
-    transform-origin: center bottom;
-  }
-
-  .game-board--mobile .effect-band--bot .effect-card.mobile-card-expanded {
-    transform: scale(2.25) !important;
-    transform-origin: center top;
-  }
-
-  .game-board--mobile .effect-band--player .effect-card.selected.mobile-card-expanded {
-    transform: scale(2.25) !important;
-    transform-origin: center bottom;
-  }
-
-  .game-board--mobile .effect-band--bot .effect-card.selected.mobile-card-expanded {
-    transform: scale(2.25) !important;
-    transform-origin: center top;
-  }
-
-  .game-board--mobile .effect-card.mobile-card-expanded .effect-card-desc--mobile {
-    -webkit-line-clamp: unset !important;
-    overflow: visible !important;
-    display: block !important;
-    padding: 8px 7px 10px !important;
   }
 
   .game-board--mobile .hand-row--player .playing-card.mobile-card-expanded {
@@ -209,7 +242,19 @@
     transform-origin: center top;
   }
 
-  .game-board.is-animating .mobile-card-expanded {
+  .game-board--mobile .playing-card.mobile-card-expanded {
+    position: relative !important;
+    z-index: 280 !important;
+    transition:
+      transform 220ms cubic-bezier(0.34, 1.25, 0.64, 1),
+      box-shadow 220ms ease;
+    box-shadow:
+      0 10px 28px rgba(0, 0, 0, 0.45),
+      0 0 0 2px rgba(212, 168, 67, 0.35) !important;
+  }
+
+  .game-board.is-animating .mobile-card-expanded,
+  .game-board.is-animating .mobile-effect-focus {
     pointer-events: none;
   }
 

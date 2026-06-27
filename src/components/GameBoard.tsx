@@ -444,6 +444,14 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
     [visual.hiddenEffectIds],
   );
 
+  const expandedPlayerEffect = useMemo(() => {
+    if (!isMobile || !expandedCardKey?.startsWith('effect-player-')) return null;
+    const effectId = expandedCardKey.slice('effect-player-'.length);
+    const effect = displayGame.players.player.effectHand.find(e => e.id === effectId);
+    if (!effect || hiddenEffectIds.has(effect.id)) return null;
+    return effect;
+  }, [isMobile, expandedCardKey, displayGame.players.player.effectHand, hiddenEffectIds]);
+
   const overlayMaskEffectId =
     visual.spyReveal?.victimEffect.id
     ?? visual.forceDelete?.victimEffect.id
@@ -808,6 +816,22 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
                 </div>
               </div>
 
+              {expandedPlayerEffect && (
+                <div className="mobile-effect-focus">
+                  <EffectCardView
+                    card={expandedPlayerEffect}
+                    boardSize="player"
+                    selected={
+                      usedEffectIds.has(expandedPlayerEffect.id)
+                      || pendingPick?.effectId === expandedPlayerEffect.id
+                    }
+                    onClick={() => handlePlayerEffectTap(expandedPlayerEffect.id)}
+                    spyRevealed={revealedSpyEffectIds.has(expandedPlayerEffect.id)}
+                    spyFlipping={visual.spyFlipEffectId === expandedPlayerEffect.id}
+                  />
+                </div>
+              )}
+
               <div className="effect-band effect-band--player">
                 <div className="effect-band__cards">
                   <div className="effect-row">
@@ -819,13 +843,12 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
                       return (
                         <div
                           key={card.id}
-                          className={`effect-flight-anchor${overlayHidden ? ' effect-flight-anchor--overlay-active' : ''}${expandedCardKey === effectExpandKey('player', card.id) ? ' effect-flight-anchor--mobile-expanded' : ''}`}
+                          className={`effect-flight-anchor${overlayHidden ? ' effect-flight-anchor--overlay-active' : ''}${expandedCardKey === effectExpandKey('player', card.id) ? ' effect-flight-anchor--mobile-source-hidden' : ''}`}
                           data-effect-anchor={`player-${card.id}`}
                         >
                           <EffectCardView
                             card={card}
                             textOnly={isMobile}
-                            mobileExpanded={isMobile && expandedCardKey === effectExpandKey('player', card.id)}
                             onClick={() => (isMobile ? handlePlayerEffectTap : handleEffectClick)(card.id)}
                             disabled={!isMobile && (effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type))}
                             selected={usedEffectIds.has(card.id) || pendingPick?.effectId === card.id}
