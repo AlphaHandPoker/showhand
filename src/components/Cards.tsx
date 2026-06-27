@@ -219,20 +219,32 @@ export function EffectCardView({
     mobileExpanded && 'mobile-card-expanded',
   ].filter(Boolean).join(' ');
 
-  const frame = (
+  const frame = textOnly ? (
+    <div className="effect-card-frame">
+      <div className="effect-card-desc effect-card-desc--mobile">{description}</div>
+      {spyRevealed && (
+        <>
+          <div className="card-status-badge card-status-badge--spy" title="Rakip bu kartı gördü">
+            <Eye size={10} strokeWidth={2.2} />
+          </div>
+          <div className="effect-spy-exposed-ribbon" aria-hidden>
+            Rakip görüyor
+          </div>
+        </>
+      )}
+    </div>
+  ) : (
     <div className="effect-card-frame">
       <div className="effect-card-header">
         <span className="effect-card-name">{EFFECT_NAMES[card.type]}</span>
       </div>
-      {!textOnly && (
-        <div className="effect-card-art">
-          <div className="effect-card-icon-badge">
-            <EffectIcon type={card.type} size={iconSize} className="effect-card-icon" />
-          </div>
+      <div className="effect-card-art">
+        <div className="effect-card-icon-badge">
+          <EffectIcon type={card.type} size={iconSize} className="effect-card-icon" />
         </div>
-      )}
-      {(!compact || textOnly) && <div className="effect-card-desc">{description}</div>}
-      {!textOnly && <div className="effect-card-gem" />}
+      </div>
+      {!compact && <div className="effect-card-desc">{description}</div>}
+      <div className="effect-card-gem" />
       {spyRevealed && (
         <>
           <div className="card-status-badge card-status-badge--spy" title="Rakip bu kartı gördü">

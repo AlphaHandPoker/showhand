@@ -246,16 +246,25 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
     setPendingPick(null);
   };
 
+  const pokerExpandKey = (ownerId: 'player' | 'bot', slotIndex: number) => `poker-${ownerId}-${slotIndex}`;
+  const effectExpandKey = (ownerId: 'player' | 'bot', effectId: string) => `effect-${ownerId}-${effectId}`;
+
   useEffect(() => {
     if (isAnimating) setExpandedCardKey(null);
   }, [isAnimating]);
 
+  useEffect(() => {
+    if (!isMobile || !pendingPick) return;
+    setExpandedCardKey(effectExpandKey('player', pendingPick.effectId));
+  }, [isMobile, pendingPick]);
+
+  const setMobileExpand = (key: string) => {
+    setExpandedCardKey(key);
+  };
+
   const toggleMobileExpand = (key: string) => {
     setExpandedCardKey(prev => (prev === key ? null : key));
   };
-
-  const pokerExpandKey = (ownerId: 'player' | 'bot', slotIndex: number) => `poker-${ownerId}-${slotIndex}`;
-  const effectExpandKey = (ownerId: 'player' | 'bot', effectId: string) => `effect-${ownerId}-${effectId}`;
 
   const handleOpponentEffectPick = (opponentEffectId: string) => {
     if (!canPickOpponentEffects || !pendingPick || pendingPick.step !== 'opponent_effect') return;
@@ -268,20 +277,25 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
   };
 
   const handlePokerTap = (ownerId: 'player' | 'bot', slotIndex: SlotIndex, selectable: boolean) => {
+    const key = pokerExpandKey(ownerId, slotIndex);
+    const card = displayGame.players[ownerId].pokerHand.find(c => c.slotIndex === slotIndex);
+
     if (selectable) {
-      setExpandedCardKey(null);
+      setMobileExpand(key);
       handleSlotClick(ownerId, slotIndex);
       return;
     }
-    const card = displayGame.players[ownerId].pokerHand.find(c => c.slotIndex === slotIndex);
+
     if (isMobile && card && !hiddenBoardCardIds.has(card.id)) {
-      toggleMobileExpand(pokerExpandKey(ownerId, slotIndex));
+      toggleMobileExpand(key);
     }
   };
 
   const handlePlayerEffectTap = (effectId: string) => {
     const effect = game.players.player.effectHand.find(e => e.id === effectId);
     if (!effect) return;
+
+    const key = effectExpandKey('player', effectId);
 
     const canPlay = canInteract
       && !pendingPick
@@ -290,25 +304,33 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
       && canCommitEffectType(game, 'player', effect.type);
 
     if (canPlay) {
-      setExpandedCardKey(null);
+      setMobileExpand(key);
       handleEffectClick(effectId);
       return;
     }
 
+    if (pendingPick?.effectId === effectId) {
+      setMobileExpand(key);
+      return;
+    }
+
     if (isMobile) {
-      toggleMobileExpand(effectExpandKey('player', effectId));
+      toggleMobileExpand(key);
     }
   };
 
   const handleOpponentEffectTap = (effectId: string, revealed: boolean) => {
+    const key = effectExpandKey('bot', effectId);
+
     if (canPickOpponentEffects) {
-      setExpandedCardKey(null);
+      setMobileExpand(key);
       handleOpponentEffectPick(effectId);
       return;
     }
+
     if (!isMobile || !revealed) return;
     const effect = displayGame.players.bot.effectHand.find(e => e.id === effectId);
-    if (effect) toggleMobileExpand(effectExpandKey('bot', effectId));
+    if (effect) toggleMobileExpand(key);
   };
 
   const handleEffectClick = (effectId: string) => {
@@ -529,13 +551,6 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
     <div className={`game-board ${game.gameMode === 'full_deck' ? 'game-board--full-deck' : ''} ${boardInputBlocked ? 'is-animating' : ''} ${mobileInfoOpen ? 'game-board--info-open' : ''}${isMobile ? ' game-board--mobile' : ''}${expandedCardKey ? ' game-board--card-expanded' : ''}`}>
       <HowToPlayFab onClick={() => setShowHowToPlay(true)} />
       {showHowToPlay && <HowToPlayGuide onClose={() => setShowHowToPlay(false)} />}
-      {expandedCardKey && (
-        <div
-          className="mobile-expand-scrim"
-          onClick={() => setExpandedCardKey(null)}
-          aria-hidden
-        />
-      )}
 
       {/* ═══ MOBILE TOP BAR (hidden on desktop via CSS) ═══ */}
       <div className="mobile-topbar">
@@ -813,7 +828,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
                             mobileExpanded={isMobile && expandedCardKey === effectExpandKey('player', card.id)}
                             onClick={() => (isMobile ? handlePlayerEffectTap : handleEffectClick)(card.id)}
                             disabled={!isMobile && (effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type))}
-                            selected={usedEffectIds.has(card.id)}
+                            selected={usedEffectIds.has(card.id) || pendingPick?.effectId === card.id}
                             spyRevealed={revealedSpyEffectIds.has(card.id)}
                             spyFlipping={visual.spyFlipEffectId === card.id}
                           />
