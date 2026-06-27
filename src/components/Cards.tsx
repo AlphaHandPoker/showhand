@@ -358,6 +358,7 @@ export function OpponentEffectStack({
             spyRevealed
             spyFlipping={isFlipping}
             targeted={isTargeted}
+            compact={mobileLanes}
             onClick={tappable ? () => onCardClick(effect.id, true) : undefined}
             disabled={!tappable}
           />
