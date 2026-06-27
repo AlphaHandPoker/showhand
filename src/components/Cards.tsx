@@ -311,7 +311,7 @@ export function EffectCardBack({
 interface OpponentEffectStackProps {
   effects: EffectCard[];
   ownerId: PlayerId;
-  onCardClick?: (effectId: string) => void;
+  onCardClick?: (effectId: string, revealed: boolean) => void;
   selectable?: boolean;
   drawingEffectIds?: string[];
   revealedSpyIds?: Set<string>;
@@ -354,7 +354,7 @@ export function OpponentEffectStack({
                 spyRevealed
                 spyFlipping={isFlipping}
                 targeted={isTargeted}
-                onClick={selectable && onCardClick ? () => onCardClick(effect.id) : undefined}
+                onClick={selectable && onCardClick ? () => onCardClick(effect.id, true) : undefined}
                 disabled={!selectable}
               />
             </div>
@@ -371,7 +371,7 @@ export function OpponentEffectStack({
               spyFlipping={isFlipping}
               targeted={isTargeted}
               animClass={getEffectDrawClass(effect.id, drawingEffectIds)}
-              onClick={selectable && onCardClick ? () => onCardClick(effect.id) : undefined}
+              onClick={selectable && onCardClick ? () => onCardClick(effect.id, false) : undefined}
               disabled={!selectable}
             />
           </div>

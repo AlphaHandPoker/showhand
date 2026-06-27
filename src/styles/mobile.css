@@ -87,6 +87,71 @@
   }
 
   /* ─────────────────────────────────────────────
+     MOBILE — text-only effect chips, tap to inspect
+     ───────────────────────────────────────────── */
+  .game-board--mobile .effect-band .effect-card,
+  .game-board--mobile .effect-band .effect-card-back {
+    height: auto !important;
+    min-height: 26px;
+    aspect-ratio: unset !important;
+    border-radius: 5px !important;
+  }
+
+  .game-board--mobile .effect-band .effect-card-art,
+  .game-board--mobile .effect-band .effect-card-desc,
+  .game-board--mobile .effect-band .effect-card-gem,
+  .game-board--mobile .effect-band .effect-spy-exposed-ribbon,
+  .game-board--mobile .effect-band .card-status-badge--spy {
+    display: none !important;
+  }
+
+  .game-board--mobile .effect-band .effect-card-header {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 4px !important;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .game-board--mobile .effect-band .effect-card-name {
+    display: block !important;
+    font-size: clamp(0.44rem, 2.4vw, 0.56rem) !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0.01em !important;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  .game-board--mobile .effect-band .effect-card:hover:not(:disabled),
+  .game-board--mobile .effect-band .effect-card-back:hover:not(:disabled) {
+    transform: none !important;
+    z-index: auto !important;
+  }
+
+  .game-board--mobile .effect-band .effect-card.selected {
+    transform: none !important;
+    box-shadow:
+      0 0 0 2px var(--accent-gold),
+      0 0 10px rgba(212, 168, 67, 0.35);
+  }
+
+  .game-board--mobile .effect-band .effect-card-back {
+    min-height: 26px;
+  }
+
+  .game-board--mobile .effect-band .effect-back-emblem {
+    font-size: clamp(0.5rem, 2.2vw, 0.65rem);
+  }
+
+  .game-board.is-animating .card-inspect-overlay {
+    pointer-events: auto;
+  }
+
+  /* ─────────────────────────────────────────────
      LEFT SIDEBAR → slide-in info drawer
      ───────────────────────────────────────────── */
   .left-sidebar {

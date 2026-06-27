@@ -134,6 +134,24 @@
   transform: none !important;
 }
 
+.card-inspect-effect--text-only {
+  width: min(100%, 240px) !important;
+}
+
+.card-inspect-effect--text-only .card-inspect-effect-frame {
+  min-height: auto;
+  padding: 14px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card-inspect-effect--text-only .effect-card-name {
+  font-size: 0.82rem !important;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
 .card-inspect-effect-frame {
   min-height: 210px;
 }

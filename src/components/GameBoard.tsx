@@ -37,7 +37,9 @@ import { VsIntroScreen } from './VsIntroScreen';
 import { BattlefieldArena } from './BattlefieldArena';
 import { MatchEndCinematic, getMatchEndZoneClass } from './MatchEndCinematic';
 import { useAnimatedGame } from '../hooks/useAnimatedGame';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { getCardAnimationClass } from '../ui/detectAnimations';
+import { CardInspectOverlay, type InspectTarget } from './CardInspectOverlay';
 import './GameBoard.css';
 import './DeckShuffleIntro.css';
 import './CardFromDeckFlight.css';
@@ -63,6 +65,7 @@ import './MatchEndCinematic.css';
 import './EffectToSlotFlight.css';
 import { HowToPlayFab, HowToPlayGuide } from './HowToPlayGuide';
 import './HowToPlayGuide.css';
+import './CardInspectOverlay.css';
 import { Menu, X } from 'lucide-react';
 
 interface GameBoardProps {
@@ -131,6 +134,8 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
   const [matchEndPhase, setMatchEndPhase] = useState<'idle' | 'highlight' | 'done'>('idle');
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
+  const [inspectTarget, setInspectTarget] = useState<InspectTarget | null>(null);
+  const isMobile = useIsMobile();
   const resolvingRef = useRef(false);
   const isFinished = game.phase === 'finished';
   const opponentLabel = online?.opponentLabel ?? 'Bot';
@@ -251,6 +256,71 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
       effectType: pendingPick.effectType,
       opponentEffectId,
     });
+  };
+
+  const inspectPoker = (
+    card: (typeof displayGame.players.player.pokerHand)[0],
+    ownerId: 'player' | 'bot',
+  ) => {
+    setInspectTarget({
+      kind: 'poker',
+      card,
+      ownerId,
+      ownerLabel: ownerId === 'player' ? 'Senin kartın' : opponentLabel,
+    });
+  };
+
+  const inspectEffect = (
+    card: (typeof displayGame.players.player.effectHand)[0],
+    ownerId: 'player' | 'bot',
+  ) => {
+    setInspectTarget({
+      kind: 'effect',
+      card,
+      ownerId,
+      ownerLabel: ownerId === 'player' ? 'Senin efektin' : `${opponentLabel} efekti`,
+    });
+  };
+
+  const handlePokerTap = (ownerId: 'player' | 'bot', slotIndex: SlotIndex, selectable: boolean) => {
+    if (selectable) {
+      handleSlotClick(ownerId, slotIndex);
+      return;
+    }
+    const card = displayGame.players[ownerId].pokerHand.find(c => c.slotIndex === slotIndex);
+    if (isMobile && card && !hiddenBoardCardIds.has(card.id)) {
+      inspectPoker(card, ownerId);
+    }
+  };
+
+  const handlePlayerEffectTap = (effectId: string) => {
+    const effect = game.players.player.effectHand.find(e => e.id === effectId);
+    if (!effect) return;
+
+    const canPlay = canInteract
+      && !pendingPick
+      && slotsLeft > 0
+      && !usedEffectIds.has(effectId)
+      && canCommitEffectType(game, 'player', effect.type);
+
+    if (canPlay) {
+      handleEffectClick(effectId);
+      return;
+    }
+
+    if (isMobile) {
+      inspectEffect(effect, 'player');
+    }
+  };
+
+  const handleOpponentEffectTap = (effectId: string, revealed: boolean) => {
+    if (canPickOpponentEffects) {
+      handleOpponentEffectPick(effectId);
+      return;
+    }
+    if (!isMobile || !revealed) return;
+    const effect = displayGame.players.bot.effectHand.find(e => e.id === effectId);
+    if (effect) inspectEffect(effect, 'bot');
   };
 
   const handleEffectClick = (effectId: string) => {
@@ -448,7 +518,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
               tokens={tokens}
               targeted={isTargeted}
               untargetable={blockedByStatus}
-              onClick={selectable ? () => handleSlotClick(ownerId, slot) : undefined}
+              onClick={selectable || isMobile ? () => handlePokerTap(ownerId, slot, selectable) : undefined}
             />
           );
         })}
@@ -467,9 +537,16 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
   }, [initialGame, runIntroReveal]);
 
   return (
-    <div className={`game-board ${game.gameMode === 'full_deck' ? 'game-board--full-deck' : ''} ${boardInputBlocked ? 'is-animating' : ''} ${mobileInfoOpen ? 'game-board--info-open' : ''}`}>
+    <div className={`game-board ${game.gameMode === 'full_deck' ? 'game-board--full-deck' : ''} ${boardInputBlocked ? 'is-animating' : ''} ${mobileInfoOpen ? 'game-board--info-open' : ''}${isMobile ? ' game-board--mobile' : ''}`}>
       <HowToPlayFab onClick={() => setShowHowToPlay(true)} />
       {showHowToPlay && <HowToPlayGuide onClose={() => setShowHowToPlay(false)} />}
+      {inspectTarget && (
+        <CardInspectOverlay
+          target={inspectTarget}
+          currentTurn={game.currentRound}
+          onClose={() => setInspectTarget(null)}
+        />
+      )}
 
       {/* ═══ MOBILE TOP BAR (hidden on desktop via CSS) ═══ */}
       <div className="mobile-topbar">
@@ -686,8 +763,8 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
                   <OpponentEffectStack
                     effects={displayGame.players.bot.effectHand}
                     ownerId="bot"
-                    onCardClick={handleOpponentEffectPick}
-                    selectable={canPickOpponentEffects}
+                    onCardClick={isMobile ? handleOpponentEffectTap : id => handleOpponentEffectPick(id)}
+                    selectable={canPickOpponentEffects || isMobile}
                     revealedSpyIds={revealedSpyEffectIds}
                     spyFlipEffectId={visual.spyFlipEffectId}
                     targetEffectId={visual.targetEffectId}
@@ -741,8 +818,8 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
                         >
                           <EffectCardView
                             card={card}
-                            onClick={() => handleEffectClick(card.id)}
-                            disabled={effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type)}
+                            onClick={() => (isMobile ? handlePlayerEffectTap : handleEffectClick)(card.id)}
+                            disabled={!isMobile && (effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type))}
                             selected={usedEffectIds.has(card.id)}
                             spyRevealed={revealedSpyEffectIds.has(card.id)}
                             spyFlipping={visual.spyFlipEffectId === card.id}

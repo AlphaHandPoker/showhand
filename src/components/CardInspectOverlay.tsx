@@ -3,7 +3,6 @@ import type { EffectCard, PlayingCard } from '../game/types';
 import { EFFECT_NAMES } from '../game/types';
 import { cardLabel, suitSymbol, suitColor } from '../game/deck';
 import { getEffectDescription, EFFECT_CATEGORY } from '../game/effectMeta';
-import { EffectIcon } from '../ui/EffectIcon';
 import { Snowflake, Shield, Eye } from 'lucide-react';
 import './CardInspectOverlay.css';
 import './Card.css';
@@ -110,18 +109,12 @@ function EffectInspect({ card, ownerId }: { card: EffectCard; ownerId: 'player' 
 
   return (
     <div className="card-inspect-effect-wrap">
-      <div className={`effect-card effect-card-large card-inspect-effect effect-cat-${category}`}>
+      <div className={`effect-card effect-card-large card-inspect-effect card-inspect-effect--text-only effect-cat-${category}`}>
         <div className="effect-card-frame card-inspect-effect-frame">
           <div className="effect-card-header">
             <span className="effect-card-name">{EFFECT_NAMES[card.type]}</span>
           </div>
-          <div className="effect-card-art">
-            <div className="effect-card-icon-badge card-inspect-effect-icon">
-              <EffectIcon type={card.type} size={36} className="effect-card-icon" />
-            </div>
-          </div>
           <div className="effect-card-desc card-inspect-effect-desc">{description}</div>
-          <div className="effect-card-gem" />
         </div>
       </div>
       <p className="card-inspect-title">{EFFECT_NAMES[card.type]}</p>
