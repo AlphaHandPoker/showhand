@@ -517,11 +517,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
     });
 
     if (isMobile) {
-      return (
-        <PokerCardLanes variant={ownerId === 'player' ? 'player' : 'bot'}>
-          {slotCells}
-        </PokerCardLanes>
-      );
+      return <PokerCardLanes>{slotCells}</PokerCardLanes>;
     }
 
     return (
