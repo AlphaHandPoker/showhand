@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CommittedAction, EffectType, GameState, SlotIndex, GameMode } from '../game/types';
-import { HAND_SIZE } from '../game/types';
+import { HAND_SIZE, TOTAL_ROUNDS } from '../game/types';
 import { maxCardsForState } from '../game/gameModes';
 import {
   createGame, lockPlayerCommit, resolveNextInQueue,
@@ -15,6 +15,7 @@ import {
 import { HandRankBadge } from './HandRankBadge';
 import { LeftSidebar } from './LeftSidebar';
 import { RightSidebar } from './RightSidebar';
+import { RoundOrderIndicator } from './RoundOrderIndicator';
 import { EffectCastOverlay } from './EffectCastOverlay';
 import { DeckShuffleIntro } from './DeckShuffleIntro';
 import { CardFromDeckFlight } from './CardFromDeckFlight';
@@ -62,6 +63,7 @@ import './MatchEndCinematic.css';
 import './EffectToSlotFlight.css';
 import { HowToPlayFab, HowToPlayGuide } from './HowToPlayGuide';
 import './HowToPlayGuide.css';
+import { Menu, X } from 'lucide-react';
 
 interface GameBoardProps {
   playerDeck: EffectType[];
@@ -128,6 +130,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
   const [introReady, setIntroReady] = useState(false);
   const [matchEndPhase, setMatchEndPhase] = useState<'idle' | 'highlight' | 'done'>('idle');
   const [showHowToPlay, setShowHowToPlay] = useState(false);
+  const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
   const resolvingRef = useRef(false);
   const isFinished = game.phase === 'finished';
   const opponentLabel = online?.opponentLabel ?? 'Bot';
@@ -464,9 +467,44 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
   }, [initialGame, runIntroReveal]);
 
   return (
-    <div className={`game-board ${game.gameMode === 'full_deck' ? 'game-board--full-deck' : ''} ${boardInputBlocked ? 'is-animating' : ''}`}>
+    <div className={`game-board ${game.gameMode === 'full_deck' ? 'game-board--full-deck' : ''} ${boardInputBlocked ? 'is-animating' : ''} ${mobileInfoOpen ? 'game-board--info-open' : ''}`}>
       <HowToPlayFab onClick={() => setShowHowToPlay(true)} />
       {showHowToPlay && <HowToPlayGuide onClose={() => setShowHowToPlay(false)} />}
+
+      {/* ═══ MOBILE TOP BAR (hidden on desktop via CSS) ═══ */}
+      <div className="mobile-topbar">
+        <div className="mobile-topbar__info">
+          <span className="mobile-round-pill">
+            <span className="mobile-round-pill__num">{Math.min(displayGame.currentRound, TOTAL_ROUNDS)}</span>
+            <span className="mobile-round-pill__sep">/</span>
+            <span className="mobile-round-pill__total">{TOTAL_ROUNDS}</span>
+          </span>
+          <div className="mobile-topbar__order">
+            <RoundOrderIndicator
+              game={displayGame}
+              resolving={resolving}
+              opponentLabel={opponentLabel}
+              variant="rail"
+            />
+          </div>
+        </div>
+        <button
+          type="button"
+          className="mobile-info-btn"
+          onClick={() => setMobileInfoOpen(o => !o)}
+          aria-label={mobileInfoOpen ? 'Bilgi panelini kapat' : 'Bilgi panelini aç'}
+          aria-expanded={mobileInfoOpen}
+        >
+          {mobileInfoOpen ? <X size={18} /> : <Menu size={18} />}
+        </button>
+      </div>
+      {mobileInfoOpen && (
+        <div
+          className="mobile-scrim"
+          onClick={() => setMobileInfoOpen(false)}
+          aria-hidden
+        />
+      )}
 
       {!vsIntroDone && (
         <VsIntroScreen

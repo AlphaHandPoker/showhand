@@ -1,0 +1,527 @@
+/* ═══════════════════════════════════════════════════════════════
+   SHOWHAND — Mobile / touch responsive layer
+   Loaded LAST so these overrides win the cascade.
+   Desktop layout is untouched above the 768px breakpoint.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Mobile-only chrome is hidden on desktop by default */
+.mobile-topbar,
+.mobile-scrim {
+  display: none;
+}
+
+/* ════════════════════════════════════════════════
+   PRIMARY MOBILE BREAKPOINT
+   ════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── Global type scale-down for dense screens ── */
+  body {
+    font-size: 13px;
+  }
+
+  /* ─────────────────────────────────────────────
+     GAME BOARD — single full-bleed column
+     ───────────────────────────────────────────── */
+  .game-board {
+    --sidebar-width: 0px;
+    --center-width: 100vw;
+    --board-pad-x: 6px;
+    --poker-gap: 4px;
+    --poker-card-w-width: clamp(46px, calc((100vw - 12px - 16px) / 5), 84px);
+    --poker-card-w-height: clamp(46px, calc((100dvh - 320px) / 2.6), 84px);
+    --effect-card-w: clamp(44px, calc((100vw - 16px) / 6.4), 70px);
+    --effect-hover-pad-bot: 8px;
+    --effect-hover-pad-player: 8px;
+    --arena-row-gap: 6px;
+
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .game-board--full-deck {
+    --effect-card-w: clamp(28px, calc((100vw - 20px) / 10.6), 58px);
+  }
+
+  /* During animations the desktop disables pointer events on the whole
+     board — keep the mobile chrome usable so the player isn't trapped. */
+  .game-board.is-animating .mobile-topbar,
+  .game-board.is-animating .mobile-info-btn,
+  .game-board.is-animating .mobile-scrim,
+  .game-board.is-animating .left-sidebar {
+    pointer-events: auto;
+  }
+
+  .battlefield {
+    grid-column: 1;
+    grid-row: 1;
+    padding-top: 48px;            /* room for the fixed top bar */
+    padding-bottom: 76px;         /* room for the fixed action bar */
+  }
+
+  .battlefield-stack {
+    padding: 0 var(--board-pad-x);
+  }
+
+  .battlefield-half--bot {
+    padding-top: 2px;
+  }
+
+  .battlefield-half--player {
+    padding-bottom: 2px;
+  }
+
+  .arena-hud,
+  .arena-hud--compact {
+    min-height: 34px;
+    padding: 2px 0;
+  }
+
+  .effect-band .effect-row {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .battlefield-half-core {
+    gap: 6px;
+  }
+
+  /* ─────────────────────────────────────────────
+     LEFT SIDEBAR → slide-in info drawer
+     ───────────────────────────────────────────── */
+  .left-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(84vw, 330px);
+    max-width: min(84vw, 330px);
+    transform: translateX(-104%);
+    transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 200;
+    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.55);
+    border-right: 1px solid rgba(212, 168, 67, 0.25);
+  }
+
+  .game-board--info-open .left-sidebar {
+    transform: translateX(0);
+  }
+
+  .mobile-scrim {
+    display: block;
+    position: fixed;
+    top: 46px;                    /* leave the top bar tappable while open */
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 190;
+    background: rgba(3, 8, 14, 0.55);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    animation: mobile-scrim-in 220ms ease-out;
+  }
+
+  @keyframes mobile-scrim-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* ─────────────────────────────────────────────
+     RIGHT SIDEBAR → fixed bottom action bar
+     Only the action cluster survives; avatars + round
+     order move to the top bar / drawer.
+     ───────────────────────────────────────────── */
+  .right-sidebar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: none;
+    grid-template-rows: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-left: none;
+    border-top: 1px solid rgba(212, 168, 67, 0.18);
+    z-index: 60;
+    padding: 0 0 env(safe-area-inset-bottom, 0px);
+    background: linear-gradient(0deg, rgba(7, 14, 24, 0.98) 0%, rgba(9, 18, 31, 0.92) 100%);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  .right-sidebar-header,
+  .right-sidebar-top,
+  .right-sidebar-bottom {
+    display: none;
+  }
+
+  .right-sidebar-actions {
+    grid-row: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 8px;
+    padding: 9px 12px;
+    border: none;
+    background: transparent;
+    min-height: 60px;
+  }
+
+  .right-sidebar-actions .btn-lock {
+    width: auto;
+    flex: 1 1 auto;
+    max-width: 320px;
+    padding: 13px 24px;
+    font-size: 0.84rem;
+  }
+
+  .right-sidebar-actions .btn-cancel {
+    width: auto;
+    padding: 9px 16px;
+  }
+
+  .right-sidebar-actions .slots-left {
+    width: auto;
+    flex: 0 0 auto;
+  }
+
+  .right-sidebar-actions .pick-hint,
+  .right-sidebar-actions .online-status-msg {
+    flex: 1 1 100%;
+    font-size: 0.66rem;
+  }
+
+  /* ─────────────────────────────────────────────
+     MOBILE TOP BAR
+     ───────────────────────────────────────────── */
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 46px;
+    padding: 0 10px 0 50px;       /* left pad clears the how-to-play "i" FAB */
+    z-index: 60;
+    background: linear-gradient(180deg, rgba(7, 14, 24, 0.96) 0%, rgba(9, 18, 31, 0.85) 100%);
+    border-bottom: 1px solid rgba(212, 168, 67, 0.16);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    pointer-events: auto;
+  }
+
+  .mobile-topbar__info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .mobile-round-pill {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 1px;
+    flex-shrink: 0;
+    padding: 4px 11px;
+    border-radius: var(--radius-pill);
+    background: rgba(212, 168, 67, 0.12);
+    border: 1px solid rgba(212, 168, 67, 0.28);
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+  }
+
+  .mobile-round-pill__num {
+    font-size: 0.86rem;
+    font-weight: 800;
+    color: var(--accent-gold);
+  }
+
+  .mobile-round-pill__sep,
+  .mobile-round-pill__total {
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+
+  .mobile-topbar__order {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  /* Recompose the rail round-order indicator into an inline chip */
+  .mobile-topbar__order .round-order-sidebar--rail {
+    min-height: 0;
+    height: auto;
+    width: auto;
+    padding: 4px 11px;
+    border-radius: var(--radius-pill);
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    box-shadow: none;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .mobile-topbar__order .round-order-sidebar--rail.round-order-sidebar--player {
+    box-shadow: inset 0 0 0 1px rgba(46, 204, 113, 0.35);
+  }
+
+  .mobile-topbar__order .round-order-sidebar--rail.round-order-sidebar--opponent {
+    box-shadow: inset 0 0 0 1px rgba(192, 57, 43, 0.35);
+  }
+
+  .mobile-topbar__order .round-order-sidebar-title {
+    display: none;
+  }
+
+  .mobile-topbar__order .round-order-sidebar-value {
+    font-size: 0.66rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-info-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    border: 1px solid rgba(212, 168, 67, 0.3);
+    background: rgba(212, 168, 67, 0.1);
+    color: var(--accent-gold);
+    cursor: pointer;
+    transition: background 150ms ease, transform 120ms ease;
+    pointer-events: auto;
+  }
+
+  .mobile-info-btn:active {
+    transform: scale(0.94);
+  }
+
+  /* Re-anchor the how-to-play FAB neatly into the top bar's left slot */
+  .htp-fab {
+    top: 6px;
+    left: 8px;
+    width: 34px;
+    height: 34px;
+    z-index: 65;
+    font-size: 0.95rem;
+  }
+
+  /* ── Result / banners scale ── */
+  .result-text {
+    font-size: 1.3rem;
+  }
+
+  /* ════════════════════════════════════════════════
+     NON-GAME SCREENS
+     ════════════════════════════════════════════════ */
+
+  /* Home / main menu */
+  .home-screen {
+    padding: 28px 20px;
+  }
+
+  .home-header {
+    margin-bottom: 30px;
+  }
+
+  .home-header h1 {
+    font-size: 2.1rem;
+    letter-spacing: 0.16em;
+  }
+
+  .home-tagline {
+    font-size: 0.92rem;
+    padding: 0 8px;
+  }
+
+  .home-actions {
+    width: 100%;
+    max-width: 360px;
+  }
+
+  .home-btn {
+    padding: 15px 20px;
+    font-size: 0.92rem;
+  }
+
+  /* Mode picker */
+  .mode-picker-screen {
+    padding: 28px 20px;
+    gap: 22px;
+  }
+
+  .mode-picker-header h1 {
+    font-size: 1.35rem;
+  }
+
+  .mode-picker-options,
+  .lobby-mode-select {
+    width: 100%;
+    max-width: 380px;
+  }
+
+  /* Draft screen → single column, horizontal hand */
+  .draft-screen {
+    padding: 20px 14px 120px;
+  }
+
+  .draft-header {
+    margin-bottom: 20px;
+  }
+
+  .draft-header h1 {
+    font-size: 1.7rem;
+  }
+
+  .draft-subtitle {
+    font-size: 0.86rem;
+    padding: 0 6px;
+  }
+
+  .draft-layout {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .draft-pool-grid {
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 9px;
+  }
+
+  .draft-hand {
+    position: static;
+    padding: 14px;
+  }
+
+  .draft-hand-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    min-height: 0;
+    margin-bottom: 14px;
+  }
+
+  .draft-hand-row .draft-slot,
+  .draft-hand-row .draft-slot-empty {
+    width: clamp(54px, 17vw, 78px);
+  }
+
+  .draft-slot-empty {
+    height: clamp(76px, 24vw, 108px);
+  }
+
+  /* How-to-play modal */
+  .htp-panel {
+    max-height: 94vh;
+    border-radius: 14px;
+  }
+
+  .htp-header {
+    padding: 16px 16px 10px;
+  }
+
+  .htp-header h2 {
+    font-size: 1.2rem;
+  }
+
+  .htp-nav {
+    padding: 8px 14px 12px;
+  }
+
+  .htp-body {
+    padding: 16px 16px 22px;
+  }
+
+  .htp-lead {
+    font-size: 0.95rem;
+  }
+
+  .htp-effect-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .htp-flow {
+    gap: 4px;
+    padding: 12px;
+  }
+
+  /* Cosmetics modal */
+  .cosmetics-panel {
+    padding: 18px 16px 20px;
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+}
+
+/* ════════════════════════════════════════════════
+   SMALL PHONES — extra tightening
+   ════════════════════════════════════════════════ */
+@media (max-width: 380px) {
+  .game-board {
+    --board-pad-x: 4px;
+    --poker-gap: 3px;
+  }
+
+  .home-header h1 {
+    font-size: 1.85rem;
+  }
+
+  .mobile-topbar__order .round-order-sidebar-value {
+    max-width: 96px;
+  }
+}
+
+/* ════════════════════════════════════════════════
+   LANDSCAPE PHONES — very short viewports
+   ════════════════════════════════════════════════ */
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
+  .game-board {
+    --poker-card-w-height: clamp(38px, calc((100dvh - 230px) / 2.4), 60px);
+    --effect-card-w: clamp(30px, 6.5vh, 48px);
+    --effect-hover-pad-bot: 3px;
+    --effect-hover-pad-player: 3px;
+    --arena-row-gap: 3px;
+  }
+
+  .game-board--full-deck {
+    --effect-card-w: clamp(26px, 5vh, 40px);
+  }
+
+  .battlefield {
+    padding-top: 42px;
+    padding-bottom: 58px;
+  }
+
+  .battlefield-half-core {
+    gap: 3px;
+  }
+
+  .arena-hud,
+  .arena-hud--compact {
+    min-height: 26px;
+  }
+
+  .right-sidebar-actions {
+    min-height: 48px;
+    padding: 6px 12px;
+  }
+
+  .right-sidebar-actions .btn-lock {
+    padding: 9px 20px;
+  }
+}

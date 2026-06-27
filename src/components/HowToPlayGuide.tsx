@@ -279,7 +279,7 @@ export function HowToPlayGuide({ onClose }: HowToPlayGuideProps) {
                 { n: '1', t: 'Efekt kartına tıkla', d: 'Oynamak istediğin efekti seç (tur başına en fazla 2).' },
                 { n: '2', t: 'Hedef seç', d: 'Kendi slotun, rakip slotu veya rakip efekt sırtı — efekt türüne göre değişir.' },
                 { n: '3', t: 'İkinci efekt (isteğe bağlı)', d: 'Başka efekt ekleyebilir veya doğrudan kilitleyebilirsin.' },
-                { n: '4', t: 'Kilitle veya Pas Geç', d: 'Sağ paneldeki altın buton. Pas = 0 efekt ile kilitle.' },
+                { n: '4', t: 'Kilitle veya Pas Geç', d: 'Ekrandaki altın buton. Pas = 0 efekt ile kilitle.' },
                 { n: '5', t: 'Çözülmeyi izle', d: 'Efektler sırayla oynanır; olay günlüğünden takip et.' },
               ].map(step => (
                 <div key={step.n} className="htp-play-step">
