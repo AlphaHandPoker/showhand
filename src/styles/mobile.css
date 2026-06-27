@@ -26,13 +26,13 @@
   .game-board {
     --sidebar-width: 0px;
     --center-width: 100vw;
-    --board-pad-x: 6px;
-    --poker-gap: 4px;
-    --poker-card-w-width: clamp(46px, calc((100vw - 12px - 16px) / 5), 84px);
-    --poker-card-w-height: clamp(46px, calc((100dvh - 320px) / 2.6), 84px);
-    --effect-card-w: clamp(44px, calc((100vw - 16px) / 6.4), 70px);
-    --effect-hover-pad-bot: 8px;
-    --effect-hover-pad-player: 8px;
+    --board-pad-x: 8px;
+    --poker-gap: 5px;
+    --poker-card-w-width: clamp(52px, calc((100vw - 32px) / 5), 76px);
+    --poker-card-w-height: clamp(52px, calc((100vw - 32px) / 5), 76px);
+    --effect-card-w: clamp(46px, calc((100vw - 32px) / 5), 68px);
+    --effect-hover-pad-bot: 4px;
+    --effect-hover-pad-player: 4px;
     --arena-row-gap: 6px;
 
     grid-template-columns: minmax(0, 1fr);
@@ -40,7 +40,7 @@
   }
 
   .game-board--full-deck {
-    --effect-card-w: clamp(28px, calc((100vw - 20px) / 10.6), 58px);
+    --effect-card-w: clamp(46px, calc((100vw - 32px) / 5), 68px);
   }
 
   /* During animations the desktop disables pointer events on the whole
@@ -84,6 +84,251 @@
 
   .battlefield-half-core {
     gap: 6px;
+  }
+
+  /* ─────────────────────────────────────────────
+     MOBILE 5×2 LANES — explicit DOM structure
+     ───────────────────────────────────────────── */
+  .game-board {
+    --mobile-lane-gap: 6px;
+    --mobile-lane-cols: 5;
+    --mobile-card-col: calc(
+      (100vw - 2 * var(--board-pad-x) - (var(--mobile-lane-cols) - 1) * var(--mobile-lane-gap))
+      / var(--mobile-lane-cols)
+    );
+    --poker-card-w-width: clamp(54px, var(--mobile-card-col), 78px);
+    --poker-card-w-height: clamp(54px, var(--mobile-card-col), 78px);
+    --effect-card-w: clamp(48px, var(--mobile-card-col), 72px);
+    --effect-hover-pad-bot: 4px;
+    --effect-hover-pad-player: 4px;
+  }
+
+  .game-board--full-deck {
+    --effect-card-w: clamp(48px, var(--mobile-card-col), 72px);
+  }
+
+  /* Effect lanes container */
+  .effect-lanes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    padding: 4px 6px 6px;
+  }
+
+  .effect-lane {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    column-gap: var(--mobile-lane-gap);
+    row-gap: var(--mobile-lane-gap);
+    width: 100%;
+    justify-items: center;
+    align-items: end;
+  }
+
+  .effect-lane--second {
+    padding-top: 2px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .effect-lane .effect-flight-anchor {
+    width: 100%;
+    max-width: var(--effect-card-w);
+    display: flex;
+    justify-content: center;
+  }
+
+  .effect-lane .effect-card,
+  .effect-lane .effect-card-back {
+    width: 100% !important;
+    max-width: var(--effect-card-w);
+    aspect-ratio: 1 !important;
+    flex: unset !important;
+  }
+
+  /* Poker lane */
+  .poker-lanes {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .poker-lane {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    column-gap: var(--mobile-lane-gap);
+    width: 100%;
+    justify-items: center;
+  }
+
+  .poker-lane .playing-card-slot,
+  .poker-lane .playing-card,
+  .poker-lane .playing-card-empty-slot {
+    width: 100%;
+    max-width: var(--poker-card-w);
+  }
+
+  /* Kill desktop hover expand on touch — causes name overlap */
+  .game-board .effect-band .effect-card:hover:not(:disabled),
+  .game-board .effect-band .effect-card-back:hover:not(:disabled),
+  .game-board .effect-lane .effect-card:hover:not(:disabled),
+  .game-board .effect-lane .effect-card-back:hover:not(:disabled) {
+    transform: none !important;
+    z-index: auto !important;
+  }
+
+  .game-board .effect-band .effect-card:hover:not(:disabled) .effect-card-name,
+  .game-board .effect-band .effect-card:hover:not(:disabled) .effect-card-desc,
+  .game-board .effect-lane .effect-card:hover:not(:disabled) .effect-card-name,
+  .game-board .effect-lane .effect-card:hover:not(:disabled) .effect-card-desc {
+    display: none !important;
+  }
+
+  .game-board .effect-band .effect-card:hover:not(:disabled) .effect-card-icon-badge,
+  .game-board .effect-lane .effect-card:hover:not(:disabled) .effect-card-icon-badge {
+    width: clamp(26px, 6.2vw, 36px) !important;
+    height: clamp(26px, 6.2vw, 36px) !important;
+  }
+
+  .game-board .effect-band .effect-card:hover:not(:disabled) .effect-card-frame,
+  .game-board .effect-lane .effect-card:hover:not(:disabled) .effect-card-frame {
+    box-shadow: none !important;
+  }
+
+  /* Icon-only effect chips */
+  .game-board .effect-band .effect-card-header,
+  .game-board .effect-band .effect-card-desc,
+  .game-board .effect-band .effect-card-gem,
+  .game-board .effect-lane .effect-card-header,
+  .game-board .effect-lane .effect-card-desc,
+  .game-board .effect-lane .effect-card-gem,
+  .game-board .effect-card--spy-revealed .effect-spy-exposed-ribbon,
+  .game-board .effect-card--spy-revealed .card-status-badge--spy {
+    display: none !important;
+  }
+
+  .game-board .effect-band .effect-card-art,
+  .game-board .effect-lane .effect-card-art {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .game-board .effect-band .effect-card-icon-badge,
+  .game-board .effect-lane .effect-card-icon-badge {
+    width: clamp(28px, 6.5vw, 38px) !important;
+    height: clamp(28px, 6.5vw, 38px) !important;
+    border-radius: 9px;
+  }
+
+  .game-board .effect-band .effect-card-back,
+  .game-board .effect-lane .effect-card-back {
+    border-radius: 10px;
+  }
+
+  .game-board .effect-band .effect-back-emblem,
+  .game-board .effect-lane .effect-back-emblem {
+    font-size: clamp(0.75rem, 3vw, 1rem);
+  }
+
+  .game-board .effect-lane .effect-card.selected,
+  .game-board .effect-band .effect-card.selected {
+    transform: none !important;
+    box-shadow: 0 0 0 2px var(--accent-gold), 0 0 10px rgba(212, 168, 67, 0.35);
+  }
+
+  /* Poker icon chips */
+  .game-board .playing-card-slot .playing-card:not(.playing-card-empty-slot) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    aspect-ratio: 0.72;
+  }
+
+  .game-board .playing-card-slot .card-corner-br,
+  .game-board .playing-card-slot .card-suit-center {
+    display: none;
+  }
+
+  .game-board .playing-card-slot .card-corner-tl {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+
+  .game-board .playing-card-slot .card-rank {
+    font-size: 0.78rem !important;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .game-board .playing-card-slot .card-suit-sm {
+    font-size: 1rem !important;
+    line-height: 1;
+  }
+
+  .game-board .playing-card-slot .card-status-badge,
+  .game-board .playing-card-slot .frost-overlay,
+  .game-board .playing-card-slot .card-under-tokens {
+    display: none;
+  }
+
+  .game-board .playing-card-slot .playing-card--frozen::after,
+  .game-board .playing-card-slot .playing-card--protected::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .game-board .playing-card-slot .playing-card--frozen::after {
+    background: #60a5fa;
+    box-shadow: 0 0 4px #60a5fa;
+  }
+
+  .game-board .playing-card-slot .playing-card--protected::after {
+    background: #4ade80;
+    box-shadow: 0 0 4px #4ade80;
+  }
+
+  .game-board .playing-card-slot .playing-card.selected {
+    transform: none !important;
+    box-shadow:
+      0 0 0 2px var(--accent-gold),
+      0 0 14px rgba(212, 168, 67, 0.45);
+  }
+
+  .game-board .playing-card-slot .playing-card:hover:not(:disabled) {
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .game-board.is-animating .card-inspect-overlay {
+    pointer-events: auto;
+  }
+
+  /* Legacy game-board--mobile aliases (keep for any JS-toggled extras) */
+  .game-board--mobile .effect-band .effect-row {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    column-gap: var(--mobile-lane-gap);
+    row-gap: 7px;
+    width: 100%;
+    max-width: 100%;
+    padding: 4px 8px 6px !important;
+    align-items: end;
+    justify-items: center;
+    flex-wrap: unset;
   }
 
   /* ─────────────────────────────────────────────
@@ -490,16 +735,22 @@
    LANDSCAPE PHONES — very short viewports
    ════════════════════════════════════════════════ */
 @media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
-  .game-board {
-    --poker-card-w-height: clamp(38px, calc((100dvh - 230px) / 2.4), 60px);
-    --effect-card-w: clamp(30px, 6.5vh, 48px);
-    --effect-hover-pad-bot: 3px;
-    --effect-hover-pad-player: 3px;
+  .game-board--mobile {
+    --mobile-card-col: calc((100vw - 28px) / 5);
+    --poker-card-w-width: clamp(36px, var(--mobile-card-col), 54px);
+    --poker-card-w-height: clamp(36px, var(--mobile-card-col), 54px);
+    --effect-card-w: clamp(34px, var(--mobile-card-col), 50px);
+    --effect-hover-pad-bot: 2px;
+    --effect-hover-pad-player: 2px;
     --arena-row-gap: 3px;
   }
 
-  .game-board--full-deck {
-    --effect-card-w: clamp(26px, 5vh, 40px);
+  .game-board--mobile.game-board--full-deck {
+    --effect-card-w: clamp(34px, var(--mobile-card-col), 50px);
+  }
+
+  .game-board--mobile .effect-band .effect-row {
+    row-gap: 5px;
   }
 
   .battlefield {

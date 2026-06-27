@@ -6,6 +6,7 @@ import { EFFECT_NAMES } from '../game/types';
 import { EFFECT_CATEGORY, getEffectDescription } from '../game/effectMeta';
 import { EffectIcon } from '../ui/EffectIcon';
 import { getEffectDrawClass } from '../ui/detectAnimations';
+import { EffectCardLanes } from './MobileCardLanes';
 import { useTheme } from '../theme/ThemeContext';
 import type { EffectToken } from '../ui/effectTokens';
 import './Card.css';
@@ -311,14 +312,16 @@ export function EffectCardBack({
 interface OpponentEffectStackProps {
   effects: EffectCard[];
   ownerId: PlayerId;
-  onCardClick?: (effectId: string) => void;
+  onCardClick?: (effectId: string, revealed: boolean) => void;
   selectable?: boolean;
+  inspectable?: boolean;
   drawingEffectIds?: string[];
   revealedSpyIds?: Set<string>;
   spyFlipEffectId?: string | null;
   targetEffectId?: string | null;
   hiddenEffectIds?: Set<string>;
   overlayMaskEffectId?: string | null;
+  mobileLanes?: boolean;
 }
 
 export function OpponentEffectStack({
@@ -326,57 +329,66 @@ export function OpponentEffectStack({
   ownerId,
   onCardClick,
   selectable,
+  inspectable = false,
   drawingEffectIds = [],
   revealedSpyIds = new Set(),
   spyFlipEffectId = null,
   targetEffectId = null,
   hiddenEffectIds = new Set(),
   overlayMaskEffectId = null,
+  mobileLanes = false,
 }: OpponentEffectStackProps) {
+  const cards = effects.map(effect => {
+    if (hiddenEffectIds.has(effect.id)) return null;
+    const isFlipping = spyFlipEffectId === effect.id;
+    const isRevealed = revealedSpyIds.has(effect.id) && !isFlipping;
+    const isTargeted = targetEffectId === effect.id;
+    const overlayMasked = overlayMaskEffectId === effect.id;
+    const tappable = onCardClick && (selectable || (inspectable && isRevealed));
+
+    if (isRevealed) {
+      return (
+        <div
+          key={effect.id}
+          className={`effect-flight-anchor${overlayMasked ? ' effect-flight-anchor--overlay-active' : ''}`}
+          data-effect-anchor={`${ownerId}-${effect.id}`}
+        >
+          <EffectCardView
+            card={effect}
+            spyRevealed
+            spyFlipping={isFlipping}
+            targeted={isTargeted}
+            onClick={tappable ? () => onCardClick(effect.id, true) : undefined}
+            disabled={!tappable}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={effect.id}
+        className={`effect-flight-anchor${overlayMasked ? ' effect-flight-anchor--overlay-active' : ''}`}
+        data-effect-anchor={`${ownerId}-${effect.id}`}
+      >
+        <EffectCardBack
+          spyFlipping={isFlipping}
+          targeted={isTargeted}
+          animClass={getEffectDrawClass(effect.id, drawingEffectIds)}
+          onClick={selectable && onCardClick ? () => onCardClick(effect.id, false) : undefined}
+          disabled={!selectable}
+        />
+      </div>
+    );
+  });
+
+  if (mobileLanes) {
+    return <EffectCardLanes>{cards}</EffectCardLanes>;
+  }
+
   return (
     <div className="effect-row">
-      {effects.map(effect => {
-        if (hiddenEffectIds.has(effect.id)) return null;
-        const isFlipping = spyFlipEffectId === effect.id;
-        const isRevealed = revealedSpyIds.has(effect.id) && !isFlipping;
-        const isTargeted = targetEffectId === effect.id;
-        const overlayMasked = overlayMaskEffectId === effect.id;
-
-        if (isRevealed) {
-          return (
-            <div
-              key={effect.id}
-              className={`effect-flight-anchor${overlayMasked ? ' effect-flight-anchor--overlay-active' : ''}`}
-              data-effect-anchor={`${ownerId}-${effect.id}`}
-            >
-              <EffectCardView
-                card={effect}
-                spyRevealed
-                spyFlipping={isFlipping}
-                targeted={isTargeted}
-                onClick={selectable && onCardClick ? () => onCardClick(effect.id) : undefined}
-                disabled={!selectable}
-              />
-            </div>
-          );
-        }
-
-        return (
-          <div
-            key={effect.id}
-            className={`effect-flight-anchor${overlayMasked ? ' effect-flight-anchor--overlay-active' : ''}`}
-            data-effect-anchor={`${ownerId}-${effect.id}`}
-          >
-            <EffectCardBack
-              spyFlipping={isFlipping}
-              targeted={isTargeted}
-              animClass={getEffectDrawClass(effect.id, drawingEffectIds)}
-              onClick={selectable && onCardClick ? () => onCardClick(effect.id) : undefined}
-              disabled={!selectable}
-            />
-          </div>
-        );
-      })}
+      {cards}
     </div>
   );
 }
