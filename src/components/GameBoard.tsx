@@ -822,7 +822,6 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
                           >
                             <EffectCardView
                               card={card}
-                              compact
                               onClick={() => handlePlayerEffectTap(card.id)}
                               disabled={!isMobile && (effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type))}
                               selected={usedEffectIds.has(card.id)}
