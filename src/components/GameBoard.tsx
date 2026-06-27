@@ -37,7 +37,6 @@ import { VsIntroScreen } from './VsIntroScreen';
 import { BattlefieldArena } from './BattlefieldArena';
 import { MatchEndCinematic, getMatchEndZoneClass } from './MatchEndCinematic';
 import { useAnimatedGame } from '../hooks/useAnimatedGame';
-import { useIsMobile } from '../hooks/useIsMobile';
 import { getCardAnimationClass } from '../ui/detectAnimations';
 import './GameBoard.css';
 import './DeckShuffleIntro.css';
@@ -132,8 +131,6 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
   const [matchEndPhase, setMatchEndPhase] = useState<'idle' | 'highlight' | 'done'>('idle');
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
-  const [expandedCardKey, setExpandedCardKey] = useState<string | null>(null);
-  const isMobile = useIsMobile();
   const resolvingRef = useRef(false);
   const isFinished = game.phase === 'finished';
   const opponentLabel = online?.opponentLabel ?? 'Bot';
@@ -246,26 +243,6 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
     setPendingPick(null);
   };
 
-  const pokerExpandKey = (ownerId: 'player' | 'bot', slotIndex: number) => `poker-${ownerId}-${slotIndex}`;
-  const effectExpandKey = (ownerId: 'player' | 'bot', effectId: string) => `effect-${ownerId}-${effectId}`;
-
-  useEffect(() => {
-    if (isAnimating) setExpandedCardKey(null);
-  }, [isAnimating]);
-
-  useEffect(() => {
-    if (!isMobile || !pendingPick) return;
-    setExpandedCardKey(effectExpandKey('player', pendingPick.effectId));
-  }, [isMobile, pendingPick]);
-
-  const setMobileExpand = (key: string) => {
-    setExpandedCardKey(key);
-  };
-
-  const toggleMobileExpand = (key: string) => {
-    setExpandedCardKey(prev => (prev === key ? null : key));
-  };
-
   const handleOpponentEffectPick = (opponentEffectId: string) => {
     if (!canPickOpponentEffects || !pendingPick || pendingPick.step !== 'opponent_effect') return;
     if (!game.players.bot.effectHand.some(e => e.id === opponentEffectId)) return;
@@ -274,63 +251,6 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
       effectType: pendingPick.effectType,
       opponentEffectId,
     });
-  };
-
-  const handlePokerTap = (ownerId: 'player' | 'bot', slotIndex: SlotIndex, selectable: boolean) => {
-    const key = pokerExpandKey(ownerId, slotIndex);
-    const card = displayGame.players[ownerId].pokerHand.find(c => c.slotIndex === slotIndex);
-
-    if (selectable) {
-      setMobileExpand(key);
-      handleSlotClick(ownerId, slotIndex);
-      return;
-    }
-
-    if (isMobile && card && !hiddenBoardCardIds.has(card.id)) {
-      toggleMobileExpand(key);
-    }
-  };
-
-  const handlePlayerEffectTap = (effectId: string) => {
-    const effect = game.players.player.effectHand.find(e => e.id === effectId);
-    if (!effect) return;
-
-    const key = effectExpandKey('player', effectId);
-
-    const canPlay = canInteract
-      && !pendingPick
-      && slotsLeft > 0
-      && !usedEffectIds.has(effectId)
-      && canCommitEffectType(game, 'player', effect.type);
-
-    if (canPlay) {
-      setMobileExpand(key);
-      handleEffectClick(effectId);
-      return;
-    }
-
-    if (pendingPick?.effectId === effectId) {
-      setMobileExpand(key);
-      return;
-    }
-
-    if (isMobile) {
-      toggleMobileExpand(key);
-    }
-  };
-
-  const handleOpponentEffectTap = (effectId: string, revealed: boolean) => {
-    const key = effectExpandKey('bot', effectId);
-
-    if (canPickOpponentEffects) {
-      setMobileExpand(key);
-      handleOpponentEffectPick(effectId);
-      return;
-    }
-
-    if (!isMobile || !revealed) return;
-    const effect = displayGame.players.bot.effectHand.find(e => e.id === effectId);
-    if (effect) toggleMobileExpand(key);
   };
 
   const handleEffectClick = (effectId: string) => {
@@ -444,14 +364,6 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
     [visual.hiddenEffectIds],
   );
 
-  const expandedPlayerEffect = useMemo(() => {
-    if (!isMobile || !expandedCardKey?.startsWith('effect-player-')) return null;
-    const effectId = expandedCardKey.slice('effect-player-'.length);
-    const effect = displayGame.players.player.effectHand.find(e => e.id === effectId);
-    if (!effect || hiddenEffectIds.has(effect.id)) return null;
-    return effect;
-  }, [isMobile, expandedCardKey, displayGame.players.player.effectHand, hiddenEffectIds]);
-
   const overlayMaskEffectId =
     visual.spyReveal?.victimEffect.id
     ?? visual.forceDelete?.victimEffect.id
@@ -536,8 +448,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
               tokens={tokens}
               targeted={isTargeted}
               untargetable={blockedByStatus}
-              mobileExpanded={isMobile && expandedCardKey === pokerExpandKey(ownerId, slotIndex)}
-              onClick={selectable || isMobile ? () => handlePokerTap(ownerId, slot, selectable) : undefined}
+              onClick={selectable ? () => handleSlotClick(ownerId, slot) : undefined}
             />
           );
         })}
@@ -556,7 +467,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
   }, [initialGame, runIntroReveal]);
 
   return (
-    <div className={`game-board ${game.gameMode === 'full_deck' ? 'game-board--full-deck' : ''} ${boardInputBlocked ? 'is-animating' : ''} ${mobileInfoOpen ? 'game-board--info-open' : ''}${isMobile ? ' game-board--mobile' : ''}${expandedCardKey ? ' game-board--card-expanded' : ''}`}>
+    <div className={`game-board ${game.gameMode === 'full_deck' ? 'game-board--full-deck' : ''} ${boardInputBlocked ? 'is-animating' : ''} ${mobileInfoOpen ? 'game-board--info-open' : ''}`}>
       <HowToPlayFab onClick={() => setShowHowToPlay(true)} />
       {showHowToPlay && <HowToPlayGuide onClose={() => setShowHowToPlay(false)} />}
 
@@ -775,10 +686,8 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
                   <OpponentEffectStack
                     effects={displayGame.players.bot.effectHand}
                     ownerId="bot"
-                    onCardClick={isMobile ? handleOpponentEffectTap : id => handleOpponentEffectPick(id)}
-                    selectable={canPickOpponentEffects || isMobile}
-                    textOnly={isMobile}
-                    expandedCardKey={expandedCardKey}
+                    onCardClick={handleOpponentEffectPick}
+                    selectable={canPickOpponentEffects}
                     revealedSpyIds={revealedSpyEffectIds}
                     spyFlipEffectId={visual.spyFlipEffectId}
                     targetEffectId={visual.targetEffectId}
@@ -816,22 +725,6 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
                 </div>
               </div>
 
-              {expandedPlayerEffect && (
-                <div className="mobile-effect-focus">
-                  <EffectCardView
-                    card={expandedPlayerEffect}
-                    boardSize="player"
-                    selected={
-                      usedEffectIds.has(expandedPlayerEffect.id)
-                      || pendingPick?.effectId === expandedPlayerEffect.id
-                    }
-                    onClick={() => handlePlayerEffectTap(expandedPlayerEffect.id)}
-                    spyRevealed={revealedSpyEffectIds.has(expandedPlayerEffect.id)}
-                    spyFlipping={visual.spyFlipEffectId === expandedPlayerEffect.id}
-                  />
-                </div>
-              )}
-
               <div className="effect-band effect-band--player">
                 <div className="effect-band__cards">
                   <div className="effect-row">
@@ -843,15 +736,14 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
                       return (
                         <div
                           key={card.id}
-                          className={`effect-flight-anchor${overlayHidden ? ' effect-flight-anchor--overlay-active' : ''}${expandedCardKey === effectExpandKey('player', card.id) ? ' effect-flight-anchor--mobile-source-hidden' : ''}`}
+                          className={`effect-flight-anchor${overlayHidden ? ' effect-flight-anchor--overlay-active' : ''}`}
                           data-effect-anchor={`player-${card.id}`}
                         >
                           <EffectCardView
                             card={card}
-                            textOnly={isMobile}
-                            onClick={() => (isMobile ? handlePlayerEffectTap : handleEffectClick)(card.id)}
-                            disabled={!isMobile && (effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type))}
-                            selected={usedEffectIds.has(card.id) || pendingPick?.effectId === card.id}
+                            onClick={() => handleEffectClick(card.id)}
+                            disabled={effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type)}
+                            selected={usedEffectIds.has(card.id)}
                             spyRevealed={revealedSpyEffectIds.has(card.id)}
                             spyFlipping={visual.spyFlipEffectId === card.id}
                           />

@@ -27,7 +27,6 @@ interface PlayingCardViewProps {
   targeted?: boolean;
   tokens?: EffectToken[];
   tokenSlotKey?: string;
-  mobileExpanded?: boolean;
 }
 
 export function PlayingCardSlot({
@@ -45,14 +44,9 @@ export function PlayingCardSlot({
   targeted,
   tokens = [],
   tokenSlotKey,
-  mobileExpanded,
 }: PlayingCardViewProps) {
   const { theme } = useTheme();
-  const slotClass = [
-    'playing-card-slot',
-    targeted && 'playing-card-slot--targeted',
-    mobileExpanded && 'playing-card-slot--mobile-expanded',
-  ].filter(Boolean).join(' ');
+  const slotClass = ['playing-card-slot', targeted && 'playing-card-slot--targeted'].filter(Boolean).join(' ');
 
   if (hidden) {
     return (
@@ -110,7 +104,6 @@ export function PlayingCardSlot({
           highlightGroup === 'primary' && 'highlight-primary',
           highlightGroup === 'secondary' && 'highlight-secondary',
           highlightGroup === 'premium' && 'highlight-premium',
-          mobileExpanded && 'mobile-card-expanded',
         ].filter(Boolean).join(' ')}
         onClick={onClick}
         disabled={!onClick}
@@ -161,8 +154,6 @@ interface EffectCardViewProps {
   spyFlipping?: boolean;
   targeted?: boolean;
   readOnly?: boolean;
-  textOnly?: boolean;
-  mobileExpanded?: boolean;
 }
 
 export function EffectCardView({
@@ -180,20 +171,9 @@ export function EffectCardView({
   spyFlipping,
   targeted,
   readOnly,
-  textOnly,
-  mobileExpanded,
 }: EffectCardViewProps) {
   if (hidden) {
-    return (
-      <EffectCardBack
-        onClick={onClick}
-        disabled={disabled}
-        selected={selected}
-        compact={compact}
-        readOnly={readOnly}
-        mobileExpanded={mobileExpanded}
-      />
-    );
+    return <EffectCardBack onClick={onClick} disabled={disabled} selected={selected} compact={compact} readOnly={readOnly} />;
   }
 
   const category = EFFECT_CATEGORY[card.type];
@@ -215,25 +195,9 @@ export function EffectCardView({
     spyFlipping && 'effect-card--spy-flip',
     targeted && 'effect-card--targeted',
     readOnly && 'effect-card--readonly',
-    textOnly && 'effect-card--text-only',
-    mobileExpanded && 'mobile-card-expanded',
   ].filter(Boolean).join(' ');
 
-  const frame = textOnly ? (
-    <div className="effect-card-frame">
-      <div className="effect-card-desc effect-card-desc--mobile">{description}</div>
-      {spyRevealed && (
-        <>
-          <div className="card-status-badge card-status-badge--spy" title="Rakip bu kartı gördü">
-            <Eye size={10} strokeWidth={2.2} />
-          </div>
-          <div className="effect-spy-exposed-ribbon" aria-hidden>
-            Rakip görüyor
-          </div>
-        </>
-      )}
-    </div>
-  ) : (
+  const frame = (
     <div className="effect-card-frame">
       <div className="effect-card-header">
         <span className="effect-card-name">{EFFECT_NAMES[card.type]}</span>
@@ -290,7 +254,6 @@ interface EffectCardBackProps {
   spyFlipping?: boolean;
   targeted?: boolean;
   readOnly?: boolean;
-  mobileExpanded?: boolean;
 }
 
 export function EffectCardBack({
@@ -304,7 +267,6 @@ export function EffectCardBack({
   spyFlipping,
   targeted,
   readOnly,
-  mobileExpanded,
 }: EffectCardBackProps) {
   const { theme } = useTheme();
   const className = [
@@ -316,7 +278,6 @@ export function EffectCardBack({
     targeted && 'effect-card-back--targeted',
     readOnly && 'effect-card-back--readonly',
     animClass,
-    mobileExpanded && 'mobile-card-expanded',
   ].filter(Boolean).join(' ');
 
   const inner = (
@@ -350,7 +311,7 @@ export function EffectCardBack({
 interface OpponentEffectStackProps {
   effects: EffectCard[];
   ownerId: PlayerId;
-  onCardClick?: (effectId: string, revealed: boolean) => void;
+  onCardClick?: (effectId: string) => void;
   selectable?: boolean;
   drawingEffectIds?: string[];
   revealedSpyIds?: Set<string>;
@@ -358,8 +319,6 @@ interface OpponentEffectStackProps {
   targetEffectId?: string | null;
   hiddenEffectIds?: Set<string>;
   overlayMaskEffectId?: string | null;
-  textOnly?: boolean;
-  expandedCardKey?: string | null;
 }
 
 export function OpponentEffectStack({
@@ -373,8 +332,6 @@ export function OpponentEffectStack({
   targetEffectId = null,
   hiddenEffectIds = new Set(),
   overlayMaskEffectId = null,
-  textOnly,
-  expandedCardKey = null,
 }: OpponentEffectStackProps) {
   return (
     <div className="effect-row">
@@ -384,14 +341,12 @@ export function OpponentEffectStack({
         const isRevealed = revealedSpyIds.has(effect.id) && !isFlipping;
         const isTargeted = targetEffectId === effect.id;
         const overlayMasked = overlayMaskEffectId === effect.id;
-        const expandKey = `effect-${ownerId}-${effect.id}`;
-        const mobileExpanded = expandedCardKey === expandKey;
 
         if (isRevealed) {
           return (
             <div
               key={effect.id}
-              className={`effect-flight-anchor${overlayMasked ? ' effect-flight-anchor--overlay-active' : ''}${mobileExpanded ? ' effect-flight-anchor--mobile-expanded' : ''}`}
+              className={`effect-flight-anchor${overlayMasked ? ' effect-flight-anchor--overlay-active' : ''}`}
               data-effect-anchor={`${ownerId}-${effect.id}`}
             >
               <EffectCardView
@@ -399,9 +354,7 @@ export function OpponentEffectStack({
                 spyRevealed
                 spyFlipping={isFlipping}
                 targeted={isTargeted}
-                textOnly={textOnly}
-                mobileExpanded={mobileExpanded}
-                onClick={selectable && onCardClick ? () => onCardClick(effect.id, true) : undefined}
+                onClick={selectable && onCardClick ? () => onCardClick(effect.id) : undefined}
                 disabled={!selectable}
               />
             </div>
@@ -411,15 +364,14 @@ export function OpponentEffectStack({
         return (
           <div
             key={effect.id}
-            className={`effect-flight-anchor${overlayMasked ? ' effect-flight-anchor--overlay-active' : ''}${mobileExpanded ? ' effect-flight-anchor--mobile-expanded' : ''}`}
+            className={`effect-flight-anchor${overlayMasked ? ' effect-flight-anchor--overlay-active' : ''}`}
             data-effect-anchor={`${ownerId}-${effect.id}`}
           >
             <EffectCardBack
               spyFlipping={isFlipping}
               targeted={isTargeted}
-              mobileExpanded={mobileExpanded}
               animClass={getEffectDrawClass(effect.id, drawingEffectIds)}
-              onClick={selectable && onCardClick ? () => onCardClick(effect.id, false) : undefined}
+              onClick={selectable && onCardClick ? () => onCardClick(effect.id) : undefined}
               disabled={!selectable}
             />
           </div>
