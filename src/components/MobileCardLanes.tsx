@@ -23,13 +23,15 @@ export function EffectCardLanes({ children, className }: EffectCardLanesProps) {
 
 interface PokerCardLanesProps {
   children: ReactNode;
+  variant?: 'player' | 'bot';
 }
 
-/** Five poker slots in a single grid lane on mobile. */
-export function PokerCardLanes({ children }: PokerCardLanesProps) {
+/** Five poker slots in a fanned row on mobile — player row is larger. */
+export function PokerCardLanes({ children, variant = 'bot' }: PokerCardLanesProps) {
+  const rowClass = ['poker-lane', 'hand-row', variant === 'player' ? 'hand-row--player' : 'hand-row--bot'].join(' ');
   return (
-    <div className="poker-lanes">
-      <div className="poker-lane">{children}</div>
+    <div className={`poker-lanes poker-lanes--${variant}`}>
+      <div className={rowClass}>{children}</div>
     </div>
   );
 }
