@@ -18,10 +18,10 @@ export function GameLogPanel({ entries }: Props) {
 
   return (
     <section className="game-log">
-      <h3>Olaylar</h3>
+      <h3>Events</h3>
       <div className="log-entries" ref={scrollRef}>
         {visible.length === 0 && (
-          <p className="log-empty">Round başladığında olaylar burada görünür.</p>
+          <p className="log-empty">Events will appear here when a round starts.</p>
         )}
         {visible.map((entry, i) => (
           <LogEntry key={`${entry.turn}-${i}-${entry.message}`} entry={entry} />

@@ -89,7 +89,7 @@ export function SlotMachineReveal({ request, onComplete }: SlotMachineRevealProp
       <div className="slot-machine-backdrop" />
       <div className={`slot-machine-panel ${landed ? 'slot-machine-panel--landed' : ''}`}>
         <p className="slot-machine-label">
-          {request.mode === 'transform' ? 'Dönüştür' : 'Şans Kaydır'}
+          {request.mode === 'transform' ? 'Transform' : 'Shift Chance'}
         </p>
         <div className={`slot-machine-card ${landed ? 'slot-machine-card--landed' : ''}`}>
           <PlayingCardFace card={displayCard} />

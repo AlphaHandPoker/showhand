@@ -17,15 +17,15 @@ export const HandRank = {
 export type HandRank = typeof HandRank[keyof typeof HandRank];
 
 export const HAND_RANK_NAMES: Record<HandRank, string> = {
-  [HandRank.HighCard]: 'Yüksek Kart',
-  [HandRank.Pair]: 'Çift',
-  [HandRank.TwoPair]: 'İki Çift',
-  [HandRank.ThreeOfAKind]: 'Üçlü',
-  [HandRank.Straight]: 'Kent',
-  [HandRank.Flush]: 'Renk',
-  [HandRank.FullHouse]: 'Full',
-  [HandRank.FourOfAKind]: 'Karteli',
-  [HandRank.StraightFlush]: 'Renkli Kent',
+  [HandRank.HighCard]: 'High Card',
+  [HandRank.Pair]: 'Pair',
+  [HandRank.TwoPair]: 'Two Pair',
+  [HandRank.ThreeOfAKind]: 'Three of a Kind',
+  [HandRank.Straight]: 'Straight',
+  [HandRank.Flush]: 'Flush',
+  [HandRank.FullHouse]: 'Full House',
+  [HandRank.FourOfAKind]: 'Four of a Kind',
+  [HandRank.StraightFlush]: 'Straight Flush',
   [HandRank.RoyalFlush]: 'Royal Flush',
 };
 

@@ -19,7 +19,7 @@ export function ResolutionFeed({
 
   return (
     <div className="resolution-feed" aria-live="polite">
-      <h4 className="resolution-feed-title">Round çözülüyor</h4>
+      <h4 className="resolution-feed-title">Resolving round</h4>
       <ol className="resolution-feed-list">
         {queue.map((item, i) => {
           const isDone = i < completedCount;

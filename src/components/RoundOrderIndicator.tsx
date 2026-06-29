@@ -13,7 +13,7 @@ interface RoundOrderIndicatorProps {
 export function RoundOrderIndicator({
   game,
   resolving,
-  opponentLabel = 'Rakip',
+  opponentLabel = 'Opponent',
   variant = 'default',
 }: RoundOrderIndicatorProps) {
   const [highlight, setHighlight] = useState(true);
@@ -30,7 +30,7 @@ export function RoundOrderIndicator({
 
   if (resolving || game.phase === 'finished' || game.phase !== 'committing') return null;
 
-  const label = playerFirst ? 'Sen önce' : `${opponentLabel} önce`;
+  const label = playerFirst ? 'You go first' : `${opponentLabel} goes first`;
 
   return (
     <section
@@ -40,9 +40,9 @@ export function RoundOrderIndicator({
         highlight && 'round-order-sidebar--highlight',
         playerFirst ? 'round-order-sidebar--player' : 'round-order-sidebar--opponent',
       ].join(' ')}
-      aria-label="Bu round çözülme sırası"
+      aria-label="Resolution order this round"
     >
-      <h3 className="round-order-sidebar-title">Çözülme sırası</h3>
+      <h3 className="round-order-sidebar-title">Resolution order</h3>
       <p className="round-order-sidebar-value">
         <span className="round-order-dot" aria-hidden />
         {label}

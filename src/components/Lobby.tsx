@@ -28,10 +28,10 @@ export function Lobby({ online, createMode, onBack }: LobbyProps) {
         <div className="lobby-screen">
           <header className="lobby-header">
             <h1>SHOWHAND</h1>
-            <p className="lobby-subtitle">Maç yükleniyor…</p>
+            <p className="lobby-subtitle">Loading match…</p>
           </header>
           <p className="lobby-status-message">{roomState.message}</p>
-          <p className="lobby-next-step">Oyun tahtası açılmazsa sayfayı yenile (Ctrl+Shift+R).</p>
+          <p className="lobby-next-step">If the board does not load, hard refresh (Ctrl+Shift+R).</p>
         </div>
       );
     }
@@ -40,14 +40,14 @@ export function Lobby({ online, createMode, onBack }: LobbyProps) {
       <div className="lobby-screen">
         <header className="lobby-header">
           <h1>SHOWHAND</h1>
-          <p className="lobby-subtitle">Çevrimiçi oda</p>
+          <p className="lobby-subtitle">Online room</p>
         </header>
 
         <div className="lobby-room-card">
-          <span className="lobby-room-label">Oda kodu</span>
+          <span className="lobby-room-label">Room code</span>
           <code className="lobby-room-code">{roomState.code}</code>
           <span className="lobby-mode-badge">{modeInfo.title}</span>
-          <p className="lobby-room-hint">Arkadaşına bu kodu gönder</p>
+          <p className="lobby-room-hint">Send this code to your friend</p>
         </div>
 
         <div className={`lobby-status ${bothConnected ? 'lobby-status--ready' : ''}`}>
@@ -64,11 +64,11 @@ export function Lobby({ online, createMode, onBack }: LobbyProps) {
               >
                 <span className="lobby-player-dot" aria-hidden />
                 <span className="lobby-player-label">
-                  {player.slot === roomState.yourSlot ? 'Sen' : 'Rakip'}
-                  {player.slot === 0 ? ' (oda sahibi)' : ''}
+                  {player.slot === roomState.yourSlot ? 'You' : 'Opponent'}
+                  {player.slot === 0 ? ' (host)' : ''}
                 </span>
                 <span className="lobby-player-state">
-                  {player.connected ? 'Bağlı' : 'Bekleniyor…'}
+                  {player.connected ? 'Connected' : 'Waiting…'}
                 </span>
               </div>
             ))}
@@ -77,30 +77,30 @@ export function Lobby({ online, createMode, onBack }: LobbyProps) {
 
         {bothConnected && inDraft && (
           <p className="lobby-next-step">
-            İkiniz de bağlandınız — efekt desteni seçmeye hazırsınız.
+            Both connected — ready to pick your effect decks.
           </p>
         )}
 
         {bothConnected && roomState.status === 'waiting' && roomMode === 'full_deck' && (
           <p className="lobby-next-step">
-            İkiniz de bağlandınız — maç başlıyor…
+            Both connected — match starting…
           </p>
         )}
 
         {bothConnected && roomState.status === 'waiting' && roomMode === 'draft' && (
           <p className="lobby-next-step">
-            İkiniz de bağlandınız. Draft bir sonraki adımda başlayacak.
+            Both connected. Draft starts next.
           </p>
         )}
 
         <div className="lobby-actions">
           <button type="button" className="lobby-btn lobby-btn--ghost" onClick={() => { leaveRoom(); onBack(); }}>
-            Odadan çık
+            Leave room
           </button>
         </div>
 
         {!socketConnected && (
-          <p className="lobby-error">Sunucu bağlantısı kesildi — yeniden bağlanılıyor…</p>
+          <p className="lobby-error">Server disconnected — reconnecting…</p>
         )}
       </div>
     );
@@ -110,16 +110,16 @@ export function Lobby({ online, createMode, onBack }: LobbyProps) {
     <div className="lobby-screen">
       <header className="lobby-header">
         <h1>SHOWHAND</h1>
-        <p className="lobby-subtitle">Arkadaşınla oyna</p>
+        <p className="lobby-subtitle">Play with a friend</p>
       </header>
 
       <div className="lobby-panel">
         <div className={`lobby-server-pill ${socketConnected ? 'lobby-server-pill--ok' : ''}`}>
-          {socketConnected ? 'Sunucuya bağlı' : 'Sunucuya bağlanılıyor…'}
+          {socketConnected ? 'Connected to server' : 'Connecting to server…'}
         </div>
 
         <div className="lobby-mode-select">
-          <span className="lobby-mode-label">Seçilen mod</span>
+          <span className="lobby-mode-label">Selected mode</span>
           <span className="lobby-mode-badge">{modeInfo.title}</span>
           <span className="lobby-room-hint">{modeInfo.subtitle}</span>
         </div>
@@ -130,15 +130,15 @@ export function Lobby({ online, createMode, onBack }: LobbyProps) {
           disabled={!socketConnected}
           onClick={() => createRoom(createMode)}
         >
-          Oda oluştur
+          Create room
         </button>
 
         <div className="lobby-divider">
-          <span>veya</span>
+          <span>or</span>
         </div>
 
         <label className="lobby-join-label" htmlFor="join-code">
-          Oda kodu ile katıl
+          Join with room code
         </label>
         <div className="lobby-join-row">
           <input
@@ -161,7 +161,7 @@ export function Lobby({ online, createMode, onBack }: LobbyProps) {
             disabled={!socketConnected || !joinCode.trim()}
             onClick={() => joinRoom(joinCode)}
           >
-            Katıl
+            Join
           </button>
         </div>
 
@@ -169,7 +169,7 @@ export function Lobby({ online, createMode, onBack }: LobbyProps) {
       </div>
 
       <button type="button" className="lobby-btn lobby-btn--ghost lobby-back" onClick={onBack}>
-        ← Bot maçına dön
+        ← Back to bot match
       </button>
     </div>
   );

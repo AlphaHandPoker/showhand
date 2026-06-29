@@ -10,14 +10,14 @@ export function CosmeticsMenu({ onClose }: CosmeticsMenuProps) {
   const { theme, setThemeId } = useTheme();
 
   return (
-    <div className="cosmetics-overlay" role="dialog" aria-label="Kozmetikler">
+    <div className="cosmetics-overlay" role="dialog" aria-label="Cosmetics">
       <div className="cosmetics-backdrop" onClick={onClose} aria-hidden />
       <div className="cosmetics-panel">
         <header className="cosmetics-header">
-          <h2>Kozmetikler</h2>
-          <button type="button" className="cosmetics-close" onClick={onClose} aria-label="Kapat">×</button>
+          <h2>Cosmetics</h2>
+          <button type="button" className="cosmetics-close" onClick={onClose} aria-label="Close">×</button>
         </header>
-        <p className="cosmetics-sub">Tema seç — kartlar, arena ve çerçeveler anında güncellenir.</p>
+        <p className="cosmetics-sub">Pick a theme — cards, arena, and frames update instantly.</p>
         <div className="cosmetics-grid">
           {CARD_THEMES.map(t => (
             <button

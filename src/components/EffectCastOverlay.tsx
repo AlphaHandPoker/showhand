@@ -10,7 +10,7 @@ interface EffectCastOverlayProps {
 
 export function EffectCastOverlay({ cast, phase }: EffectCastOverlayProps) {
   const fromBottom = cast.playerId === 'player';
-  const actorLabel = cast.playerId === 'player' ? 'Sen' : 'Bot';
+  const actorLabel = cast.playerId === 'player' ? 'You' : 'Bot';
   const effectName = cast.effect ? EFFECT_NAMES[cast.effect.type] : 'Deste';
 
   if (phase === 'result') {
@@ -54,7 +54,7 @@ export function EffectCastOverlay({ cast, phase }: EffectCastOverlayProps) {
       >
         {cast.stepIndex !== undefined && cast.stepTotal !== undefined && (
           <span className="cast-step-badge">
-            Hamle {cast.stepIndex} / {cast.stepTotal}
+            Move {cast.stepIndex} / {cast.stepTotal}
           </span>
         )}
         {cast.effect && (
@@ -62,7 +62,7 @@ export function EffectCastOverlay({ cast, phase }: EffectCastOverlayProps) {
         )}
         <p className="cast-effect-name">{effectName}</p>
         <p className="cast-player-label">
-          {isTarget ? 'Hedef gösteriliyor…' : `${actorLabel} oynuyor…`}
+          {isTarget ? 'Showing target…' : `${actorLabel} playing…`}
         </p>
       </div>
     </div>

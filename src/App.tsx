@@ -1,93 +1,92 @@
-import { useState } from 'react';
-import type { EffectType, GameMode } from './game/types';
-import { DraftScreen } from './components/DraftScreen';
+import { useCallback, useEffect, useState } from 'react';
+import type { GameMode } from './game/types';
 import { GameBoard } from './components/GameBoard';
-import { Lobby } from './components/Lobby';
 import { OnlineGameBoard } from './components/OnlineGameBoard';
-import { GameModePicker } from './components/GameModePicker';
+import { MatchmakingScreen } from './components/MatchmakingScreen';
+import { HomeModeSelect } from './components/HomeModeSelect';
 import { CosmeticsMenu } from './components/CosmeticsMenu';
 import { HowToPlayGuide } from './components/HowToPlayGuide';
 import { useOnlineGame } from './hooks/useOnlineGame';
-import { buildBotDeckSelection, buildFullEffectDeck } from './game/deckBuilder';
+import { buildFullEffectDeck } from './game/deckBuilder';
+import { DEFAULT_GAME_MODE } from './game/gameModes';
 import './App.css';
-import './components/Lobby.css';
-import './components/GameModePicker.css';
 import './components/CosmeticsMenu.css';
+import './components/MatchmakingScreen.css';
+import './components/HomeModeSelect.css';
 
-type Screen = 'home' | 'pick-mode-bot' | 'pick-mode-online' | 'online' | 'draft' | 'game';
+type Screen = 'home' | 'searching' | 'online' | 'game';
 
 interface MatchConfig {
-  player: EffectType[];
-  bot: EffectType[];
   mode: GameMode;
+  disguisedOpponent: boolean;
 }
 
 function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [matchConfig, setMatchConfig] = useState<MatchConfig | null>(null);
   const [gameKey, setGameKey] = useState(0);
-  const [onlineRoomMode, setOnlineRoomMode] = useState<GameMode>('draft');
   const [showCosmetics, setShowCosmetics] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const online = useOnlineGame();
 
-  const startBotMatch = (mode: GameMode, playerDeck: EffectType[]) => {
-    const botDeck = mode === 'full_deck' ? buildFullEffectDeck() : buildBotDeckSelection();
-    setMatchConfig({ player: playerDeck, bot: botDeck, mode });
+  const startBotMatch = useCallback((disguised: boolean) => {
+    setMatchConfig({ mode: DEFAULT_GAME_MODE, disguisedOpponent: disguised });
     setGameKey(k => k + 1);
     setScreen('game');
-  };
-
-  const handleBotModeSelect = (mode: GameMode) => {
-    if (mode === 'full_deck') {
-      startBotMatch('full_deck', buildFullEffectDeck());
-    } else {
-      setMatchConfig(null);
-      setScreen('draft');
-    }
-  };
-
-  const handleStartBotDraft = (playerDeck: EffectType[]) => {
-    startBotMatch('draft', playerDeck);
-  };
+  }, []);
 
   const handleRestart = () => {
     setMatchConfig(null);
     setScreen('home');
   };
 
-  if (screen === 'pick-mode-bot') {
-    return (
-      <div className="app">
-        <GameModePicker
-          title="Bota karşı"
-          onSelect={handleBotModeSelect}
-          onBack={() => setScreen('home')}
-        />
-      </div>
-    );
-  }
+  const handlePlayVsComputer = () => {
+    startBotMatch(false);
+  };
 
-  if (screen === 'pick-mode-online') {
+  const handleFindPlayer = () => {
+    setScreen('searching');
+  };
+
+  const handleMatchFound = useCallback(() => {
+    setScreen('online');
+  }, []);
+
+  const handleMatchmakingFallback = useCallback(() => {
+    startBotMatch(true);
+  }, [startBotMatch]);
+
+  const rs = online.roomState;
+  const onlineNeedsHome = screen === 'online'
+    && rs
+    && rs.status !== 'playing'
+    && rs.status !== 'finished'
+    && online.gamePayload === null;
+
+  useEffect(() => {
+    if (onlineNeedsHome) {
+      online.leaveRoom();
+      setScreen('home');
+    }
+  }, [onlineNeedsHome, online]);
+
+  if (screen === 'searching') {
     return (
       <div className="app">
-        <GameModePicker
-          title="Arkadaşınla oyna"
-          onSelect={mode => {
-            setOnlineRoomMode(mode);
-            setScreen('online');
-          }}
-          onBack={() => setScreen('home')}
+        <MatchmakingScreen
+          online={online}
+          onMatched={handleMatchFound}
+          onFallbackToBot={handleMatchmakingFallback}
         />
       </div>
     );
   }
 
   if (screen === 'online') {
-    const rs = online.roomState;
-    const inMatch = rs && (
-      rs.status === 'playing'
-      || rs.status === 'finished'
+    const roomState = online.roomState;
+    const inMatch = roomState && (
+      roomState.status === 'playing'
+      || roomState.status === 'finished'
       || online.gamePayload !== null
     );
 
@@ -102,56 +101,20 @@ function App() {
         />
       );
     }
-    if (rs && (rs.status === 'drafting' || rs.status === 'draft_ready')) {
-      return (
-        <div className="app">
-          <DraftScreen
-            onStart={() => {}}
-            online={{
-              submitted: rs.draft?.youSubmitted ?? false,
-              opponentSubmitted: rs.draft?.opponentSubmitted ?? false,
-              bothReady: rs.draft?.bothReady ?? false,
-              roomCode: rs.code,
-              statusMessage: rs.message,
-              serverError: online.error,
-              onSubmit: selection => online.submitDraft(selection),
-              onLeave: () => {
-                online.leaveRoom();
-                setScreen('home');
-              },
-            }}
-          />
-        </div>
-      );
-    }
 
-    return (
-      <div className="app">
-        <Lobby
-          online={online}
-          createMode={onlineRoomMode}
-          onBack={() => setScreen('home')}
-        />
-      </div>
-    );
-  }
-
-  if (screen === 'draft') {
-    return (
-      <div className="app">
-        <DraftScreen onStart={handleStartBotDraft} />
-      </div>
-    );
+    return null;
   }
 
   if (screen === 'game' && matchConfig) {
+    const fullDeck = buildFullEffectDeck();
     return (
       <div className="app">
         <GameBoard
           key={gameKey}
-          playerDeck={matchConfig.player}
-          botDeck={matchConfig.bot}
+          playerDeck={fullDeck}
+          botDeck={fullDeck}
           gameMode={matchConfig.mode}
+          disguisedOpponent={matchConfig.disguisedOpponent}
           onRestart={handleRestart}
         />
       </div>
@@ -164,20 +127,21 @@ function App() {
       {showHowToPlay && <HowToPlayGuide onClose={() => setShowHowToPlay(false)} />}
       <header className="home-header">
         <h1>SHOWHAND</h1>
-        <p className="home-tagline">Açık poker elleri, gizli efekt kartları</p>
+        <p className="home-tagline">Open poker hands, hidden effect cards</p>
       </header>
+      <HomeModeSelect />
       <div className="home-actions">
-        <button type="button" className="home-btn home-btn--primary" onClick={() => setScreen('pick-mode-bot')}>
-          Bota karşı oyna
+        <button type="button" className="home-btn home-btn--primary" onClick={handlePlayVsComputer}>
+          Play vs Computer
         </button>
-        <button type="button" className="home-btn home-btn--online" onClick={() => setScreen('pick-mode-online')}>
-          Arkadaşınla oyna
+        <button type="button" className="home-btn home-btn--search" onClick={handleFindPlayer}>
+          Find Player
         </button>
         <button type="button" className="home-btn home-btn--guide" onClick={() => setShowHowToPlay(true)}>
-          Nasıl oynanır?
+          How to Play
         </button>
         <button type="button" className="home-btn home-btn--cosmetics" onClick={() => setShowCosmetics(true)}>
-          Kozmetikler
+          Cosmetics
         </button>
       </div>
     </div>

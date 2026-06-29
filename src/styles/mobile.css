@@ -98,6 +98,10 @@
     scroll-padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   }
 
+  .game-board--mobile-layout:has(.round-timer-bar) .battlefield {
+    padding-top: calc(58px + env(safe-area-inset-top, 0px));
+  }
+
   .battlefield-stack {
     padding: 0 var(--board-pad-x) calc(16px + env(safe-area-inset-bottom, 0px));
     flex: none;
@@ -668,6 +672,14 @@
     gap: 8px;
     min-width: 0;
     overflow: hidden;
+  }
+
+  .game-board--mobile-layout .leave-match-btn {
+    top: max(42px, calc(env(safe-area-inset-top, 0px) + 38px));
+    left: max(8px, env(safe-area-inset-left, 0px));
+    right: auto;
+    font-size: 0.62rem;
+    padding: 6px 10px;
   }
 
   .mobile-round-pill {

@@ -10,12 +10,16 @@ import {
 } from '../../shared/protocol';
 import type { CommittedAction, GameMode } from '../game/types';
 import type { CreateRoomPayload } from '../../shared/protocol';
+import { DEFAULT_GAME_MODE } from '../game/gameModes';
 
 export interface UseOnlineGame {
   socketConnected: boolean;
   roomState: RoomStatePayload | null;
   gamePayload: GameStatePayload | null;
   error: string | null;
+  forfeitMatch: () => void;
+  findMatch: (mode?: GameMode) => void;
+  cancelFindMatch: () => void;
   createRoom: (mode: GameMode) => void;
   joinRoom: (code: string) => void;
   submitDraft: (deck: string[]) => void;
@@ -68,10 +72,24 @@ export function useOnlineGame(): UseOnlineGame {
     return () => window.clearTimeout(t);
   }, [roomState, gamePayload]);
 
-  const createRoom = useCallback((mode: GameMode = 'draft') => {
+  const createRoom = useCallback((mode: GameMode = DEFAULT_GAME_MODE) => {
     setError(null);
     const payload: CreateRoomPayload = { mode };
     socketRef.current?.emit(ClientEvents.CREATE_ROOM, payload);
+  }, []);
+
+  const findMatch = useCallback((mode: GameMode = DEFAULT_GAME_MODE) => {
+    setError(null);
+    socketRef.current?.emit(ClientEvents.FIND_MATCH, { mode });
+  }, []);
+
+  const cancelFindMatch = useCallback(() => {
+    socketRef.current?.emit(ClientEvents.CANCEL_FIND_MATCH);
+  }, []);
+
+  const forfeitMatch = useCallback(() => {
+    setError(null);
+    socketRef.current?.emit(ClientEvents.FORFEIT_MATCH);
   }, []);
 
   const joinRoom = useCallback((code: string) => {
@@ -104,6 +122,9 @@ export function useOnlineGame(): UseOnlineGame {
     roomState,
     gamePayload,
     error,
+    findMatch,
+    cancelFindMatch,
+    forfeitMatch,
     createRoom,
     joinRoom,
     submitDraft,

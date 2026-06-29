@@ -23,7 +23,7 @@ export function ResolutionSequencerUI({
 
   return (
     <button type="button" className="resolution-fast-forward" onClick={onFastForward}>
-      Hızlandır
+      Speed up
     </button>
   );
 }

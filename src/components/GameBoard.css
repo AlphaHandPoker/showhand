@@ -69,6 +69,10 @@
 
 /* ═══ BATTLEFIELD — vertical flex filling center column ═══ */
 
+.game-board:not(.game-board--mobile-layout):has(.round-timer-bar) .battlefield {
+  padding-top: 30px;
+}
+
 .battlefield {
   grid-column: 2;
   grid-row: 1;

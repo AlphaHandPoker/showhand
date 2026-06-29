@@ -21,7 +21,7 @@ export function VsIntroScreen({ opponentLabel = 'Bot', onComplete }: VsIntroScre
       <div className="vs-intro-backdrop" />
       <div className="vs-intro-content">
         <div className="vs-intro-side vs-intro-side--player">
-          <PlayerAvatar label="Sen" size="large" src={avatarImg} className="vs-intro-avatar" />
+          <PlayerAvatar label="You" size="large" src={avatarImg} className="vs-intro-avatar" />
         </div>
         <div className="vs-intro-vs">
           <span className="vs-intro-vs-text">VS</span>

@@ -6,6 +6,9 @@ import type { GameState, GameMode } from '../src/game/types';
 export const ClientEvents = {
   CREATE_ROOM: 'CREATE_ROOM',
   JOIN_ROOM: 'JOIN_ROOM',
+  FIND_MATCH: 'FIND_MATCH',
+  CANCEL_FIND_MATCH: 'CANCEL_FIND_MATCH',
+  FORFEIT_MATCH: 'FORFEIT_MATCH',
   SUBMIT_DRAFT: 'SUBMIT_DRAFT',
   LOCK_COMMIT: 'LOCK_COMMIT',
   REQUEST_SYNC: 'REQUEST_SYNC',
@@ -15,6 +18,10 @@ export type { GameMode };
 
 export interface CreateRoomPayload {
   mode: GameMode;
+}
+
+export interface FindMatchPayload {
+  mode?: GameMode;
 }
 
 export const ServerEvents = {

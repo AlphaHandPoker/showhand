@@ -244,7 +244,7 @@ function detectDrawPlans(prev: GameState, next: GameState): AnimationPlan[] {
         playerId: pid,
         mechanical: 'reveal',
         targetCardIds: [newCard.id],
-        logMessage: pid === 'player' ? 'Sen desteden kart çektin' : 'Bot desteden kart çekti',
+        logMessage: pid === 'player' ? 'You drew from the deck' : 'Bot drew from the deck',
       });
     }
   }
@@ -265,7 +265,7 @@ export function detectAnimations(prev: GameState, next: GameState): AnimationPla
     ? next.log.slice(prev.log.length)
     : [];
   const effectLog = addedLogs.find(entry =>
-    entry.kind === 'effect' && !entry.detail?.startsWith('geçersiz'),
+    entry.kind === 'effect' && !entry.detail?.startsWith('fizzled'),
   )
     ?? addedLogs.find(entry => entry.kind === 'effect')
     ?? addedLogs[addedLogs.length - 1]
@@ -282,7 +282,7 @@ export function detectAnimations(prev: GameState, next: GameState): AnimationPla
     if (removed) {
       const mech = detectMechanical(prev, next, actorId, removed.type, action);
       const isFizzle = addedLogs.some(entry =>
-        entry.message.includes('geçersiz') || entry.detail?.startsWith('geçersiz'),
+        entry.message.includes('fizzled') || entry.detail?.startsWith('fizzled'),
       );
       plans.push({
         kind: 'effect',

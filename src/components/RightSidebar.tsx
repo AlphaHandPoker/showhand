@@ -23,7 +23,7 @@ export function RightSidebar({
   actions,
 }: Props) {
   return (
-    <aside className="right-sidebar" aria-label="Oyuncu portreleri">
+    <aside className="right-sidebar" aria-label="Player portraits">
       <header className="right-sidebar-header">
         <RoundOrderIndicator
           game={game}
@@ -48,7 +48,7 @@ export function RightSidebar({
 
       <div className="right-sidebar-bottom">
         <PlayerAvatar
-          label="Sen"
+          label="You"
           className="right-sidebar-avatar"
           winner={isFinished && winner === 'player'}
           loser={isFinished && winner === 'bot'}

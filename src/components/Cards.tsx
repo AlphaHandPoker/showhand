@@ -129,7 +129,7 @@ export function PlayingCardSlot({
         )}
 
         {isProtected && (
-          <div className="card-status-badge card-status-badge--protect" title={`${protectTurns} tur korumalı`}>
+          <div className="card-status-badge card-status-badge--protect" title={`Protected for ${protectTurns} turns`}>
             <Shield size={10} strokeWidth={2.2} />
             <span>{protectTurns}</span>
           </div>
@@ -224,11 +224,11 @@ export function EffectCardView({
       <div className="effect-card-gem" />
       {spyRevealed && (
         <>
-          <div className="card-status-badge card-status-badge--spy" title="Rakip bu kartı gördü">
+          <div className="card-status-badge card-status-badge--spy" title="Opponent saw this card">
             <Eye size={10} strokeWidth={2.2} />
           </div>
           <div className="effect-spy-exposed-ribbon" aria-hidden>
-            Rakip görüyor
+            Opponent sees
           </div>
         </>
       )}

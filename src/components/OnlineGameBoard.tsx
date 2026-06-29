@@ -14,7 +14,7 @@ export function OnlineGameBoard({ online, onLeave }: OnlineGameBoardProps) {
   if (!payload || !room) {
     return (
       <div className="app online-loading">
-        <p>Maç yükleniyor…</p>
+        <p>Loading match…</p>
         {online.error && <p className="online-error">{online.error}</p>}
       </div>
     );
@@ -40,8 +40,9 @@ export function OnlineGameBoard({ online, onLeave }: OnlineGameBoardProps) {
           youLocked: payload.youLocked,
           opponentLocked: payload.opponentLocked,
           onLockCommit: online.lockCommit,
+          onForfeit: online.forfeitMatch,
           syncedGame: payload.game,
-          opponentLabel: 'Rakip',
+          opponentLabel: 'Opponent',
         }}
       />
     </div>

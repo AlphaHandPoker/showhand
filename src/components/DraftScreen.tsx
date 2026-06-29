@@ -62,11 +62,11 @@ export function DraftScreen({ onStart, online }: DraftScreenProps) {
         <h1>SHOWHAND</h1>
         {online ? (
           <>
-            <p className="draft-subtitle">Çevrimiçi draft — {online.roomCode}</p>
+            <p className="draft-subtitle">Online draft — {online.roomCode}</p>
             <p className="draft-online-status">{online.statusMessage}</p>
           </>
         ) : (
-          <p className="draft-subtitle">5 efekt kartı seç — aynı tipten en fazla 2</p>
+          <p className="draft-subtitle">Pick 5 effect cards — max 2 of the same type</p>
         )}
         <div className="draft-counter">
           <span className={selection.length === DECK_SIZE ? 'counter-full' : ''}>
@@ -77,7 +77,7 @@ export function DraftScreen({ onStart, online }: DraftScreenProps) {
 
       <div className="draft-layout">
         <section className="draft-pool">
-          <h2>Kart Havuzu</h2>
+          <h2>Card Pool</h2>
           <div className="draft-pool-grid">
             {ALL_EFFECT_TYPES.map(type => {
               const count = counts.get(type) ?? 0;
@@ -102,7 +102,7 @@ export function DraftScreen({ onStart, online }: DraftScreenProps) {
         </section>
 
         <section className="draft-hand">
-          <h2>Seçilen El</h2>
+          <h2>Selected Hand</h2>
           <div className="draft-hand-row">
             {Array.from({ length: DECK_SIZE }).map((_, i) => {
               const type = selection[i];
@@ -113,7 +113,7 @@ export function DraftScreen({ onStart, online }: DraftScreenProps) {
                 <div
                   key={`${type}-${i}`}
                   className="draft-slot"
-                  title={`${EFFECT_NAMES[type]} — kaldırmak için tıkla`}
+                  title={`${EFFECT_NAMES[type]} — tap to remove`}
                 >
                   <EffectCardView
                     card={{ id: `sel-${i}`, type }}
@@ -131,10 +131,10 @@ export function DraftScreen({ onStart, online }: DraftScreenProps) {
             <p className="draft-error">{online.serverError}</p>
           )}
           {online?.submitted && !online.bothReady && (
-            <p className="draft-waiting">Rakibin destesini seçmesi bekleniyor…</p>
+            <p className="draft-waiting">Waiting for opponent to pick their deck…</p>
           )}
           {online?.bothReady && (
-            <p className="draft-ready">Her iki deste hazır — maç başlıyor…</p>
+            <p className="draft-ready">Both decks ready — match starting…</p>
           )}
           <button
             type="button"
@@ -148,11 +148,11 @@ export function DraftScreen({ onStart, online }: DraftScreenProps) {
               }
             }}
           >
-            {online ? (online.submitted ? 'Gönderildi' : 'Desteyi Kilitle') : 'Maça Başla'}
+            {online ? (online.submitted ? 'Submitted' : 'Lock Deck') : 'Start Match'}
           </button>
           {online && (
             <button type="button" className="btn-draft-leave" onClick={online.onLeave}>
-              Odadan çık
+              Leave room
             </button>
           )}
         </section>

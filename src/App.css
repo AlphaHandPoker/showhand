@@ -136,7 +136,8 @@ button {
   color: #0a1524;
 }
 
-.home-btn--online {
+.home-btn--online,
+.home-btn--search {
   border: 1.5px solid rgba(212, 168, 67, 0.45);
   background: rgba(212, 168, 67, 0.08);
   color: var(--accent-gold);

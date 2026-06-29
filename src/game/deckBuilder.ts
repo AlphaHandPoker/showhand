@@ -21,13 +21,13 @@ export function buildFullEffectDeck(): EffectType[] {
 
 export function validateDeckSelection(selection: EffectType[]): string | null {
   if (selection.length !== DECK_SIZE) {
-    return `${DECK_SIZE} kart seçmelisin`;
+    return `Pick ${DECK_SIZE} cards`;
   }
   const counts = new Map<EffectType, number>();
   for (const type of selection) {
     counts.set(type, (counts.get(type) ?? 0) + 1);
     if ((counts.get(type) ?? 0) > MAX_PER_EFFECT_TYPE) {
-      return `Aynı tipten en fazla ${MAX_PER_EFFECT_TYPE} kart seçebilirsin`;
+      return `You can pick at most ${MAX_PER_EFFECT_TYPE} of the same type`;
     }
   }
   return null;

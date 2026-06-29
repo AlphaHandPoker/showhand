@@ -3,10 +3,12 @@ import type { CommittedAction, EffectType, GameState, SlotIndex, GameMode } from
 import { HAND_SIZE, TOTAL_ROUNDS } from '../game/types';
 import { maxCardsForState } from '../game/gameModes';
 import {
-  createGame, lockPlayerCommit, resolveNextInQueue,
+  createGame, lockPlayerCommit, lockBothPlayerCommits, resolveNextInQueue,
   getValidOwnSlots, getValidOpponentSlots, getValidCleanseTargets,
-  canCommitEffectType,
+  canCommitEffectType, cloneStateForBotEvaluation,
 } from '../game/gameEngine';
+import { buildBotCommit } from '../game/bot';
+import { getDisguisedBotSubmitDelayMs, sleep } from '../ui/botSubmitTiming';
 import { getHandHighlights } from '../game/poker';
 import { sortHandBySlot, canTargetCard } from '../game/effects';
 import {
@@ -63,6 +65,10 @@ import './PlayerAvatar.css';
 import './MatchEndCinematic.css';
 import './EffectToSlotFlight.css';
 import { HowToPlayFab, HowToPlayGuide } from './HowToPlayGuide';
+import { RoundTimer } from './RoundTimer';
+import { LeaveMatchButton } from './LeaveMatchButton';
+import './RoundTimer.css';
+import './LeaveMatchButton.css';
 import './HowToPlayGuide.css';
 import { Menu, X } from 'lucide-react';
 
@@ -70,11 +76,13 @@ interface GameBoardProps {
   playerDeck: EffectType[];
   botDeck: EffectType[];
   gameMode?: GameMode;
+  disguisedOpponent?: boolean;
   onRestart: () => void;
   online?: {
     youLocked: boolean;
     opponentLocked: boolean;
     onLockCommit: (actions: CommittedAction[]) => void;
+    onForfeit?: () => void;
     syncedGame: GameState;
     opponentLabel?: string;
   };
@@ -86,7 +94,14 @@ type PendingPick =
   | { effectId: string; effectType: EffectType; step: 'opponent_effect' }
   | { effectId: string; effectType: EffectType; step: 'cleanse_slot' };
 
-export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, online }: GameBoardProps) {
+export function GameBoard({
+  playerDeck,
+  botDeck,
+  gameMode = 'draft',
+  disguisedOpponent = false,
+  onRestart,
+  online,
+}: GameBoardProps) {
   const initialGame = useMemo(
     () => (online ? online.syncedGame : createGame(playerDeck, botDeck, gameMode)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -132,10 +147,13 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
   const [matchEndPhase, setMatchEndPhase] = useState<'idle' | 'highlight' | 'done'>('idle');
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
+  const [disguisedWaiting, setDisguisedWaiting] = useState(false);
+  const [leavingMatch, setLeavingMatch] = useState(false);
   const isMobileLayout = useMobileGameLayout();
   const resolvingRef = useRef(false);
+  const botDelayAbortRef = useRef(false);
   const isFinished = game.phase === 'finished';
-  const opponentLabel = online?.opponentLabel ?? 'Bot';
+  const opponentLabel = online?.opponentLabel ?? (disguisedOpponent ? 'Opponent' : 'Bot');
 
   useEffect(() => {
     document.documentElement.classList.add('game-board-active');
@@ -156,15 +174,24 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
   }, [isFinished]);
 
   const isCommitting = game.phase === 'committing';
+  const youLocked = online?.youLocked ?? disguisedWaiting;
+  const opponentLocked = online?.opponentLocked ?? false;
   const canInteract = introReady && isCommitting && !isFinished && !isAnimating && !resolving
-    && (!online || !online.youLocked);
+    && !youLocked && !leavingMatch;
   const canCancelPick = isCommitting && !isFinished && pendingPick !== null;
   const canPickOpponentEffects = isCommitting && !isFinished && !resolving
     && pendingPick?.step === 'opponent_effect'
-    && (!online || !online.youLocked);
-  const canCompletePick = isCommitting && !isFinished && !resolving
-    && (!online || !online.youLocked);
+    && !youLocked;
+  const canCompletePick = isCommitting && !isFinished && !resolving && !youLocked;
   const boardInputBlocked = resolving || !introReady || (isAnimating && !isCommitting);
+  const timerActive = introReady && isCommitting && !isFinished && !resolving && !isAnimating
+    && !youLocked && !leavingMatch;
+
+  useEffect(() => {
+    if (!isCommitting) {
+      setDisguisedWaiting(false);
+    }
+  }, [isCommitting]);
 
   const syncQueueRef = useRef(Promise.resolve());
   const lastSyncSigRef = useRef('');
@@ -215,19 +242,62 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
     }
   }, [runResolutionCinematic]);
 
-  const handleLockCommit = async () => {
-    if (!canInteract || pendingPick) return;
+  const handleLockCommit = useCallback(async (forcedActions?: CommittedAction[]) => {
+    const actions = forcedActions ?? commitQueue;
+    const isForcedPass = forcedActions !== undefined;
+
+    if (!isForcedPass && (!canInteract || pendingPick)) return;
+    if (isForcedPass && (!introReady || !isCommitting || isFinished || resolving || youLocked || leavingMatch)) {
+      return;
+    }
 
     if (online) {
-      online.onLockCommit([...commitQueue]);
+      online.onLockCommit([...actions]);
       setCommitQueue([]);
       setPendingPick(null);
       return;
     }
 
+    if (disguisedOpponent) {
+      setDisguisedWaiting(true);
+      setCommitQueue([]);
+      setPendingPick(null);
+      botDelayAbortRef.current = false;
+
+      let botActions: CommittedAction[];
+      try {
+        const evalState = cloneStateForBotEvaluation(game, actions);
+        botActions = buildBotCommit(evalState);
+      } catch (err) {
+        console.error('[bot] disguised commit failed', err);
+        setDisguisedWaiting(false);
+        return;
+      }
+
+      await sleep(getDisguisedBotSubmitDelayMs(game.currentRound));
+      if (botDelayAbortRef.current) return;
+
+      let next: GameState;
+      try {
+        next = lockBothPlayerCommits(game, actions, botActions);
+      } catch (err) {
+        console.error('[bot] lockBothPlayerCommits failed', err);
+        setDisguisedWaiting(false);
+        return;
+      }
+
+      setDisguisedWaiting(false);
+      if (next.phase === 'resolving' && next.resolutionQueue.length > 0) {
+        await runResolution(next);
+      } else {
+        await applyUpdate(next);
+      }
+      return;
+    }
+
     let next: GameState;
     try {
-      next = lockPlayerCommit(game, commitQueue);
+      next = lockPlayerCommit(game, actions);
     } catch (err) {
       console.error('[bot] lockPlayerCommit failed', err);
       return;
@@ -238,7 +308,42 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
     } else {
       await applyUpdate(next);
     }
-  };
+  }, [
+    applyUpdate,
+    canInteract,
+    commitQueue,
+    disguisedOpponent,
+    game,
+    introReady,
+    isCommitting,
+    isFinished,
+    leavingMatch,
+    online,
+    pendingPick,
+    resolving,
+    runResolution,
+    youLocked,
+  ]);
+
+  const handleTimerExpire = useCallback(() => {
+    setPendingPick(null);
+    setCommitQueue([]);
+    void handleLockCommit([]);
+  }, [handleLockCommit]);
+
+  const handleConfirmLeave = useCallback(() => {
+    setLeavingMatch(true);
+    botDelayAbortRef.current = true;
+    setDisguisedWaiting(false);
+
+    if (online?.onForfeit) {
+      online.onForfeit();
+      onRestart();
+      return;
+    }
+
+    onRestart();
+  }, [online, onRestart]);
 
   const finishPending = (action: CommittedAction) => {
     setCommitQueue(q => [...q, action]);
@@ -505,30 +610,30 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
   const sidebarActions = (
     <>
       {isCommitting && !isFinished && (
-        <span className="slots-left">{slotsLeft} kart</span>
+        <span className="slots-left">{slotsLeft} left</span>
       )}
 
       {canCancelPick && (
         <button type="button" className="btn-cancel" onClick={handleCancelPick}>
-          İptal
+          Cancel
         </button>
       )}
 
       {pendingPick?.step === 'opponent_effect' && canPickOpponentEffects && (
-        <span className="pick-hint">Rakibin efekt kartını seç</span>
+        <span className="pick-hint">Select an opponent effect card</span>
       )}
 
       {canInteract && (
-        <button type="button" className="btn-lock" onClick={handleLockCommit}>
-          {commitQueue.length === 0 ? 'Pas Geç' : 'Kilitle'}
+        <button type="button" className="btn-lock" onClick={() => void handleLockCommit()}>
+          {commitQueue.length === 0 ? 'Pass' : 'Lock In'}
         </button>
       )}
 
-      {online?.youLocked && !online.opponentLocked && isCommitting && (
-        <span className="online-status-msg">Kilitledin — rakip bekleniyor…</span>
+      {youLocked && !opponentLocked && isCommitting && (
+        <span className="online-status-msg">Locked in — waiting for opponent…</span>
       )}
-      {online?.opponentLocked && !online.youLocked && isCommitting && (
-        <span className="online-status-msg online-status-msg--urgent">Rakip kilitledi — sen de kilitle!</span>
+      {opponentLocked && !youLocked && isCommitting && (
+        <span className="online-status-msg online-status-msg--urgent">Opponent locked in — your turn!</span>
       )}
     </>
   );
@@ -564,7 +669,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
         <div className="battlefield-half battlefield-half--bot">
           <section className={`zone zone--bot ${activeLaneOwner === 'bot' ? 'zone--resolving-active' : ''} ${getMatchEndZoneClass('bot', game.winner, matchEndPhase)}`}>
             {isMobileLayout && (
-              <div className="mobile-zone-label mobile-zone-label--bot">Rakip</div>
+              <div className="mobile-zone-label mobile-zone-label--bot">Opponent</div>
             )}
             <div className="effect-band effect-band--bot">
               <div className="effect-band__cards">
@@ -595,7 +700,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
         <div className="battlefield-half battlefield-half--player">
           <section className={`zone zone--player ${activeLaneOwner === 'player' ? 'zone--resolving-active' : ''} ${getMatchEndZoneClass('player', game.winner, matchEndPhase)}`}>
             {isMobileLayout && (
-              <div className="mobile-zone-label mobile-zone-label--player">Sen</div>
+              <div className="mobile-zone-label mobile-zone-label--player">You</div>
             )}
             <div className="battlefield-half-core">
               {renderArenaRows('player')}
@@ -622,6 +727,15 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
     <div className={`game-board ${game.gameMode === 'full_deck' ? 'game-board--full-deck' : ''} ${boardInputBlocked ? 'is-animating' : ''} ${mobileInfoOpen ? 'game-board--info-open' : ''}${isMobileLayout ? ' game-board--mobile-layout' : ''}`}>
       <HowToPlayFab onClick={() => setShowHowToPlay(true)} />
       {showHowToPlay && <HowToPlayGuide onClose={() => setShowHowToPlay(false)} />}
+      {!isFinished && (
+        <LeaveMatchButton onConfirmLeave={handleConfirmLeave} disabled={leavingMatch} />
+      )}
+
+      <RoundTimer
+        active={timerActive}
+        round={game.currentRound}
+        onExpire={handleTimerExpire}
+      />
 
       {/* ═══ MOBILE TOP BAR (hidden on desktop via CSS) ═══ */}
       <div className="mobile-topbar">
@@ -644,7 +758,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
           type="button"
           className="mobile-info-btn"
           onClick={() => setMobileInfoOpen(o => !o)}
-          aria-label={mobileInfoOpen ? 'Bilgi panelini kapat' : 'Bilgi panelini aç'}
+          aria-label={mobileInfoOpen ? 'Close info panel' : 'Open info panel'}
           aria-expanded={mobileInfoOpen}
         >
           {mobileInfoOpen ? <X size={18} /> : <Menu size={18} />}

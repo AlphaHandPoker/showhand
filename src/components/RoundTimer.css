@@ -1,0 +1,86 @@
+/* Full-width commit timer — center column on desktop, fixed strip under mobile topbar */
+.round-timer-bar {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  z-index: 56;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px clamp(12px, 1.25vw, 24px) 8px;
+  box-sizing: border-box;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(9, 18, 31, 0.96) 0%,
+    rgba(9, 18, 31, 0.72) 75%,
+    transparent 100%
+  );
+}
+
+.round-timer-bar__track {
+  flex: 1;
+  min-width: 0;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.round-timer-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #b8922f 0%, #e4bc55 100%);
+  box-shadow: 0 0 10px rgba(212, 168, 67, 0.45);
+  transition: width 100ms linear;
+}
+
+.round-timer-bar__value {
+  flex-shrink: 0;
+  min-width: 2.4em;
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: right;
+  color: var(--accent-gold);
+  text-shadow: 0 1px 8px rgba(212, 168, 67, 0.35);
+}
+
+.round-timer-bar--urgent .round-timer-bar__fill {
+  background: linear-gradient(90deg, #dc2626 0%, #f87171 100%);
+  box-shadow: 0 0 12px rgba(248, 113, 113, 0.5);
+}
+
+.round-timer-bar--urgent .round-timer-bar__value {
+  color: #fca5a5;
+  text-shadow: 0 1px 8px rgba(248, 113, 113, 0.4);
+}
+
+/* Mobile: pinned under the fixed top bar, full viewport width */
+@media (max-width: 768px), (orientation: landscape) and (max-height: 600px) and (max-width: 1024px) {
+  .game-board--mobile-layout .round-timer-bar {
+    grid-column: 1 / -1;
+    position: fixed;
+    top: calc(36px + env(safe-area-inset-top, 0px));
+    left: 0;
+    right: 0;
+    z-index: 59;
+    gap: 8px;
+    padding: 6px 12px 5px;
+    background: rgba(9, 18, 31, 0.97);
+    border-bottom: 1px solid rgba(212, 168, 67, 0.22);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .game-board--mobile-layout .round-timer-bar__track {
+    height: 7px;
+  }
+
+  .game-board--mobile-layout .round-timer-bar__value {
+    font-size: 0.8rem;
+  }
+}

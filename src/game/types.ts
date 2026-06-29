@@ -98,29 +98,29 @@ export interface GameState {
 }
 
 export const EFFECT_NAMES: Record<EffectType, string> = {
-  steal_card: 'Kart Çal',
-  send_back: 'Geri Yolla',
-  protect: 'Koru',
-  transform: 'Dönüştür',
-  shift_chance: 'Şans Kaydır',
-  freeze: 'Dondur',
-  spy: 'Casus',
-  force_delete: 'Zorla Sil',
-  cleanse: 'Temizle',
-  last_draw: 'Son Çekiliş',
+  steal_card: 'Steal Card',
+  send_back: 'Send Back',
+  protect: 'Protect',
+  transform: 'Transform',
+  shift_chance: 'Shift Chance',
+  freeze: 'Freeze',
+  spy: 'Spy',
+  force_delete: 'Force Delete',
+  cleanse: 'Cleanse',
+  last_draw: 'Last Draw',
 };
 
 export const EFFECT_DESCRIPTIONS: Record<EffectType, string> = {
-  steal_card: 'Rakibin açık pozisyonundaki kartla kendi kartını takas et',
-  send_back: 'Rakibin açık kartını desteye gönder, yerine rastgele yeni kart',
-  protect: 'Kendi kartını bu round ve sonraki round boyunca koru',
-  transform: 'Kendi kartının sembolünü rastgele değiştir',
-  shift_chance: 'Kendi kartının sayısını sarmal ±2 komşulardan rastgele değiştir',
-  freeze: 'Rakibin açık kartını 2 round boyunca dondur',
-  spy: 'Rakibin bir efekt kartını gör',
-  force_delete: 'Rakibin bir efekt kartını sil',
-  cleanse: 'Olumsuz bir efekti (dondurma) kaldır',
-  last_draw: 'Seçtiğin kartı desteye gönder, yeni kart çek',
+  steal_card: 'Swap with an opponent card in an open slot',
+  send_back: 'Send opponent card to deck, draw a random replacement',
+  protect: 'Protect your card this round and the next',
+  transform: 'Randomly change your card\'s suit',
+  shift_chance: 'Shift your card\'s rank by ±2 (wraps A↔2)',
+  freeze: 'Freeze opponent card for 2 rounds',
+  spy: 'Reveal one opponent effect card',
+  force_delete: 'Delete one opponent effect card',
+  cleanse: 'Remove a negative effect (freeze)',
+  last_draw: 'Send your card to deck and draw a new one',
 };
 
 export const TOTAL_ROUNDS = 5;

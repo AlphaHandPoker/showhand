@@ -1,6 +1,6 @@
 import type { EffectType } from '../src/game/types.js';
 import type { CommittedAction, GameState, GameMode } from '../src/game/types.js';
-import { createGame, lockBothPlayerCommits, resolveNextInQueue, validateCommittedActions } from '../src/game/gameEngine.js';
+import { createGame, lockBothPlayerCommits, resolveNextInQueue, validateCommittedActions, forfeitGame } from '../src/game/gameEngine.js';
 import { buildFullEffectDeck, validateDeckSelection } from '../src/game/deckBuilder.js';
 import { skipsDraft } from '../src/game/gameModes.js';
 import { toViewerState, viewerActionsToServer } from '../src/game/gameView.js';
@@ -62,8 +62,10 @@ export class GameRoomManager {
   private rooms = new Map<string, GameRoom>();
   /** socket.id → room code */
   private socketRoom = new Map<string, string>();
+  /** Players waiting for matchmaking */
+  private matchQueue: { socketId: string; gameMode: GameMode }[] = [];
 
-  createRoom(socketId: string, gameMode: GameMode = 'draft'): { code: string; slot: 0 | 1 } {
+  createRoom(socketId: string, gameMode: GameMode = 'full_deck'): { code: string; slot: 0 | 1 } {
     if (this.socketRoom.has(socketId)) {
       const existingCode = this.socketRoom.get(socketId)!;
       const room = this.rooms.get(existingCode);
@@ -118,19 +120,79 @@ export class GameRoomManager {
     return { code, slot };
   }
 
+  findMatch(
+    socketId: string,
+    gameMode: GameMode = 'full_deck',
+  ): { matched: true; code: string } | { matched: false } {
+    this.removeFromMatchQueue(socketId);
+
+    const existingCode = this.socketRoom.get(socketId);
+    if (existingCode) {
+      return { matched: true, code: existingCode };
+    }
+
+    const waitingIdx = this.matchQueue.findIndex(
+      e => e.socketId !== socketId && e.gameMode === gameMode,
+    );
+    if (waitingIdx >= 0) {
+      const [waiting] = this.matchQueue.splice(waitingIdx, 1);
+      const code = this.createMatchedRoom(waiting.socketId, socketId, gameMode);
+      return { matched: true, code };
+    }
+
+    this.matchQueue.push({ socketId, gameMode });
+    return { matched: false };
+  }
+
+  cancelFindMatch(socketId: string): void {
+    this.removeFromMatchQueue(socketId);
+  }
+
+  private removeFromMatchQueue(socketId: string): void {
+    this.matchQueue = this.matchQueue.filter(e => e.socketId !== socketId);
+  }
+
+  private createMatchedRoom(player0: string, player1: string, gameMode: GameMode): string {
+    if (this.rooms.size >= MAX_ROOMS) {
+      throw new Error('Server is full — try again in a moment');
+    }
+
+    const code = generateRoomCode(new Set(this.rooms.keys()));
+    const room: GameRoom = {
+      code,
+      slots: [player0, player1],
+      status: skipsDraft(gameMode) ? 'waiting' : 'drafting',
+      gameMode,
+      createdAt: Date.now(),
+      drafts: [null, null],
+      gameState: null,
+      pendingCommits: [null, null],
+      resolving: false,
+    };
+
+    if (skipsDraft(gameMode)) {
+      this.startMatch(room);
+    }
+
+    this.rooms.set(code, room);
+    this.socketRoom.set(player0, code);
+    this.socketRoom.set(player1, code);
+    return code;
+  }
+
   submitDraft(socketId: string, rawDeck: string[]): string | null {
     const code = this.socketRoom.get(socketId);
-    if (!code) return 'Odaya bağlı değilsin';
+    if (!code) return 'You are not in a room';
 
     const room = this.rooms.get(code);
-    if (!room) return 'Oda bulunamadı';
+    if (!room) return 'Room not found';
 
     if (room.status !== 'drafting' && room.status !== 'draft_ready') {
-      return 'Draft aşamasında değilsin';
+      return 'Not in draft phase';
     }
 
     const slot = slotForSocket(room, socketId);
-    if (slot === null) return 'Geçersiz oturum';
+    if (slot === null) return 'Invalid session';
 
     const deck = rawDeck as EffectType[];
     const err = validateDeckSelection(deck);
@@ -147,17 +209,17 @@ export class GameRoomManager {
 
   submitCommit(socketId: string, rawActions: CommittedAction[]): string | null {
     const code = this.socketRoom.get(socketId);
-    if (!code) return 'Odaya bağlı değilsin';
+    if (!code) return 'You are not in a room';
 
     const room = this.rooms.get(code);
-    if (!room || !room.gameState) return 'Maç devam etmiyor';
+    if (!room || !room.gameState) return 'Match is not in progress';
 
-    if (room.status !== 'playing') return 'Commit aşamasında değilsin';
-    if (room.gameState.phase !== 'committing') return 'Bu round için commit kapalı';
-    if (room.resolving) return 'Çözümleme devam ediyor';
+    if (room.status !== 'playing') return 'Not in commit phase';
+    if (room.gameState.phase !== 'committing') return 'Commit is closed for this round';
+    if (room.resolving) return 'Resolution in progress';
 
     const slot = slotForSocket(room, socketId);
-    if (slot === null) return 'Geçersiz oturum';
+    if (slot === null) return 'Invalid session';
     if (room.pendingCommits[slot] !== null) return 'Zaten kilitledin';
 
     const actions = viewerActionsToServer(rawActions, slot);
@@ -179,10 +241,29 @@ export class GameRoomManager {
         room.resolving = true;
       } catch (e) {
         room.pendingCommits[slot] = null;
-        return e instanceof Error ? e.message : 'Commit başarısız';
+        return e instanceof Error ? e.message : 'Commit failed';
       }
     }
 
+    return null;
+  }
+
+  forfeitMatch(socketId: string): string | null {
+    const code = this.socketRoom.get(socketId);
+    if (!code) return 'You are not in a room';
+
+    const room = this.rooms.get(code);
+    if (!room?.gameState) return 'Match is not in progress';
+    if (room.gameState.phase === 'finished') return null;
+
+    const slot = slotForSocket(room, socketId);
+    if (slot === null) return 'Invalid session';
+
+    const forfeitingActor: 'player' | 'bot' = slot === 0 ? 'player' : 'bot';
+    room.gameState = forfeitGame(room.gameState, forfeitingActor);
+    room.status = 'finished';
+    room.resolving = false;
+    room.pendingCommits = [null, null];
     return null;
   }
 
@@ -224,6 +305,8 @@ export class GameRoomManager {
   }
 
   leaveRoom(socketId: string): string | null {
+    this.removeFromMatchQueue(socketId);
+
     const code = this.socketRoom.get(socketId);
     if (!code) return null;
 
@@ -301,41 +384,41 @@ export class GameRoomManager {
 
     let message: string;
     if (room.status === 'waiting') {
-      const modeLabel = room.gameMode === 'full_deck' ? 'Tam Deste' : 'Klasik';
+      const modeLabel = room.gameMode === 'full_deck' ? 'Full Deck' : 'Draft Mode';
       message = yourSlot === 0
-        ? `Oda oluşturuldu (${modeLabel}) — arkadaşının katılmasını bekliyorsun`
-        : `Bağlandın (${modeLabel}) — oda sahibi bekleniyor`;
+        ? `Room created (${modeLabel}) — waiting for friend to join`
+        : `Connected (${modeLabel}) — waiting for host`;
     } else if (room.status === 'drafting') {
       if (!youSubmitted) {
-        message = 'Efekt desteni seç ve kilitle';
+        message = 'Pick your effect deck and lock in';
       } else if (!opponentSubmitted) {
-        message = 'Taslağın gönderildi — rakip bekleniyor…';
+        message = 'Deck submitted — waiting for opponent…';
       } else {
-        message = 'Taslaklar tamam';
+        message = 'Drafts complete';
       }
     } else if (room.status === 'draft_ready') {
-      message = 'Her iki deste hazır — maç başlıyor…';
+      message = 'Both decks ready — match starting…';
     } else if (room.status === 'playing' && room.gameState) {
       if (room.resolving) {
-        message = 'Hamleler çözülüyor…';
+        message = 'Resolving moves…';
       } else if (room.gameState.phase === 'committing') {
         const c = commit!;
         if (c.youLocked && !c.opponentLocked) {
-          message = 'Kilitledin — rakip bekleniyor…';
+          message = 'Locked in — waiting for opponent…';
         } else if (!c.youLocked && c.opponentLocked) {
-          message = 'Rakip kilitledi — sen de kilitle';
+          message = 'Opponent locked in — your turn';
         } else {
-          message = `Round ${room.gameState.currentRound} — hamlelerini gizlice seç`;
+          message = `Round ${room.gameState.currentRound} — secretly choose your moves`;
         }
       } else if (room.gameState.phase === 'finished') {
-        message = 'Maç bitti';
+        message = 'Match over';
       } else {
-        message = 'Oyun devam ediyor';
+        message = 'Match in progress';
       }
     } else if (room.status === 'finished') {
-      message = 'Maç bitti';
+      message = 'Match over';
     } else {
-      message = 'Oyun devam ediyor';
+      message = 'Match in progress';
     }
 
     return {

@@ -728,7 +728,7 @@ export function useAnimatedGame(initial: GameState) {
       const reason = parseFizzleReason(plan.logMessage);
       const toast = plan.effect
         ? formatFizzleToast(plan.effect.type, reason)
-        : { title: 'Etki geçersiz oldu', body: 'Etki uygulanamadı.' };
+        : { title: 'Effect fizzled', body: 'The effect could not be applied.' };
 
       setVisual(v => ({
         ...v,

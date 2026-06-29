@@ -46,13 +46,13 @@ function logEffect(
 }
 
 const FIZZLE_DETAIL: Record<string, string> = {
-  'hedef çoktan oynandı': 'Hedef kart çoktan oynandı',
-  'hedef dondurulmuş': 'Hedef dondurulmuş — uygulanamaz',
-  'hedef korumalı': 'Hedef korumalı — uygulanamaz',
-  'hedef artık geçerli değil': 'Hedef artık geçerli değil',
-  'hedef eksik': 'Hedef seçilmedi',
-  'dondurma kalmadı': 'Kaldırılacak dondurma yok',
-  'pozisyon boş': 'Hedef pozisyon boş',
+  'already played': 'Target card was already played',
+  'target frozen': 'Target is frozen — cannot apply',
+  'target protected': 'Target is protected — cannot apply',
+  'target invalid': 'Target is no longer valid',
+  'missing target': 'No target selected',
+  'no freeze to remove': 'Nothing to cleanse',
+  'empty slot': 'Target slot is empty',
 };
 
 function fizzleDetail(reason: string): string {
@@ -84,7 +84,7 @@ function drawRoundCards(state: GameState): void {
     const card = drawRandomFromDeck(state, slotIndex);
     if (card) {
       hand.push(card);
-      addLog(state, 'Desteden kart çekildi', pid);
+      addLog(state, 'Drew a card from the deck', pid);
     }
   }
 }
@@ -108,13 +108,13 @@ function finishGame(state: GameState): void {
   const cmp = compareHands(pHand, bHand);
   if (cmp > 0) {
     state.winner = 'player';
-  addLog(state, `Oyun bitti! Kazandın: ${describeHand(state.players.player.pokerHand)} vs ${describeHand(state.players.bot.pokerHand)}`, undefined, 'result');
+  addLog(state, `Game over! You win: ${describeHand(state.players.player.pokerHand)} vs ${describeHand(state.players.bot.pokerHand)}`, undefined, 'result');
   } else if (cmp < 0) {
     state.winner = 'bot';
-    addLog(state, `Oyun bitti! Bot kazandı: ${describeHand(state.players.bot.pokerHand)} vs ${describeHand(state.players.player.pokerHand)}`, undefined, 'result');
+    addLog(state, `Game over! Bot wins: ${describeHand(state.players.bot.pokerHand)} vs ${describeHand(state.players.player.pokerHand)}`, undefined, 'result');
   } else {
     state.winner = 'tie';
-    addLog(state, 'Oyun bitti! Berabere!', undefined, 'result');
+    addLog(state, 'Game over! Tie!', undefined, 'result');
   }
 }
 
@@ -124,7 +124,7 @@ function endRound(state: GameState): void {
   drawRoundCards(state);
   state.roundCommits = emptyCommits();
   state.phase = 'committing';
-  addLog(state, `Round ${state.currentRound} başladı`, undefined, 'round');
+  addLog(state, `Round ${state.currentRound} started`, undefined, 'round');
 }
 
 function finishResolutionPhase(state: GameState): GameState {
@@ -147,7 +147,7 @@ function fizzleAction(state: GameState, actorId: PlayerId, action: CommittedActi
   if (!state.players[actorId].effectHand.some(e => e.id === action.effectId)) return;
   removeEffectFromHand(state, actorId, action.effectId);
   const effectName = EFFECT_NAMES[action.effectType];
-  const detail = `geçersiz — ${fizzleDetail(reason)}`;
+  const detail = `fizzled — ${fizzleDetail(reason)}`;
   logEffect(state, actorId, effectName, detail);
 }
 
@@ -166,13 +166,13 @@ function resolveCommittedAction(state: GameState, actorId: PlayerId, action: Com
   switch (action.effectType) {
     case 'steal_card': {
       if (action.opponentSlot === undefined || action.ownSlot === undefined) {
-        fizzleAction(state, actorId, action, 'hedef eksik');
+        fizzleAction(state, actorId, action, 'missing target');
         break;
       }
       const oppCard = getCardAtSlot(state, opponentId, action.opponentSlot);
       const ownCard = getCardAtSlot(state, actorId, action.ownSlot);
       if (!oppCard || !ownCard) {
-        fizzleAction(state, actorId, action, 'hedef artık geçerli değil');
+        fizzleAction(state, actorId, action, 'target invalid');
         break;
       }
       const block = getTargetBlockReason(oppCard, round) ?? getTargetBlockReason(ownCard, round);
@@ -197,12 +197,12 @@ function resolveCommittedAction(state: GameState, actorId: PlayerId, action: Com
     }
     case 'send_back': {
       if (action.opponentSlot === undefined) {
-        fizzleAction(state, actorId, action, 'hedef eksik');
+        fizzleAction(state, actorId, action, 'missing target');
         break;
       }
       const card = getCardAtSlot(state, opponentId, action.opponentSlot);
       if (!card) {
-        fizzleAction(state, actorId, action, 'hedef artık geçerli değil');
+        fizzleAction(state, actorId, action, 'target invalid');
         break;
       }
       const block = getTargetBlockReason(card, round);
@@ -221,18 +221,18 @@ function resolveCommittedAction(state: GameState, actorId: PlayerId, action: Com
         state,
         actorId,
         EFFECT_NAMES.send_back,
-        `${playingCardName(card)} desteye gönderildi, yeni kart çekildi`,
+        `${playingCardName(card)} sent to deck, new card drawn`,
       );
       break;
     }
     case 'protect': {
       if (action.ownSlot === undefined) {
-        fizzleAction(state, actorId, action, 'hedef eksik');
+        fizzleAction(state, actorId, action, 'missing target');
         break;
       }
       const card = getCardAtSlot(state, actorId, action.ownSlot);
       if (!card) {
-        fizzleAction(state, actorId, action, 'pozisyon boş');
+        fizzleAction(state, actorId, action, 'empty slot');
         break;
       }
       const block = getTargetBlockReason(card, round);
@@ -252,12 +252,12 @@ function resolveCommittedAction(state: GameState, actorId: PlayerId, action: Com
     }
     case 'transform': {
       if (action.ownSlot === undefined) {
-        fizzleAction(state, actorId, action, 'hedef eksik');
+        fizzleAction(state, actorId, action, 'missing target');
         break;
       }
       const card = getCardAtSlot(state, actorId, action.ownSlot);
       if (!card) {
-        fizzleAction(state, actorId, action, 'hedef artık geçerli değil');
+        fizzleAction(state, actorId, action, 'target invalid');
         break;
       }
       const transformBlock = getTargetBlockReason(card, round);
@@ -282,12 +282,12 @@ function resolveCommittedAction(state: GameState, actorId: PlayerId, action: Com
     }
     case 'shift_chance': {
       if (action.ownSlot === undefined) {
-        fizzleAction(state, actorId, action, 'hedef eksik');
+        fizzleAction(state, actorId, action, 'missing target');
         break;
       }
       const card = getCardAtSlot(state, actorId, action.ownSlot);
       if (!card) {
-        fizzleAction(state, actorId, action, 'hedef artık geçerli değil');
+        fizzleAction(state, actorId, action, 'target invalid');
         break;
       }
       const shiftBlock = getTargetBlockReason(card, round);
@@ -296,7 +296,7 @@ function resolveCommittedAction(state: GameState, actorId: PlayerId, action: Com
         break;
       }
       if (getShiftChanceTargets(state.deck, card.suit, card.rank).length === 0) {
-        fizzleAction(state, actorId, action, 'hedef artık geçerli değil');
+        fizzleAction(state, actorId, action, 'target invalid');
         break;
       }
       removeEffectFromHand(state, actorId, action.effectId);
@@ -316,12 +316,12 @@ function resolveCommittedAction(state: GameState, actorId: PlayerId, action: Com
     }
     case 'freeze': {
       if (action.opponentSlot === undefined) {
-        fizzleAction(state, actorId, action, 'hedef eksik');
+        fizzleAction(state, actorId, action, 'missing target');
         break;
       }
       const card = getCardAtSlot(state, opponentId, action.opponentSlot);
       if (!card) {
-        fizzleAction(state, actorId, action, 'hedef artık geçerli değil');
+        fizzleAction(state, actorId, action, 'target invalid');
         break;
       }
       const freezeBlock = getTargetBlockReason(card, round);
@@ -341,14 +341,14 @@ function resolveCommittedAction(state: GameState, actorId: PlayerId, action: Com
     }
     case 'spy': {
       if (!action.opponentEffectId) {
-        fizzleAction(state, actorId, action, 'hedef eksik');
+        fizzleAction(state, actorId, action, 'missing target');
         break;
       }
       const effect = state.players[opponentId].effectHand.find(e => e.id === action.opponentEffectId);
       if (!effect) {
         const reason = wasEffectAlreadyResolvedInQueue(state, action.opponentEffectId)
-          ? 'hedef çoktan oynandı'
-          : 'hedef artık geçerli değil';
+          ? 'already played'
+          : 'target invalid';
         fizzleAction(state, actorId, action, reason);
         break;
       }
@@ -361,20 +361,20 @@ function resolveCommittedAction(state: GameState, actorId: PlayerId, action: Com
         state,
         actorId,
         EFFECT_NAMES.spy,
-        `Rakibin ${EFFECT_NAMES[effect.type]} kartı görüldü`,
+        `Opponent's ${EFFECT_NAMES[effect.type]} revealed`,
       );
       break;
     }
     case 'force_delete': {
       if (!action.opponentEffectId) {
-        fizzleAction(state, actorId, action, 'hedef eksik');
+        fizzleAction(state, actorId, action, 'missing target');
         break;
       }
       const idx = state.players[opponentId].effectHand.findIndex(e => e.id === action.opponentEffectId);
       if (idx === -1) {
         const reason = wasEffectAlreadyResolvedInQueue(state, action.opponentEffectId)
-          ? 'hedef çoktan oynandı'
-          : 'hedef artık geçerli değil';
+          ? 'already played'
+          : 'target invalid';
         fizzleAction(state, actorId, action, reason);
         break;
       }
@@ -384,18 +384,18 @@ function resolveCommittedAction(state: GameState, actorId: PlayerId, action: Com
         state,
         actorId,
         EFFECT_NAMES.force_delete,
-        'Bir efekt kartı silindi',
+        'An effect card was deleted',
       );
       break;
     }
     case 'cleanse': {
       if (action.cleanseOwnerId === undefined || action.cleanseSlot === undefined) {
-        fizzleAction(state, actorId, action, 'hedef eksik');
+        fizzleAction(state, actorId, action, 'missing target');
         break;
       }
       const card = getCardAtSlot(state, action.cleanseOwnerId, action.cleanseSlot);
       if (!card || card.frozenUntilTurn < round) {
-        fizzleAction(state, actorId, action, 'dondurma kalmadı');
+        fizzleAction(state, actorId, action, 'no freeze to remove');
         break;
       }
       removeEffectFromHand(state, actorId, action.effectId);
@@ -404,18 +404,18 @@ function resolveCommittedAction(state: GameState, actorId: PlayerId, action: Com
         state,
         actorId,
         EFFECT_NAMES.cleanse,
-        `${playingCardName(card)} üzerindeki dondurma kaldırıldı`,
+        `${playingCardName(card)} unfrozen`,
       );
       break;
     }
     case 'last_draw': {
       if (action.ownSlot === undefined) {
-        fizzleAction(state, actorId, action, 'hedef eksik');
+        fizzleAction(state, actorId, action, 'missing target');
         break;
       }
       const card = getCardAtSlot(state, actorId, action.ownSlot);
       if (!card) {
-        fizzleAction(state, actorId, action, 'pozisyon boş');
+        fizzleAction(state, actorId, action, 'empty slot');
         break;
       }
       const block = getTargetBlockReason(card, round);
@@ -437,8 +437,8 @@ function resolveCommittedAction(state: GameState, actorId: PlayerId, action: Com
         actorId,
         EFFECT_NAMES.last_draw,
         newCard
-          ? `${playingCardName(card)} desteye gönderildi → ${playingCardName(newCard)}`
-          : `${playingCardName(card)} desteye gönderildi`,
+          ? `${playingCardName(card)} sent to deck → ${playingCardName(newCard)}`
+          : `${playingCardName(card)} sent to deck`,
       );
       break;
     }
@@ -485,9 +485,9 @@ export function createGame(
   };
 
   drawRoundCards(state);
-  addLog(state, 'Round 1 başladı', undefined, 'round');
-  addLog(state, 'SHOWHAND başladı! Round 1 — hamlelerini gizlice seç.');
-  addLog(state, `Çözülme sırası: Round 1'de ${startingPlayer === 'player' ? 'Sen' : 'Bot'} önce.`, startingPlayer);
+  addLog(state, 'Round 1 started', undefined, 'round');
+  addLog(state, 'SHOWHAND started! Round 1 — secretly choose your moves.');
+  addLog(state, `Resolution order: ${startingPlayer === 'player' ? 'You' : 'Bot'} go first in Round 1.`, startingPlayer);
   return state;
 }
 
@@ -497,7 +497,7 @@ export function validateCommittedActions(
   actions: CommittedAction[],
 ): string | null {
   if (actions.length > maxCardsForState(state)) {
-    return `En fazla ${maxCardsForState(state)} kart seçebilirsin`;
+    return `You can pick at most ${maxCardsForState(state)} cards`;
   }
 
   const usedEffects = new Set<string>();
@@ -505,80 +505,145 @@ export function validateCommittedActions(
   const opponentId = getOpponent(actorId);
 
   for (const action of actions) {
-    if (usedEffects.has(action.effectId)) return 'Aynı kartı iki kez seçemezsin';
+    if (usedEffects.has(action.effectId)) return 'Cannot pick the same card twice';
     usedEffects.add(action.effectId);
 
     const effect = state.players[actorId].effectHand.find(e => e.id === action.effectId);
-    if (!effect || effect.type !== action.effectType) return 'Geçersiz efekt kartı';
+    if (!effect || effect.type !== action.effectType) return 'Invalid effect card';
 
     switch (action.effectType) {
       case 'steal_card': {
-        if (action.opponentSlot === undefined || action.ownSlot === undefined) return 'Kart Çal için iki pozisyon gerekli';
+        if (action.opponentSlot === undefined || action.ownSlot === undefined) return 'Steal Card requires two positions';
         const opp = getCardAtSlot(state, opponentId, action.opponentSlot);
         const own = getCardAtSlot(state, actorId, action.ownSlot);
-        if (!opp || !own) return 'Geçersiz pozisyon';
-        if (!isSlotVisibleToViewer(state, opponentId, action.opponentSlot, actorId)) return 'Kapalı pozisyon hedeflenemez';
-        if (!canTargetCard(opp, round) || !canTargetCard(own, round)) return 'Hedef kilitli veya korumalı';
+        if (!opp || !own) return 'Invalid position';
+        if (!isSlotVisibleToViewer(state, opponentId, action.opponentSlot, actorId)) return 'Cannot target a hidden slot';
+        if (!canTargetCard(opp, round) || !canTargetCard(own, round)) return 'Target is locked or protected';
         break;
       }
       case 'send_back':
       case 'freeze': {
-        if (action.opponentSlot === undefined) return 'Rakip pozisyonu gerekli';
+        if (action.opponentSlot === undefined) return 'Opponent position required';
         const card = getCardAtSlot(state, opponentId, action.opponentSlot);
-        if (!card) return 'Geçersiz pozisyon';
-        if (!isSlotVisibleToViewer(state, opponentId, action.opponentSlot, actorId)) return 'Kapalı pozisyon hedeflenemez';
-        if (!canTargetCard(card, round)) return 'Hedef kilitli veya korumalı';
+        if (!card) return 'Invalid position';
+        if (!isSlotVisibleToViewer(state, opponentId, action.opponentSlot, actorId)) return 'Cannot target a hidden slot';
+        if (!canTargetCard(card, round)) return 'Target is locked or protected';
         break;
       }
       case 'protect':
       case 'last_draw': {
-        if (action.ownSlot === undefined) return 'Kendi pozisyonun gerekli';
+        if (action.ownSlot === undefined) return 'Your position required';
         const card = getCardAtSlot(state, actorId, action.ownSlot);
-        if (!card) return 'Geçersiz pozisyon';
+        if (!card) return 'Invalid position';
         const block = getTargetBlockReason(card, round);
-        if (block) return block === 'hedef dondurulmuş' ? 'Hedef dondurulmuş' : 'Hedef kilitli veya korumalı';
+        if (block) return block === 'target frozen' ? 'Target is frozen' : 'Target is locked or protected';
         break;
       }
       case 'transform': {
-        if (action.ownSlot === undefined) return 'Kendi pozisyonun gerekli';
+        if (action.ownSlot === undefined) return 'Your position required';
         const card = getCardAtSlot(state, actorId, action.ownSlot);
-        if (!card) return 'Geçersiz pozisyon';
+        if (!card) return 'Invalid position';
         const block = getTargetBlockReason(card, round);
-        if (block) return block === 'hedef dondurulmuş' ? 'Hedef dondurulmuş' : 'Hedef kilitli veya korumalı';
+        if (block) return block === 'target frozen' ? 'Target is frozen' : 'Target is locked or protected';
         if (getAvailableSuitsForTransform(state.deck, card.rank, card.suit).length === 0) {
-          return 'Dönüştürülebilecek sembol yok';
+          return 'No suit available to transform into';
         }
         break;
       }
       case 'shift_chance': {
-        if (action.ownSlot === undefined) return 'Kendi pozisyonun gerekli';
+        if (action.ownSlot === undefined) return 'Your position required';
         const card = getCardAtSlot(state, actorId, action.ownSlot);
-        if (!card) return 'Geçersiz pozisyon';
+        if (!card) return 'Invalid position';
         const block = getTargetBlockReason(card, round);
-        if (block) return block === 'hedef dondurulmuş' ? 'Hedef dondurulmuş' : 'Hedef kilitli veya korumalı';
+        if (block) return block === 'target frozen' ? 'Target is frozen' : 'Target is locked or protected';
         if (getShiftChanceTargets(state.deck, card.suit, card.rank).length === 0) {
-          return 'Kaydırılabilecek değer yok';
+          return 'No rank available to shift to';
         }
         break;
       }
       case 'spy':
       case 'force_delete': {
-        if (!action.opponentEffectId) return 'Rakip efekt kartı gerekli';
+        if (!action.opponentEffectId) return 'Opponent effect card required';
         if (!state.players[opponentId].effectHand.some(e => e.id === action.opponentEffectId)) {
-          return 'Geçersiz rakip efekt kartı';
+          return 'Invalid opponent effect card';
         }
         break;
       }
       case 'cleanse': {
-        if (action.cleanseOwnerId === undefined || action.cleanseSlot === undefined) return 'Temizle hedefi gerekli';
+        if (action.cleanseOwnerId === undefined || action.cleanseSlot === undefined) return 'Cleanse target required';
         const card = getCardAtSlot(state, action.cleanseOwnerId, action.cleanseSlot);
-        if (!card || card.frozenUntilTurn < round) return 'Dondurulmuş kart yok';
+        if (!card || card.frozenUntilTurn < round) return 'No frozen card to cleanse';
         break;
       }
     }
   }
 
   return null;
+}
+
+/** Snapshot with player locked — used only to evaluate bot moves without mutating live state. */
+export function cloneStateForBotEvaluation(
+  state: GameState,
+  playerActions: CommittedAction[],
+): GameState {
+  const err = validateCommittedActions(state, 'player', playerActions);
+  if (err) throw new Error(err);
+
+  return {
+    ...state,
+    deck: [...state.deck],
+    players: {
+      player: {
+        ...state.players.player,
+        pokerHand: state.players.player.pokerHand.map(c => ({ ...c })),
+        effectHand: [...state.players.player.effectHand],
+      },
+      bot: {
+        ...state.players.bot,
+        pokerHand: state.players.bot.pokerHand.map(c => ({ ...c })),
+        effectHand: [...state.players.bot.effectHand],
+      },
+    },
+    roundCommits: {
+      player: { actions: [...playerActions], locked: true },
+      bot: { actions: [], locked: false },
+    },
+    log: [...state.log],
+    spyReveal: null,
+  };
+}
+
+export function forfeitGame(state: GameState, forfeitingPlayer: PlayerId): GameState {
+  const newState: GameState = {
+    ...state,
+    deck: [...state.deck],
+    players: {
+      player: {
+        ...state.players.player,
+        pokerHand: state.players.player.pokerHand.map(c => ({ ...c })),
+        effectHand: [...state.players.player.effectHand],
+      },
+      bot: {
+        ...state.players.bot,
+        pokerHand: state.players.bot.pokerHand.map(c => ({ ...c })),
+        effectHand: [...state.players.bot.effectHand],
+      },
+    },
+    roundCommits: emptyCommits(),
+    resolutionQueue: [],
+    resolutionIndex: 0,
+    resolvingPlayer: null,
+    log: [...state.log],
+    spyReveal: null,
+    phase: 'finished',
+    winner: forfeitingPlayer === 'player' ? 'bot' : 'player',
+  };
+
+  const message = forfeitingPlayer === 'player'
+    ? 'You left the match — you lose.'
+    : 'Opponent left the match — you win!';
+  addLog(newState, message, undefined, 'result');
+  return newState;
 }
 
 export function lockPlayerCommit(state: GameState, actions: CommittedAction[]): GameState {
@@ -628,7 +693,7 @@ export function lockPlayerCommit(state: GameState, actions: CommittedAction[]): 
   newState.resolutionQueue = queue;
   newState.resolutionIndex = 0;
   newState.phase = 'resolving';
-  addLog(newState, 'Hamleler kilitlendi — çözülüyor...');
+  addLog(newState, 'Moves locked — resolving...');
 
   if (queue.length === 0) {
     return finishResolutionPhase(newState);
@@ -683,7 +748,7 @@ export function lockBothPlayerCommits(
   newState.resolutionQueue = queue;
   newState.resolutionIndex = 0;
   newState.phase = 'resolving';
-  addLog(newState, 'Hamleler kilitlendi — çözülüyor...');
+  addLog(newState, 'Moves locked — resolving...');
 
   if (queue.length === 0) {
     return finishResolutionPhase(newState);

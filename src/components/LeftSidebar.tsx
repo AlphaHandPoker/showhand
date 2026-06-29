@@ -16,7 +16,7 @@ export function LeftSidebar({
   logEntries,
 }: Props) {
   return (
-    <aside className="left-sidebar" aria-label="El sırası ve olaylar">
+    <aside className="left-sidebar" aria-label="Hand ranks and event log">
       <header className="rail-brand">
         <span className="rail-brand-mark">♠</span>
         <span className="rail-brand-word">SHOWHAND</span>

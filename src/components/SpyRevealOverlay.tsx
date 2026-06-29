@@ -23,11 +23,11 @@ type Phase = 'prep' | 'spin' | 'hold' | 'done';
 function phaseCaption(phase: Phase, effectName: string, isOwnCard: boolean): string {
   switch (phase) {
     case 'spin':
-      return isOwnCard ? 'Kartın açığa çıkıyor…' : `${effectName} açılıyor…`;
+      return isOwnCard ? 'Your card is being revealed…' : `${effectName} revealing…`;
     case 'hold':
-      return isOwnCard ? 'Rakip bu kartı gördü!' : `Rakibin efekti: ${effectName}`;
+      return isOwnCard ? 'Opponent saw this card!' : `Opponent effect: ${effectName}`;
     default:
-      return 'Casus';
+      return 'Spy';
   }
 }
 
@@ -144,7 +144,7 @@ export function SpyRevealOverlay({ request, onComplete }: Props) {
         {holding && (
           <div className="spy-reveal-mark" aria-hidden>
             <span className="spy-reveal-mark-icon">👁</span>
-            <span className="spy-reveal-mark-text">Rakip görüyor</span>
+            <span className="spy-reveal-mark-text">Opponent sees</span>
           </div>
         )}
       </div>

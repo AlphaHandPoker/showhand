@@ -32,11 +32,11 @@ export function CardInspectOverlay({ target, currentTurn, onClose }: CardInspect
       className="card-inspect-overlay"
       role="dialog"
       aria-modal="true"
-      aria-label="Kart detayı"
+      aria-label="Card details"
       onClick={onClose}
     >
       <div className="card-inspect-panel" onClick={e => e.stopPropagation()}>
-        <button type="button" className="card-inspect-close" onClick={onClose} aria-label="Kapat">×</button>
+        <button type="button" className="card-inspect-close" onClick={onClose} aria-label="Close">×</button>
 
         <p className="card-inspect-owner">{target.ownerLabel}</p>
 
@@ -46,7 +46,7 @@ export function CardInspectOverlay({ target, currentTurn, onClose }: CardInspect
           <EffectInspect card={target.card} ownerId={target.ownerId} />
         )}
 
-        <p className="card-inspect-hint">Kapatmak için dışarı dokun</p>
+        <p className="card-inspect-hint">Tap outside to close</p>
       </div>
     </div>
   );
@@ -127,7 +127,7 @@ function EffectInspect({ card, ownerId }: { card: EffectCard; ownerId: 'player' 
       <p className="card-inspect-title">{EFFECT_NAMES[card.type]}</p>
       {ownerId === 'bot' && (
         <p className="card-inspect-note">
-          <Eye size={14} /> Rakip efekt kartı
+          <Eye size={14} /> Opponent effect card
         </p>
       )}
     </div>

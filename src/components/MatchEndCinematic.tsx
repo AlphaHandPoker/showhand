@@ -39,10 +39,10 @@ export function MatchEndCinematic({ game, online, onRestart }: MatchEndCinematic
   }, []);
 
   const bannerText = playerWon
-    ? 'SEN KAZANDIN!'
+    ? 'YOU WIN!'
     : botWon
-      ? (online ? 'KAYBETTİN' : 'BOT KAZANDI')
-      : 'BERABERE';
+      ? (online ? 'YOU LOSE' : 'BOT WINS')
+      : 'TIE';
 
   return (
     <>
@@ -51,11 +51,11 @@ export function MatchEndCinematic({ game, online, onRestart }: MatchEndCinematic
       {(phase === 'ranks' || phase === 'highlight' || phase === 'banner' || phase === 'done') && (
         <div className="match-end-ranks" aria-live="polite">
           <div className={`match-end-rank match-end-rank--bot${botWon ? ' match-end-rank--winner' : ''}${playerWon ? ' match-end-rank--loser' : ''}`}>
-            <span className="match-end-rank-label">{online ? 'Rakip' : 'Bot'}</span>
+            <span className="match-end-rank-label">{online ? 'Opponent' : 'Bot'}</span>
             <span className="match-end-rank-name">{botEv.name}</span>
           </div>
           <div className={`match-end-rank match-end-rank--player${playerWon ? ' match-end-rank--winner' : ''}${botWon ? ' match-end-rank--loser' : ''}`}>
-            <span className="match-end-rank-label">Sen</span>
+            <span className="match-end-rank-label">You</span>
             <span className="match-end-rank-name">{playerEv.name}</span>
           </div>
         </div>
@@ -72,7 +72,7 @@ export function MatchEndCinematic({ game, online, onRestart }: MatchEndCinematic
       {showButton && (
         <div className="match-end-restart-wrap">
           <button type="button" className="btn-restart match-end-restart" onClick={onRestart}>
-            {online ? 'Ana Menü' : 'Tekrar Oyna'}
+            {online ? 'Main Menu' : 'Play Again'}
           </button>
         </div>
       )}

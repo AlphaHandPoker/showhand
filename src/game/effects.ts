@@ -20,8 +20,8 @@ export function canTargetCard(card: PlayingCard, round: number): boolean {
 }
 
 export function getTargetBlockReason(card: PlayingCard, round: number): string | null {
-  if (isCardProtected(card, round)) return 'hedef korumalı';
-  if (isCardFrozen(card, round)) return 'hedef dondurulmuş';
+  if (isCardProtected(card, round)) return 'target protected';
+  if (isCardFrozen(card, round)) return 'target frozen';
   return null;
 }
 
@@ -73,11 +73,11 @@ export function applyTransform(
 ): { success: boolean; newCard?: PlayingCard; message: string } {
   const suits = getAvailableSuitsForTransform(state.deck, card.rank, card.suit);
   if (suits.length === 0) {
-    return { success: false, message: 'Dönüştürülebilecek müsait sembol yok' };
+    return { success: false, message: 'No available suit to transform into' };
   }
   const newSuit = suits[Math.floor(Math.random() * suits.length)];
   const deckCard = findDeckCard(state.deck, newSuit, card.rank);
-  if (!deckCard) return { success: false, message: 'Deste kartı bulunamadı' };
+  if (!deckCard) return { success: false, message: 'Deck card not found' };
 
   state.deck = state.deck.filter(c => c.id !== deckCard.id);
   state.deck.push({ ...card, id: card.id + '_old' });
@@ -91,7 +91,7 @@ export function applyTransform(
       protectedUntilTurn: card.protectedUntilTurn,
       frozenUntilTurn: card.frozenUntilTurn,
     },
-    message: `${card.rank} sembolü ${newSuit} olarak değiştirildi`,
+    message: `Suit changed to ${newSuit}`,
   };
 }
 
@@ -101,12 +101,12 @@ export function applyShiftChance(
 ): { success: boolean; newCard?: PlayingCard; message: string } {
   const targets = getShiftChanceTargets(state.deck, card.suit, card.rank);
   if (targets.length === 0) {
-    return { success: false, message: 'Kaydırılabilecek müsait değer yok' };
+    return { success: false, message: 'No available rank to shift to' };
   }
 
   const targetRank = targets[Math.floor(Math.random() * targets.length)];
   const deckCard = findDeckCard(state.deck, card.suit, targetRank);
-  if (!deckCard) return { success: false, message: 'Deste kartı bulunamadı' };
+  if (!deckCard) return { success: false, message: 'Deck card not found' };
 
   state.deck = state.deck.filter(c => c.id !== deckCard.id);
   state.deck.push({ ...card, id: card.id + '_old' });

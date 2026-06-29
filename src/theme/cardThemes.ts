@@ -23,7 +23,7 @@ export interface CardTheme {
 export const CARD_THEMES: CardTheme[] = [
   {
     id: 'classic',
-    name: 'Klasik',
+    name: 'Classic',
     cardFaceBackground: '#f8f6f0',
     cardFaceBorder: 'rgba(0,0,0,0.1)',
     cardFaceRadius: '8px',
@@ -61,7 +61,7 @@ export const CARD_THEMES: CardTheme[] = [
   },
   {
     id: 'golden',
-    name: 'Altın Çağ',
+    name: 'Golden Age',
     cardFaceBackground: '#fdf8e8',
     cardFaceBorder: 'rgba(212,168,67,0.4)',
     cardFaceRadius: '8px',

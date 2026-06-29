@@ -11,6 +11,7 @@ import {
   type RoomErrorPayload,
   type SubmitDraftPayload,
   type CreateRoomPayload,
+  type FindMatchPayload,
 } from '../shared/protocol.js';
 import { GameRoomManager } from './gameRoom.js';
 
@@ -92,7 +93,7 @@ io.on('connection', (socket) => {
 
   socket.on(ClientEvents.CREATE_ROOM, (payload?: CreateRoomPayload) => {
     try {
-      const mode = payload?.mode === 'full_deck' ? 'full_deck' : 'draft';
+      const mode = payload?.mode === 'draft' ? 'draft' : 'full_deck';
       const { code } = rooms.createRoom(socket.id, mode);
       void socket.join(code);
       emitRoomState(code);
@@ -105,19 +106,60 @@ io.on('connection', (socket) => {
   socket.on(ClientEvents.JOIN_ROOM, (payload: JoinRoomPayload) => {
     const code = normalizeRoomCode(payload.code ?? '');
     if (!code.startsWith('SHOW-') || code.length < 7) {
-      emitError(socket.id, 'Geçersiz oda kodu — örnek: SHOW-AB12');
+      emitError(socket.id, 'Invalid room code — example: SHOW-AB12');
       return;
     }
 
     const result = rooms.joinRoom(code, socket.id);
     if (!result) {
-      emitError(socket.id, 'Oda bulunamadı veya dolu');
+      emitError(socket.id, 'Room not found or full');
       return;
     }
 
     void socket.join(code);
     emitAll(code);
     console.log(`[room] joined ${code} guest=${socket.id}`);
+  });
+
+  socket.on(ClientEvents.FIND_MATCH, (payload?: FindMatchPayload) => {
+    try {
+      const mode = payload?.mode === 'draft' ? 'draft' : 'full_deck';
+      const result = rooms.findMatch(socket.id, mode);
+      if (result.matched) {
+        const room = rooms.getRoom(result.code);
+        void socket.join(result.code);
+        if (room?.slots[0]) {
+          io.sockets.sockets.get(room.slots[0])?.join(result.code);
+        }
+        if (room?.slots[1]) {
+          io.sockets.sockets.get(room.slots[1])?.join(result.code);
+        }
+        emitRoomState(result.code);
+        console.log(`[match] paired in ${result.code} player=${socket.id}`);
+      } else {
+        console.log(`[match] queued ${socket.id} mode=${mode}`);
+      }
+    } catch (err) {
+      console.error('[match] find failed', err);
+    }
+  });
+
+  socket.on(ClientEvents.CANCEL_FIND_MATCH, () => {
+    rooms.cancelFindMatch(socket.id);
+    console.log(`[match] cancelled ${socket.id}`);
+  });
+
+  socket.on(ClientEvents.FORFEIT_MATCH, () => {
+    const err = rooms.forfeitMatch(socket.id);
+    if (err) {
+      emitError(socket.id, err);
+      return;
+    }
+    const code = rooms.getRoomCodeForSocket(socket.id);
+    if (code) {
+      emitAll(code);
+      console.log(`[forfeit] ${socket.id} left ${code}`);
+    }
   });
 
   socket.on(ClientEvents.SUBMIT_DRAFT, (payload: SubmitDraftPayload) => {

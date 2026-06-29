@@ -29,7 +29,7 @@ export function PlayerAvatar({
       ].filter(Boolean).join(' ')}
     >
       <div className="player-avatar-frame">
-        <img src={src} alt={label ?? 'Oyuncu'} className="player-avatar-img" />
+        <img src={src} alt={label ?? 'Player'} className="player-avatar-img" />
       </div>
       {label && <span className="player-avatar-label">{label}</span>}
     </div>

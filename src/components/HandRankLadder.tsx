@@ -43,10 +43,10 @@ export function HandRankLadder({ playerHand, botHand }: HandRankLadderProps) {
   const botPartial = botHand !== null && botHand.length > 0 && botHand.length < HAND_SIZE;
 
   return (
-    <div className="hand-rank-ladder" aria-label="El sıralaması">
-      <h3 className="ladder-title">El Sırası</h3>
+    <div className="hand-rank-ladder" aria-label="Hand rankings">
+      <h3 className="ladder-title">Hand Rankings</h3>
       {(playerPartial || botPartial) && (
-        <p className="ladder-subtitle">Tahmini el (kısmi)</p>
+        <p className="ladder-subtitle">Estimated hand (partial)</p>
       )}
       <ol className="ladder-list">
         {LADDER_RANKS.map(rank => {
@@ -71,15 +71,15 @@ export function HandRankLadder({ playerHand, botHand }: HandRankLadderProps) {
                 {isPlayer && (
                   <span
                     className="ladder-marker marker-player"
-                    title={playerPartial ? `Sen — tahmini (${playerHand!.length}/${HAND_SIZE})` : 'Sen'}
+                    title={playerPartial ? `You — estimated (${playerHand!.length}/${HAND_SIZE})` : 'You'}
                   >
-                    {playerPartial ? `~${playerHand!.length}` : 'SEN'}
+                    {playerPartial ? `~${playerHand!.length}` : 'YOU'}
                   </span>
                 )}
                 {isBot && (
                   <span
                     className="ladder-marker marker-bot"
-                    title={botPartial ? `Bot — tahmini (${botHand!.length}/${HAND_SIZE})` : 'Bot'}
+                    title={botPartial ? `Bot — estimated (${botHand!.length}/${HAND_SIZE})` : 'Bot'}
                   >
                     {botPartial ? `~${botHand!.length}` : 'BOT'}
                   </span>

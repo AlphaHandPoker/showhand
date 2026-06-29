@@ -1,9 +1,11 @@
 # SHOWHAND
 
-Premium poker-strategy card game prototype. Build a 5-card poker hand over 5 rounds while secretly committing effect cards that disrupt your opponent or buff your own hand. Best hand at the end wins.
+Premium poker-strategy card game. Build a 5-card poker hand over 5 rounds while secretly committing effect cards that disrupt your opponent or buff your own hand. Best hand at the end wins.
 
-**Stack:** React 19 · TypeScript · Vite  
-**Target display:** Desktop 1920×1080 @ 100% zoom (Chrome)
+**Live:** [showhand-alpha.vercel.app](https://showhand-alpha.vercel.app)
+
+**Stack:** React 19 · TypeScript · Vite · Socket.io  
+**Platforms:** Desktop and mobile (portrait-friendly)
 
 ---
 
@@ -11,72 +13,53 @@ Premium poker-strategy card game prototype. Build a 5-card poker hand over 5 rou
 
 ```bash
 npm install
-npm run dev
+npm run dev          # frontend only
+npm run dev:all      # frontend + online server
 ```
 
 Open `http://localhost:5173`.
 
 ```bash
-npm run build   # production build
-npm run preview # preview production build
+npm run build        # production build
+npm run preview      # preview production build
 ```
 
 ---
 
-## How to play (summary)
+## How to play
 
-1. **Draft** — Pick 5 effect cards (max 2 of the same type).
-2. **5 rounds** — Each round, both players draw 1 poker card from a shared 52-card deck into the next slot (positions 1–5).
-3. **Blind commit** — Choose 0–2 effect cards and their targets, then **Lock** (or **Pass**). The bot commits at the same time; neither sees the other's choices.
-4. **Resolution** — Committed effects resolve in order (alternating starter each round). Invalid targets **fizzle** but still consume the effect card.
-5. **Showdown** — After round 5, standard poker hand ranking decides the winner.
+1. **Full Deck mode (default)** — You get one of each effect type; play 1 per round.
+2. **5 rounds** — Each round, both players draw 1 poker card into the next slot.
+3. **Blind commit** — Choose 0–1 effect (Full Deck) and targets, then **Lock In** or **Pass**. Opponent commits at the same time.
+4. **Resolution** — Effects resolve in turn order. Invalid targets **fizzle** but still consume the card.
+5. **Showdown** — After round 5, standard poker ranking decides the winner.
 
-Full rules, effect list, and targeting: **[docs/GAME.md](docs/GAME.md)**  
-Architecture and code map: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
+**Play vs Computer** — instant bot match.  
+**Find Player** — 8s matchmaking; falls back to a disguised bot if no one joins.
+
+Full rules: **[docs/GAME.md](docs/GAME.md)**  
+Architecture: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
 
 ---
 
-## Project layout
+## Deploy
 
-```
-src/
-  game/           Core rules (pure TypeScript, no React)
-    types.ts      Types, constants, effect names/descriptions
-    gameEngine.ts Match flow: commit, resolve, rounds, win
-    poker.ts      Hand evaluation and comparison
-    effects.ts    Effect helpers, deck/slot operations
-    bot.ts        Bot commit AI
-    botScoring.ts Hand/threat scoring for bot decisions
-    deckBuilder.ts Draft validation, bot deck generation
-    deck.ts       52-card deck, rank wrap (A↔2)
-    visibility.ts Opponent slot visibility rules
-  components/     UI (GameBoard, Cards, DraftScreen, …)
-  hooks/          useAnimatedGame — state + animation queue
-  ui/             detectAnimations — state diff → animation plans
-  styles/         Design tokens (tokens.css)
+**Frontend (Vercel):** push to `main` — auto-deploys via `vercel.json`.
+
+**Online server (Railway):**
+
+```bash
+npm run deploy:railway
 ```
 
----
+Set env vars:
+- **Vercel:** `VITE_SERVER_URL=https://your-server.up.railway.app`
+- **Railway:** `CLIENT_ORIGIN=https://showhand-alpha.vercel.app`
 
-## Game constants
-
-| Constant | Value |
-|----------|-------|
-| Rounds | 5 |
-| Poker hand size | 5 (slot-based positions 0–4) |
-| Effect deck size | 5 per player |
-| Max effects per round | 2 |
-| Max copies per effect type (draft) | 2 |
-| Shared deck | Standard 52-card deck |
-
----
-
-## Bot
-
-The bot builds a balanced 5-card effect deck and each round commits 0–2 actions using hand/threat scoring, marginal card value, and round timing (early vs late game). See [docs/GAME.md](docs/GAME.md#bot-ai).
+Redeploy Vercel after setting `VITE_SERVER_URL` (build-time variable).
 
 ---
 
 ## License
 
-Private prototype — see repository owner for usage terms.
+Public release — play and share freely.
