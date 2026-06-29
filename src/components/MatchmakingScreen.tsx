@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { UseOnlineGame } from '../hooks/useOnlineGame';
 import { DEFAULT_GAME_MODE } from '../game/gameModes';
 import './MatchmakingScreen.css';
 
-const SEARCH_DURATION_MS = 8000;
+/** Time in queue after socket is connected (not from screen mount). */
+const SEARCH_DURATION_MS = 15000;
 
 interface MatchmakingScreenProps {
   online: UseOnlineGame;
@@ -14,12 +15,38 @@ interface MatchmakingScreenProps {
 export function MatchmakingScreen({ online, onMatched, onFallbackToBot }: MatchmakingScreenProps) {
   const resolvedRef = useRef(false);
   const searchStartedRef = useRef(false);
+  const timeoutRef = useRef<number | null>(null);
+  const onlineRef = useRef(online);
+  onlineRef.current = online;
+
+  const clearSearchTimeout = useCallback(() => {
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleFallback = useCallback(() => {
+    clearSearchTimeout();
+    timeoutRef.current = window.setTimeout(() => {
+      if (resolvedRef.current) return;
+      resolvedRef.current = true;
+      onlineRef.current.cancelFindMatch();
+      onFallbackToBot();
+    }, SEARCH_DURATION_MS);
+  }, [clearSearchTimeout, onFallbackToBot]);
 
   useEffect(() => {
-    if (!online.socketConnected || searchStartedRef.current) return;
+    if (!online.socketConnected) {
+      searchStartedRef.current = false;
+      clearSearchTimeout();
+      return;
+    }
+    if (searchStartedRef.current) return;
     searchStartedRef.current = true;
-    online.findMatch(DEFAULT_GAME_MODE);
-  }, [online, online.socketConnected]);
+    onlineRef.current.findMatch(DEFAULT_GAME_MODE);
+    scheduleFallback();
+  }, [online.socketConnected, scheduleFallback, clearSearchTimeout]);
 
   useEffect(() => {
     if (resolvedRef.current) return;
@@ -32,28 +59,19 @@ export function MatchmakingScreen({ online, onMatched, onFallbackToBot }: Matchm
 
     if (rs.status === 'playing' || rs.status === 'drafting' || rs.status === 'draft_ready') {
       resolvedRef.current = true;
+      clearSearchTimeout();
       onMatched();
     }
-  }, [online.roomState, onMatched]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      if (resolvedRef.current) return;
-      resolvedRef.current = true;
-      online.cancelFindMatch();
-      onFallbackToBot();
-    }, SEARCH_DURATION_MS);
-
-    return () => window.clearTimeout(timer);
-  }, [online, onFallbackToBot]);
+  }, [online.roomState, onMatched, clearSearchTimeout]);
 
   useEffect(() => {
     return () => {
+      clearSearchTimeout();
       if (!resolvedRef.current) {
-        online.cancelFindMatch();
+        onlineRef.current.cancelFindMatch();
       }
     };
-  }, [online]);
+  }, [clearSearchTimeout]);
 
   return (
     <div className="matchmaking-screen">

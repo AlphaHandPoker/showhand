@@ -134,7 +134,7 @@ io.on('connection', (socket) => {
         if (room?.slots[1]) {
           io.sockets.sockets.get(room.slots[1])?.join(result.code);
         }
-        emitRoomState(result.code);
+        emitAll(result.code);
         console.log(`[match] paired in ${result.code} player=${socket.id}`);
       } else {
         console.log(`[match] queued ${socket.id} mode=${mode}`);

@@ -80,6 +80,8 @@ export function useOnlineGame(): UseOnlineGame {
 
   const findMatch = useCallback((mode: GameMode = DEFAULT_GAME_MODE) => {
     setError(null);
+    setRoomState(null);
+    setGamePayload(null);
     socketRef.current?.emit(ClientEvents.FIND_MATCH, { mode });
   }, []);
 

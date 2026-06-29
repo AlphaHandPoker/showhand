@@ -48,7 +48,7 @@ function waitForRoomStatus(
 async function main() {
   const host = io(SERVER, { transports: ['websocket'] });
   await waitFor<void>(host, 'connect');
-  host.emit(ClientEvents.CREATE_ROOM);
+  host.emit(ClientEvents.CREATE_ROOM, { mode: 'draft' });
   const hostState = await waitFor<RoomStatePayload>(host, ServerEvents.ROOM_STATE);
 
   const guest = io(SERVER, { transports: ['websocket'] });
@@ -74,6 +74,25 @@ async function main() {
   console.log('PASS: lobby + drafts → match started in room', hostState.code);
   host.disconnect();
   guest.disconnect();
+
+  // Matchmaking queue (Find Player flow — Full Deck default)
+  const seekerA = io(SERVER, { transports: ['websocket'] });
+  await waitFor<void>(seekerA, 'connect');
+  seekerA.emit(ClientEvents.FIND_MATCH, { mode: 'full_deck' });
+  await new Promise(r => setTimeout(r, 300));
+
+  const seekerB = io(SERVER, { transports: ['websocket'] });
+  await waitFor<void>(seekerB, 'connect');
+  const matchPromiseA = waitForRoomStatus(seekerA, 'playing');
+  const matchPromiseB = waitForRoomStatus(seekerB, 'playing');
+  seekerB.emit(ClientEvents.FIND_MATCH, { mode: 'full_deck' });
+  const [matchA, matchB] = await Promise.all([matchPromiseA, matchPromiseB]);
+  if (matchA.code !== matchB.code) {
+    throw new Error(`Matchmaking paired different rooms: ${matchA.code} vs ${matchB.code}`);
+  }
+  console.log('PASS: FIND_MATCH → match started in room', matchA.code);
+  seekerA.disconnect();
+  seekerB.disconnect();
 }
 
 main().catch(err => {
