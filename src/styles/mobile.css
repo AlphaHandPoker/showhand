@@ -50,10 +50,9 @@
     --board-pad-x: 6px;
     --poker-gap: clamp(3px, 0.6vw, 6px);
 
-    /* Poker cards — fit narrow width; scroll handles the rest */
-    --poker-card-w-width: calc((100vw - 24px - 4 * var(--poker-gap)) / 5);
-    --poker-card-h: clamp(50px, calc(var(--poker-card-w-width) * 1.4), 88px);
-    --poker-card-w: calc(var(--poker-card-h) / 1.4);
+    /* Poker — always fit 5 across on phone width */
+    --poker-card-w: calc((100vw - 20px - 4 * var(--poker-gap)) / 5);
+    --poker-card-h: calc(var(--poker-card-w) * 1.4);
     --poker-card-w-width: var(--poker-card-w);
     --poker-card-w-height: var(--poker-card-h);
     --poker-card-radius: clamp(5px, calc(var(--poker-card-h) * 0.085), 9px);
@@ -90,19 +89,20 @@
     min-height: 0;
     height: 100%;
     max-height: 100dvh;
-    padding-top: 36px;
-    padding-bottom: 8px;
+    padding-top: calc(36px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
-    scroll-padding-bottom: 64px;
+    scroll-padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   }
 
   .battlefield-stack {
-    padding: 0 var(--board-pad-x) 64px;
+    padding: 0 var(--board-pad-x) calc(16px + env(safe-area-inset-bottom, 0px));
     flex: none;
     min-height: auto;
+    gap: 10px;
   }
 
   .battlefield-half {
@@ -305,6 +305,133 @@
     top: calc(4px + env(safe-area-inset-top, 0px));
     left: calc(6px + env(safe-area-inset-left, 0px));
     z-index: 65;
+  }
+
+  /* ── Mobile portrait layout: poker first, compact effects, no dead space ── */
+  .game-board--mobile-layout .battlefield-arena {
+    display: none;
+  }
+
+  .game-board--mobile-layout .battlefield::before {
+    display: none;
+  }
+
+  .game-board--mobile-layout .zone {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  /* Bot: label → poker → badge → effects */
+  .game-board--mobile-layout .zone--bot .mobile-zone-label { order: 1; }
+  .game-board--mobile-layout .zone--bot .battlefield-half-core { order: 2; }
+  .game-board--mobile-layout .zone--bot .effect-band { order: 3; }
+
+  .game-board--mobile-layout .zone--player .mobile-zone-label { order: 1; }
+  .game-board--mobile-layout .zone--player .battlefield-half-core { order: 2; }
+  .game-board--mobile-layout .zone--player .effect-band { order: 3; }
+
+  .game-board--mobile-layout .battlefield-half-core {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    flex-shrink: 0;
+    overflow: visible;
+  }
+
+  .game-board--mobile-layout .arena-rows {
+    width: 100%;
+    overflow: visible;
+  }
+
+  .game-board--mobile-layout .hand-row {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: 100%;
+    max-width: 100%;
+    gap: var(--poker-gap);
+    perspective: none;
+  }
+
+  .game-board--mobile-layout .hand-row .playing-card-slot {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  .game-board--mobile-layout .hand-row .playing-card,
+  .game-board--mobile-layout .hand-row .playing-card-empty-slot {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 5 / 7;
+    max-width: 100%;
+  }
+
+  .game-board--mobile-layout .hand-row--player .playing-card,
+  .game-board--mobile-layout .hand-row--player .playing-card-empty-slot {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .game-board--mobile-layout .hand-row--pre-reveal .playing-card-slot {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .game-board--mobile-layout .effect-band {
+    width: 100%;
+    padding: 2px 0 4px;
+  }
+
+  .game-board--mobile-layout .effect-band .effect-row {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 3px;
+    padding: 2px 4px;
+  }
+
+  .game-board--mobile-layout .effect-band .effect-card-name {
+    display: none;
+  }
+
+  .game-board--mobile-layout .effect-band .effect-card-desc {
+    display: none !important;
+  }
+
+  .game-board--mobile-layout .effect-band .effect-card-header {
+    padding: 2px 0 0;
+    min-height: 0;
+  }
+
+  .game-board--mobile-layout .effect-band .effect-card-art {
+    padding: 0;
+  }
+
+  .game-board--mobile-layout .effect-band .effect-card,
+  .game-board--mobile-layout .effect-band .effect-card-back {
+    width: var(--effect-card-w);
+    min-width: var(--effect-card-w);
+    flex: 0 0 var(--effect-card-w);
+  }
+
+  .game-board--mobile-layout .mobile-zone-section-label {
+    font-family: var(--font-display);
+    font-size: 0.5rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--text-muted);
+    padding: 2px 0 0;
   }
 
   /* ─────────────────────────────────────────────

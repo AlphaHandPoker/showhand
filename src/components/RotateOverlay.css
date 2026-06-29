@@ -1,6 +1,0 @@
-/* Rotate blocker removed — hide if a stale bundle still mounts .rotate-overlay */
-.rotate-overlay {
-  display: none !important;
-  pointer-events: none !important;
-  visibility: hidden !important;
-}

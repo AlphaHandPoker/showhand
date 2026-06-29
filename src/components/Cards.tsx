@@ -336,6 +336,7 @@ interface OpponentEffectStackProps {
   hiddenEffectIds?: Set<string>;
   overlayMaskEffectId?: string | null;
   mobileRail?: boolean;
+  compact?: boolean;
 }
 
 export function OpponentEffectStack({
@@ -350,6 +351,7 @@ export function OpponentEffectStack({
   hiddenEffectIds = new Set(),
   overlayMaskEffectId = null,
   mobileRail = false,
+  compact = false,
 }: OpponentEffectStackProps) {
   const rowClass = ['effect-row', mobileRail && 'effect-row--mobile-rail'].filter(Boolean).join(' ');
   return (
@@ -371,6 +373,7 @@ export function OpponentEffectStack({
               <EffectCardView
                 card={effect}
                 mobileRail={mobileRail}
+                compact={compact}
                 spyRevealed
                 spyFlipping={isFlipping}
                 targeted={isTargeted}
@@ -389,6 +392,7 @@ export function OpponentEffectStack({
           >
             <EffectCardBack
               mobileRail={mobileRail}
+              compact={compact}
               spyFlipping={isFlipping}
               targeted={isTargeted}
               animClass={getEffectDrawClass(effect.id, drawingEffectIds)}
