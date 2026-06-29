@@ -201,7 +201,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     const code = rooms.leaveRoom(socket.id);
     console.log(`[socket] disconnected ${socket.id}${code ? ` left ${code}` : ''}`);
-    if (code) emitRoomState(code);
+    if (code) emitAll(code);
   });
 });
 

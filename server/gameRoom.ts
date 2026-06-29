@@ -316,6 +316,11 @@ export class GameRoomManager {
     if (!room) return null;
 
     const slot = slotForSocket(room, socketId);
+    const wasActiveMatch = room.status === 'playing'
+      && room.gameState !== null
+      && room.gameState.phase !== 'finished'
+      && slot !== null;
+
     if (slot === 0) {
       room.slots[0] = null;
       room.drafts[0] = null;
@@ -330,6 +335,15 @@ export class GameRoomManager {
     if (!anyoneLeft) {
       this.rooms.delete(code);
       return null;
+    }
+
+    if (wasActiveMatch && slot !== null) {
+      const forfeitingActor: 'player' | 'bot' = slot === 0 ? 'player' : 'bot';
+      room.gameState = forfeitGame(room.gameState!, forfeitingActor);
+      room.status = 'finished';
+      room.resolving = false;
+      room.pendingCommits = [null, null];
+      return code;
     }
 
     if (!bothConnected(room)) {

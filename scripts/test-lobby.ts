@@ -93,6 +93,32 @@ async function main() {
   console.log('PASS: FIND_MATCH → match started in room', matchA.code);
   seekerA.disconnect();
   seekerB.disconnect();
+
+  // Disconnect during match → remaining player wins
+  const p1 = io(SERVER, { transports: ['websocket'] });
+  const p2 = io(SERVER, { transports: ['websocket'] });
+  await waitFor<void>(p1, 'connect');
+  await waitFor<void>(p2, 'connect');
+  p1.emit(ClientEvents.FIND_MATCH, { mode: 'full_deck' });
+  await new Promise(r => setTimeout(r, 300));
+  const playingPromise1 = waitForRoomStatus(p1, 'playing');
+  const playingPromise2 = waitForRoomStatus(p2, 'playing');
+  p2.emit(ClientEvents.FIND_MATCH, { mode: 'full_deck' });
+  await Promise.all([playingPromise1, playingPromise2]);
+
+  const winPromise = new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timeout waiting for forfeit win')), 5000);
+    p1.on(ServerEvents.GAME_STATE, payload => {
+      if (payload.game.phase === 'finished' && payload.game.winner === 'player') {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+  });
+  p2.disconnect();
+  await winPromise;
+  console.log('PASS: opponent disconnect → remaining player wins');
+  p1.disconnect();
 }
 
 main().catch(err => {
