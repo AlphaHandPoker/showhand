@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 
-/** Landscape phone game board — side rails + center poker. */
+/** Phones — scroll layout in any orientation (no rotate blocker). */
 export const MOBILE_GAME_LAYOUT_MQ =
-  '(orientation: landscape) and (max-height: 600px) and (max-width: 1024px)';
+  '(max-width: 768px), (orientation: landscape) and (max-height: 600px) and (max-width: 1024px)';
 
 export function useMobileGameLayout(): boolean {
   const [active, setActive] = useState(() =>

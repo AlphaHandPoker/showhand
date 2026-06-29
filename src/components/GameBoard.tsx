@@ -63,9 +63,7 @@ import './PlayerAvatar.css';
 import './MatchEndCinematic.css';
 import './EffectToSlotFlight.css';
 import { HowToPlayFab, HowToPlayGuide } from './HowToPlayGuide';
-import { RotateOverlay } from './RotateOverlay';
 import './HowToPlayGuide.css';
-import './RotateOverlay.css';
 import { Menu, X } from 'lucide-react';
 
 interface GameBoardProps {
@@ -473,7 +471,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
           ? overlayMaskEffectId
           : null;
 
-  const renderPlayerEffectCards = (mobileRail = false) =>
+  const renderPlayerEffectCards = () =>
     displayGame.players.player.effectHand.map(card => {
       if (hiddenEffectIds.has(card.id)) return null;
       const overlayHidden = visual.spyReveal?.victimEffect.id === card.id
@@ -487,7 +485,6 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
         >
           <EffectCardView
             card={card}
-            mobileRail={mobileRail}
             onClick={() => handleEffectClick(card.id)}
             disabled={effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type)}
             selected={usedEffectIds.has(card.id)}
@@ -504,9 +501,123 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
     setIntroReady(true);
   }, [initialGame, runIntroReveal]);
 
+  const sidebarActions = (
+    <>
+      {isCommitting && !isFinished && (
+        <span className="slots-left">{slotsLeft} kart</span>
+      )}
+
+      {canCancelPick && (
+        <button type="button" className="btn-cancel" onClick={handleCancelPick}>
+          İptal
+        </button>
+      )}
+
+      {pendingPick?.step === 'opponent_effect' && canPickOpponentEffects && (
+        <span className="pick-hint">Rakibin efekt kartını seç</span>
+      )}
+
+      {canInteract && (
+        <button type="button" className="btn-lock" onClick={handleLockCommit}>
+          {commitQueue.length === 0 ? 'Pas Geç' : 'Kilitle'}
+        </button>
+      )}
+
+      {online?.youLocked && !online.opponentLocked && isCommitting && (
+        <span className="online-status-msg">Kilitledin — rakip bekleniyor…</span>
+      )}
+      {online?.opponentLocked && !online.youLocked && isCommitting && (
+        <span className="online-status-msg online-status-msg--urgent">Rakip kilitledi — sen de kilitle!</span>
+      )}
+    </>
+  );
+
+  const rightSidebar = (
+    <RightSidebar
+      opponentLabel={opponentLabel}
+      isFinished={isFinished}
+      winner={game.winner}
+      game={displayGame}
+      resolving={resolving}
+      actions={sidebarActions}
+    />
+  );
+
+  const battlefield = (
+    <div className="battlefield">
+      <BattlefieldArena />
+
+      <CommitRevealLanes
+        lanes={visual.commitLanes}
+        overlayMaskEffectId={overlayMaskEffectId}
+      />
+
+      <div className="cast-center-anchor">
+        <div className="cast-center-measure" data-cast-center-anchor="measure" aria-hidden />
+        {visual.centerHeldEffect && (
+          <CenterHeldEffect effect={visual.centerHeldEffect.effect} />
+        )}
+      </div>
+
+      <div className="battlefield-stack">
+        <div className="battlefield-half battlefield-half--bot">
+          <section className={`zone zone--bot ${activeLaneOwner === 'bot' ? 'zone--resolving-active' : ''} ${getMatchEndZoneClass('bot', game.winner, matchEndPhase)}`}>
+            {isMobileLayout && (
+              <div className="mobile-zone-label mobile-zone-label--bot">Rakip</div>
+            )}
+            <div className="effect-band effect-band--bot">
+              <div className="effect-band__cards">
+                <OpponentEffectStack
+                  effects={displayGame.players.bot.effectHand}
+                  ownerId="bot"
+                  onCardClick={handleOpponentEffectPick}
+                  selectable={canPickOpponentEffects}
+                  revealedSpyIds={revealedSpyEffectIds}
+                  spyFlipEffectId={visual.spyFlipEffectId}
+                  targetEffectId={visual.targetEffectId}
+                  hiddenEffectIds={hiddenEffectIds}
+                  overlayMaskEffectId={botOverlayMaskEffectId}
+                />
+              </div>
+            </div>
+
+            <div className="battlefield-half-core">
+              <div className="arena-hud arena-hud--compact">
+                <HandRankBadge cards={botHand} />
+              </div>
+              {renderArenaRows('bot')}
+            </div>
+          </section>
+        </div>
+
+        <div className="battlefield-half battlefield-half--player">
+          <section className={`zone zone--player ${activeLaneOwner === 'player' ? 'zone--resolving-active' : ''} ${getMatchEndZoneClass('player', game.winner, matchEndPhase)}`}>
+            {isMobileLayout && (
+              <div className="mobile-zone-label mobile-zone-label--player">Sen</div>
+            )}
+            <div className="battlefield-half-core">
+              {renderArenaRows('player')}
+
+              <div className="arena-hud arena-hud--compact">
+                <HandRankBadge cards={playerHand} />
+              </div>
+            </div>
+
+            <div className="effect-band effect-band--player">
+              <div className="effect-band__cards">
+                <div className="effect-row">
+                  {renderPlayerEffectCards()}
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className={`game-board ${game.gameMode === 'full_deck' ? 'game-board--full-deck' : ''} ${boardInputBlocked ? 'is-animating' : ''} ${mobileInfoOpen ? 'game-board--info-open' : ''}${isMobileLayout ? ' game-board--mobile-layout' : ''}`}>
-      <RotateOverlay />
       <HowToPlayFab onClick={() => setShowHowToPlay(true)} />
       {showHowToPlay && <HowToPlayGuide onClose={() => setShowHowToPlay(false)} />}
 
@@ -662,166 +773,8 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
         logEntries={displayGame.log}
       />
 
-      <RightSidebar
-        opponentLabel={opponentLabel}
-        isFinished={isFinished}
-        winner={game.winner}
-        game={displayGame}
-        resolving={resolving}
-        actions={(
-          <>
-            {isCommitting && !isFinished && (
-              <span className="slots-left">{slotsLeft} kart</span>
-            )}
-
-            {canCancelPick && (
-              <button type="button" className="btn-cancel" onClick={handleCancelPick}>
-                İptal
-              </button>
-            )}
-
-            {pendingPick?.step === 'opponent_effect' && canPickOpponentEffects && (
-              <span className="pick-hint">Rakibin efekt kartını seç</span>
-            )}
-
-            {canInteract && (
-              <button type="button" className="btn-lock" onClick={handleLockCommit}>
-                {commitQueue.length === 0 ? 'Pas Geç' : 'Kilitle'}
-              </button>
-            )}
-
-            {online?.youLocked && !online.opponentLocked && isCommitting && (
-              <span className="online-status-msg">Kilitledin — rakip bekleniyor…</span>
-            )}
-            {online?.opponentLocked && !online.youLocked && isCommitting && (
-              <span className="online-status-msg online-status-msg--urgent">Rakip kilitledi — sen de kilitle!</span>
-            )}
-          </>
-        )}
-      />
-
-      {/* ═══ BATTLEFIELD ═══ */}
-      <div className="battlefield">
-        <BattlefieldArena />
-
-        <CommitRevealLanes
-          lanes={visual.commitLanes}
-          overlayMaskEffectId={overlayMaskEffectId}
-        />
-
-        <div className="cast-center-anchor">
-          <div className="cast-center-measure" data-cast-center-anchor="measure" aria-hidden />
-          {visual.centerHeldEffect && (
-            <CenterHeldEffect effect={visual.centerHeldEffect.effect} />
-          )}
-        </div>
-
-        <div className={`battlefield-stack${isMobileLayout ? ' battlefield-stack--mobile-rails' : ''}`}>
-          {isMobileLayout ? (
-            <div className="mobile-arena-body">
-              <aside className="mobile-effect-rail mobile-effect-rail--player" aria-label="Senin efekt kartların">
-                <div className="mobile-effect-rail__label">Sen</div>
-                <div className="mobile-effect-rail__grid">
-                  {renderPlayerEffectCards(true)}
-                </div>
-              </aside>
-
-              <div className="mobile-center-arena">
-                <div className="battlefield-half battlefield-half--bot">
-                  <section className={`zone zone--bot ${activeLaneOwner === 'bot' ? 'zone--resolving-active' : ''} ${getMatchEndZoneClass('bot', game.winner, matchEndPhase)}`}>
-                    <div className="battlefield-half-core">
-                      <div className="arena-hud arena-hud--compact">
-                        <HandRankBadge cards={botHand} />
-                      </div>
-                      {renderArenaRows('bot')}
-                    </div>
-                  </section>
-                </div>
-
-                <div className="battlefield-half battlefield-half--player">
-                  <section className={`zone zone--player ${activeLaneOwner === 'player' ? 'zone--resolving-active' : ''} ${getMatchEndZoneClass('player', game.winner, matchEndPhase)}`}>
-                    <div className="battlefield-half-core">
-                      {renderArenaRows('player')}
-                      <div className="arena-hud arena-hud--compact">
-                        <HandRankBadge cards={playerHand} />
-                      </div>
-                    </div>
-                  </section>
-                </div>
-              </div>
-
-              <aside className="mobile-effect-rail mobile-effect-rail--opponent" aria-label="Rakip efekt kartları">
-                <div className="mobile-effect-rail__label">Rakip</div>
-                <div className="mobile-effect-rail__grid">
-                  <OpponentEffectStack
-                    effects={displayGame.players.bot.effectHand}
-                    ownerId="bot"
-                    mobileRail
-                    onCardClick={handleOpponentEffectPick}
-                    selectable={canPickOpponentEffects}
-                    revealedSpyIds={revealedSpyEffectIds}
-                    spyFlipEffectId={visual.spyFlipEffectId}
-                    targetEffectId={visual.targetEffectId}
-                    hiddenEffectIds={hiddenEffectIds}
-                    overlayMaskEffectId={botOverlayMaskEffectId}
-                  />
-                </div>
-              </aside>
-            </div>
-          ) : (
-            <>
-          {/* ── Top half — bot (mirrors bottom half) ── */}
-          <div className="battlefield-half battlefield-half--bot">
-            <section className={`zone zone--bot ${activeLaneOwner === 'bot' ? 'zone--resolving-active' : ''} ${getMatchEndZoneClass('bot', game.winner, matchEndPhase)}`}>
-              <div className="effect-band effect-band--bot">
-                <div className="effect-band__cards">
-                  <OpponentEffectStack
-                    effects={displayGame.players.bot.effectHand}
-                    ownerId="bot"
-                    onCardClick={handleOpponentEffectPick}
-                    selectable={canPickOpponentEffects}
-                    revealedSpyIds={revealedSpyEffectIds}
-                    spyFlipEffectId={visual.spyFlipEffectId}
-                    targetEffectId={visual.targetEffectId}
-                    hiddenEffectIds={hiddenEffectIds}
-                    overlayMaskEffectId={botOverlayMaskEffectId}
-                  />
-                </div>
-              </div>
-
-              <div className="battlefield-half-core">
-                <div className="arena-hud arena-hud--compact">
-                  <HandRankBadge cards={botHand} />
-                </div>
-                {renderArenaRows('bot')}
-              </div>
-            </section>
-          </div>
-
-          {/* ── Bottom half — player (mirrors top half) ── */}
-          <div className="battlefield-half battlefield-half--player">
-            <section className={`zone zone--player ${activeLaneOwner === 'player' ? 'zone--resolving-active' : ''} ${getMatchEndZoneClass('player', game.winner, matchEndPhase)}`}>
-              <div className="battlefield-half-core">
-                {renderArenaRows('player')}
-
-                <div className="arena-hud arena-hud--compact">
-                  <HandRankBadge cards={playerHand} />
-                </div>
-              </div>
-
-              <div className="effect-band effect-band--player">
-                <div className="effect-band__cards">
-                  <div className="effect-row">
-                    {renderPlayerEffectCards(false)}
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-            </>
-          )}
-        </div>
-      </div>
+      {rightSidebar}
+      {battlefield}
     </div>
   );
 }
