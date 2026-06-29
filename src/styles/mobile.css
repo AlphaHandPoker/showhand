@@ -328,10 +328,13 @@
     overflow: visible;
   }
 
-  /* Bot: label → poker → badge → effects */
+  /* Bot: label → effects → poker */
   .game-board--mobile-layout .zone--bot .mobile-zone-label { order: 1; }
-  .game-board--mobile-layout .zone--bot .battlefield-half-core { order: 2; }
-  .game-board--mobile-layout .zone--bot .effect-band { order: 3; }
+  .game-board--mobile-layout .zone--bot .effect-band { order: 2; }
+  .game-board--mobile-layout .zone--bot .battlefield-half-core { order: 3; }
+
+  .game-board--mobile-layout .zone--bot .battlefield-half-core .arena-rows { order: 1; }
+  .game-board--mobile-layout .zone--bot .battlefield-half-core .arena-hud { order: 2; }
 
   .game-board--mobile-layout .zone--player .mobile-zone-label { order: 1; }
   .game-board--mobile-layout .zone--player .battlefield-half-core { order: 2; }
@@ -392,11 +395,54 @@
     padding: 2px 0 4px;
   }
 
+  .game-board--mobile-layout .effect-band--bot .effect-band__cards {
+    overflow-x: auto;
+    overflow-y: visible;
+  }
+
+  .game-board--mobile-layout .effect-band--player .effect-band__cards {
+    overflow: visible;
+  }
+
   .game-board--mobile-layout .effect-band .effect-row {
     flex-wrap: nowrap;
     justify-content: flex-start;
     gap: 3px;
     padding: 2px 4px;
+  }
+
+  /* Player effects: 2 rows × 5 columns */
+  .game-board--mobile-layout .effect-row--mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    column-gap: 3px;
+    row-gap: 4px;
+    width: 100%;
+    padding: 2px 4px;
+    flex-wrap: unset;
+    justify-items: stretch;
+  }
+
+  .game-board--mobile-layout .effect-row--mobile-grid .effect-flight-anchor {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  .game-board--mobile-layout .effect-band--player .effect-card,
+  .game-board--mobile-layout .effect-band--player .effect-card-back {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    flex: unset !important;
+  }
+
+  .game-board--mobile-layout .effect-band--bot .effect-card,
+  .game-board--mobile-layout .effect-band--bot .effect-card-back {
+    width: var(--effect-card-w);
+    min-width: var(--effect-card-w);
+    flex: 0 0 var(--effect-card-w);
   }
 
   .game-board--mobile-layout .effect-band .effect-card-name {
@@ -414,13 +460,6 @@
 
   .game-board--mobile-layout .effect-band .effect-card-art {
     padding: 0;
-  }
-
-  .game-board--mobile-layout .effect-band .effect-card,
-  .game-board--mobile-layout .effect-band .effect-card-back {
-    width: var(--effect-card-w);
-    min-width: var(--effect-card-w);
-    flex: 0 0 var(--effect-card-w);
   }
 
   .game-board--mobile-layout .mobile-zone-section-label {

@@ -607,7 +607,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
 
             <div className="effect-band effect-band--player">
               <div className="effect-band__cards">
-                <div className="effect-row">
+                <div className={`effect-row${isMobileLayout ? ' effect-row--mobile-grid' : ''}`}>
                   {renderPlayerEffectCards()}
                 </div>
               </div>
