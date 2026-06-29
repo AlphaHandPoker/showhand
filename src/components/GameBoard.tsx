@@ -37,6 +37,7 @@ import { VsIntroScreen } from './VsIntroScreen';
 import { BattlefieldArena } from './BattlefieldArena';
 import { MatchEndCinematic, getMatchEndZoneClass } from './MatchEndCinematic';
 import { useAnimatedGame } from '../hooks/useAnimatedGame';
+import { useMobileGameLayout } from '../hooks/useMobileGameLayout';
 import { getCardAnimationClass } from '../ui/detectAnimations';
 import './GameBoard.css';
 import './DeckShuffleIntro.css';
@@ -133,6 +134,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
   const [matchEndPhase, setMatchEndPhase] = useState<'idle' | 'highlight' | 'done'>('idle');
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
+  const isMobileLayout = useMobileGameLayout();
   const resolvingRef = useRef(false);
   const isFinished = game.phase === 'finished';
   const opponentLabel = online?.opponentLabel ?? 'Bot';
@@ -462,6 +464,40 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
     || slotsLeft <= 0
     || !!pendingPick;
 
+  const botOverlayMaskEffectId =
+    overlayMaskEffectId && visual.spyReveal?.victimOwnerId === 'bot'
+      ? overlayMaskEffectId
+      : overlayMaskEffectId && visual.forceDelete?.victimOwnerId === 'bot'
+        ? overlayMaskEffectId
+        : overlayMaskEffectId && visual.effectShred?.ownerId === 'bot'
+          ? overlayMaskEffectId
+          : null;
+
+  const renderPlayerEffectCards = (mobileRail = false) =>
+    displayGame.players.player.effectHand.map(card => {
+      if (hiddenEffectIds.has(card.id)) return null;
+      const overlayHidden = visual.spyReveal?.victimEffect.id === card.id
+        || visual.forceDelete?.victimEffect.id === card.id
+        || visual.effectShred?.effectId === card.id;
+      return (
+        <div
+          key={card.id}
+          className={`effect-flight-anchor${overlayHidden ? ' effect-flight-anchor--overlay-active' : ''}`}
+          data-effect-anchor={`player-${card.id}`}
+        >
+          <EffectCardView
+            card={card}
+            mobileRail={mobileRail}
+            onClick={() => handleEffectClick(card.id)}
+            disabled={effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type)}
+            selected={usedEffectIds.has(card.id)}
+            spyRevealed={revealedSpyEffectIds.has(card.id)}
+            spyFlipping={visual.spyFlipEffectId === card.id}
+          />
+        </div>
+      );
+    });
+
   const handleIntroComplete = useCallback(async () => {
     setShuffleDone(true);
     await runIntroReveal(initialGame);
@@ -469,7 +505,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
   }, [initialGame, runIntroReveal]);
 
   return (
-    <div className={`game-board ${game.gameMode === 'full_deck' ? 'game-board--full-deck' : ''} ${boardInputBlocked ? 'is-animating' : ''} ${mobileInfoOpen ? 'game-board--info-open' : ''}`}>
+    <div className={`game-board ${game.gameMode === 'full_deck' ? 'game-board--full-deck' : ''} ${boardInputBlocked ? 'is-animating' : ''} ${mobileInfoOpen ? 'game-board--info-open' : ''}${isMobileLayout ? ' game-board--mobile-layout' : ''}`}>
       <RotateOverlay />
       <HowToPlayFab onClick={() => setShowHowToPlay(true)} />
       {showHowToPlay && <HowToPlayGuide onClose={() => setShowHowToPlay(false)} />}
@@ -680,7 +716,60 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
           )}
         </div>
 
-        <div className="battlefield-stack">
+        <div className={`battlefield-stack${isMobileLayout ? ' battlefield-stack--mobile-rails' : ''}`}>
+          {isMobileLayout ? (
+            <div className="mobile-arena-body">
+              <aside className="mobile-effect-rail mobile-effect-rail--player" aria-label="Senin efekt kartların">
+                <div className="mobile-effect-rail__label">Sen</div>
+                <div className="mobile-effect-rail__grid">
+                  {renderPlayerEffectCards(true)}
+                </div>
+              </aside>
+
+              <div className="mobile-center-arena">
+                <div className="battlefield-half battlefield-half--bot">
+                  <section className={`zone zone--bot ${activeLaneOwner === 'bot' ? 'zone--resolving-active' : ''} ${getMatchEndZoneClass('bot', game.winner, matchEndPhase)}`}>
+                    <div className="battlefield-half-core">
+                      <div className="arena-hud arena-hud--compact">
+                        <HandRankBadge cards={botHand} />
+                      </div>
+                      {renderArenaRows('bot')}
+                    </div>
+                  </section>
+                </div>
+
+                <div className="battlefield-half battlefield-half--player">
+                  <section className={`zone zone--player ${activeLaneOwner === 'player' ? 'zone--resolving-active' : ''} ${getMatchEndZoneClass('player', game.winner, matchEndPhase)}`}>
+                    <div className="battlefield-half-core">
+                      {renderArenaRows('player')}
+                      <div className="arena-hud arena-hud--compact">
+                        <HandRankBadge cards={playerHand} />
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+
+              <aside className="mobile-effect-rail mobile-effect-rail--opponent" aria-label="Rakip efekt kartları">
+                <div className="mobile-effect-rail__label">Rakip</div>
+                <div className="mobile-effect-rail__grid">
+                  <OpponentEffectStack
+                    effects={displayGame.players.bot.effectHand}
+                    ownerId="bot"
+                    mobileRail
+                    onCardClick={handleOpponentEffectPick}
+                    selectable={canPickOpponentEffects}
+                    revealedSpyIds={revealedSpyEffectIds}
+                    spyFlipEffectId={visual.spyFlipEffectId}
+                    targetEffectId={visual.targetEffectId}
+                    hiddenEffectIds={hiddenEffectIds}
+                    overlayMaskEffectId={botOverlayMaskEffectId}
+                  />
+                </div>
+              </aside>
+            </div>
+          ) : (
+            <>
           {/* ── Top half — bot (mirrors bottom half) ── */}
           <div className="battlefield-half battlefield-half--bot">
             <section className={`zone zone--bot ${activeLaneOwner === 'bot' ? 'zone--resolving-active' : ''} ${getMatchEndZoneClass('bot', game.winner, matchEndPhase)}`}>
@@ -695,15 +784,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
                     spyFlipEffectId={visual.spyFlipEffectId}
                     targetEffectId={visual.targetEffectId}
                     hiddenEffectIds={hiddenEffectIds}
-                    overlayMaskEffectId={
-                      overlayMaskEffectId && visual.spyReveal?.victimOwnerId === 'bot'
-                        ? overlayMaskEffectId
-                        : overlayMaskEffectId && visual.forceDelete?.victimOwnerId === 'bot'
-                          ? overlayMaskEffectId
-                          : overlayMaskEffectId && visual.effectShred?.ownerId === 'bot'
-                            ? overlayMaskEffectId
-                            : null
-                    }
+                    overlayMaskEffectId={botOverlayMaskEffectId}
                   />
                 </div>
               </div>
@@ -731,33 +812,14 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
               <div className="effect-band effect-band--player">
                 <div className="effect-band__cards">
                   <div className="effect-row">
-                    {displayGame.players.player.effectHand.map(card => {
-                      if (hiddenEffectIds.has(card.id)) return null;
-                      const overlayHidden = visual.spyReveal?.victimEffect.id === card.id
-                        || visual.forceDelete?.victimEffect.id === card.id
-                        || visual.effectShred?.effectId === card.id;
-                      return (
-                        <div
-                          key={card.id}
-                          className={`effect-flight-anchor${overlayHidden ? ' effect-flight-anchor--overlay-active' : ''}`}
-                          data-effect-anchor={`player-${card.id}`}
-                        >
-                          <EffectCardView
-                            card={card}
-                            onClick={() => handleEffectClick(card.id)}
-                            disabled={effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type)}
-                            selected={usedEffectIds.has(card.id)}
-                            spyRevealed={revealedSpyEffectIds.has(card.id)}
-                            spyFlipping={visual.spyFlipEffectId === card.id}
-                          />
-                        </div>
-                      );
-                    })}
+                    {renderPlayerEffectCards(false)}
                   </div>
                 </div>
               </div>
             </section>
           </div>
+            </>
+          )}
         </div>
       </div>
     </div>

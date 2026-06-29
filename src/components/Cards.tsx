@@ -149,6 +149,7 @@ interface EffectCardViewProps {
   large?: boolean;
   castGlow?: boolean;
   compact?: boolean;
+  mobileRail?: boolean;
   boardSize?: 'bot' | 'player' | 'arena';
   spyRevealed?: boolean;
   spyFlipping?: boolean;
@@ -166,6 +167,7 @@ export function EffectCardView({
   large,
   castGlow,
   compact,
+  mobileRail,
   boardSize,
   spyRevealed,
   spyFlipping,
@@ -173,12 +175,21 @@ export function EffectCardView({
   readOnly,
 }: EffectCardViewProps) {
   if (hidden) {
-    return <EffectCardBack onClick={onClick} disabled={disabled} selected={selected} compact={compact} readOnly={readOnly} />;
+    return (
+      <EffectCardBack
+        onClick={onClick}
+        disabled={disabled}
+        selected={selected}
+        compact={compact}
+        mobileRail={mobileRail}
+        readOnly={readOnly}
+      />
+    );
   }
 
   const category = EFFECT_CATEGORY[card.type];
   const description = getEffectDescription(card.type);
-  const iconSize = large ? 28 : compact ? 16 : boardSize ? 20 : 22;
+  const iconSize = large ? 28 : mobileRail ? 18 : compact ? 16 : boardSize ? 20 : 22;
 
   const className = [
     'effect-card',
@@ -187,6 +198,7 @@ export function EffectCardView({
     animClass,
     large && 'effect-card-large',
     compact && 'effect-card-compact',
+    mobileRail && 'effect-card--mobile-rail',
     boardSize === 'bot' && 'effect-card--board-bot',
     boardSize === 'player' && 'effect-card--board-player',
     boardSize === 'arena' && 'effect-card--board',
@@ -207,7 +219,8 @@ export function EffectCardView({
           <EffectIcon type={card.type} size={iconSize} className="effect-card-icon" />
         </div>
       </div>
-      {!compact && <div className="effect-card-desc">{description}</div>}
+      {!compact && !mobileRail && <div className="effect-card-desc">{description}</div>}
+      {mobileRail && <div className="effect-card-desc effect-card-desc--rail">{description}</div>}
       <div className="effect-card-gem" />
       {spyRevealed && (
         <>
@@ -249,6 +262,7 @@ interface EffectCardBackProps {
   selected?: boolean;
   small?: boolean;
   compact?: boolean;
+  mobileRail?: boolean;
   animClass?: string | null;
   effectAnchor?: string;
   spyFlipping?: boolean;
@@ -262,6 +276,7 @@ export function EffectCardBack({
   selected,
   small,
   compact,
+  mobileRail,
   animClass,
   effectAnchor,
   spyFlipping,
@@ -274,6 +289,7 @@ export function EffectCardBack({
     selected && 'selected',
     small && 'small',
     compact && 'compact',
+    mobileRail && 'effect-card-back--mobile-rail',
     spyFlipping && 'effect-card-back--spy-flip',
     targeted && 'effect-card-back--targeted',
     readOnly && 'effect-card-back--readonly',
@@ -319,6 +335,7 @@ interface OpponentEffectStackProps {
   targetEffectId?: string | null;
   hiddenEffectIds?: Set<string>;
   overlayMaskEffectId?: string | null;
+  mobileRail?: boolean;
 }
 
 export function OpponentEffectStack({
@@ -332,9 +349,11 @@ export function OpponentEffectStack({
   targetEffectId = null,
   hiddenEffectIds = new Set(),
   overlayMaskEffectId = null,
+  mobileRail = false,
 }: OpponentEffectStackProps) {
+  const rowClass = ['effect-row', mobileRail && 'effect-row--mobile-rail'].filter(Boolean).join(' ');
   return (
-    <div className="effect-row">
+    <div className={rowClass}>
       {effects.map(effect => {
         if (hiddenEffectIds.has(effect.id)) return null;
         const isFlipping = spyFlipEffectId === effect.id;
@@ -351,6 +370,7 @@ export function OpponentEffectStack({
             >
               <EffectCardView
                 card={effect}
+                mobileRail={mobileRail}
                 spyRevealed
                 spyFlipping={isFlipping}
                 targeted={isTargeted}
@@ -368,6 +388,7 @@ export function OpponentEffectStack({
             data-effect-anchor={`${ownerId}-${effect.id}`}
           >
             <EffectCardBack
+              mobileRail={mobileRail}
               spyFlipping={isFlipping}
               targeted={isTargeted}
               animClass={getEffectDrawClass(effect.id, drawingEffectIds)}
