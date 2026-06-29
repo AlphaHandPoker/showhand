@@ -62,7 +62,9 @@ import './PlayerAvatar.css';
 import './MatchEndCinematic.css';
 import './EffectToSlotFlight.css';
 import { HowToPlayFab, HowToPlayGuide } from './HowToPlayGuide';
+import { RotateOverlay } from './RotateOverlay';
 import './HowToPlayGuide.css';
+import './RotateOverlay.css';
 import { Menu, X } from 'lucide-react';
 
 interface GameBoardProps {
@@ -468,6 +470,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
 
   return (
     <div className={`game-board ${game.gameMode === 'full_deck' ? 'game-board--full-deck' : ''} ${boardInputBlocked ? 'is-animating' : ''} ${mobileInfoOpen ? 'game-board--info-open' : ''}`}>
+      <RotateOverlay />
       <HowToPlayFab onClick={() => setShowHowToPlay(true)} />
       {showHowToPlay && <HowToPlayGuide onClose={() => setShowHowToPlay(false)} />}
 
