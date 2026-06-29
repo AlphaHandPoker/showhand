@@ -440,26 +440,80 @@
 
   .game-board--mobile-layout .effect-band--bot .effect-card,
   .game-board--mobile-layout .effect-band--bot .effect-card-back {
-    width: var(--effect-card-w);
-    min-width: var(--effect-card-w);
-    flex: 0 0 var(--effect-card-w);
+    width: clamp(58px, 16vw, 72px) !important;
+    min-width: clamp(58px, 16vw, 72px);
+    flex: 0 0 clamp(58px, 16vw, 72px);
   }
 
-  .game-board--mobile-layout .effect-band .effect-card-name {
-    display: none;
+  /* Full-detail mobile effect cards — name, icon, description */
+  .game-board--mobile-layout .effect-band .effect-card--mobile-rail,
+  .game-board--mobile-layout .effect-band .effect-card-back--mobile-rail {
+    height: auto !important;
+    min-height: 72px;
+    aspect-ratio: unset !important;
+    transform-origin: center center;
   }
 
-  .game-board--mobile-layout .effect-band .effect-card-desc {
-    display: none !important;
+  .game-board--mobile-layout .effect-band .effect-card--mobile-rail:hover:not(:disabled),
+  .game-board--mobile-layout .effect-band .effect-card-back--mobile-rail:hover:not(:disabled) {
+    transform: scale(1.03) !important;
+    z-index: 20 !important;
   }
 
-  .game-board--mobile-layout .effect-band .effect-card-header {
-    padding: 2px 0 0;
-    min-height: 0;
+  .game-board--mobile-layout .effect-band .effect-card--mobile-rail .effect-card-header {
+    padding: 3px 2px 0 !important;
   }
 
-  .game-board--mobile-layout .effect-band .effect-card-art {
-    padding: 0;
+  .game-board--mobile-layout .effect-band .effect-card--mobile-rail .effect-card-name {
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: clamp(0.34rem, 2.8vw, 0.44rem) !important;
+    line-height: 1.12 !important;
+    letter-spacing: 0.01em !important;
+    white-space: normal !important;
+    text-align: center;
+    text-overflow: unset;
+  }
+
+  .game-board--mobile-layout .effect-band .effect-card--mobile-rail .effect-card-art {
+    padding: 2px 0 !important;
+    min-height: 0 !important;
+    flex: 0 0 auto;
+  }
+
+  .game-board--mobile-layout .effect-band .effect-card--mobile-rail .effect-card-icon-badge {
+    width: clamp(18px, 4.2vw, 24px) !important;
+    height: clamp(18px, 4.2vw, 24px) !important;
+    border-radius: 6px;
+  }
+
+  .game-board--mobile-layout .effect-band .effect-card--mobile-rail .effect-card-desc,
+  .game-board--mobile-layout .effect-band .effect-card--mobile-rail .effect-card-desc--rail {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: clamp(0.3rem, 2.4vw, 0.38rem) !important;
+    line-height: 1.18 !important;
+    padding: 0 2px 4px !important;
+    text-align: center;
+    color: var(--text-muted);
+  }
+
+  .game-board--mobile-layout .effect-band .effect-card--mobile-rail .effect-card-gem {
+    width: 4px !important;
+    height: 4px !important;
+  }
+
+  .game-board--mobile-layout .effect-band .effect-card-back--mobile-rail {
+    min-height: 72px;
+    border-radius: 7px;
+  }
+
+  .game-board--mobile-layout .effect-band .effect-card-back--mobile-rail .effect-back-emblem {
+    font-size: clamp(0.62rem, 2.8vw, 0.78rem);
   }
 
   .game-board--mobile-layout .mobile-zone-section-label {

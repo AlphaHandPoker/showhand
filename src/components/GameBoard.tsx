@@ -485,7 +485,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
         >
           <EffectCardView
             card={card}
-            compact={isMobileLayout}
+            mobileRail={isMobileLayout}
             onClick={() => handleEffectClick(card.id)}
             disabled={effectDisabled || usedEffectIds.has(card.id) || !canCommitEffectType(game, 'player', card.type)}
             selected={usedEffectIds.has(card.id)}
@@ -571,7 +571,7 @@ export function GameBoard({ playerDeck, botDeck, gameMode = 'draft', onRestart, 
                 <OpponentEffectStack
                   effects={displayGame.players.bot.effectHand}
                   ownerId="bot"
-                  compact={isMobileLayout}
+                  mobileRail={isMobileLayout}
                   onCardClick={handleOpponentEffectPick}
                   selectable={canPickOpponentEffects}
                   revealedSpyIds={revealedSpyEffectIds}
