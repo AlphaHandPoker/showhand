@@ -259,11 +259,16 @@
      Committed cards fly to bottom (player) / top (bot)
      ═══════════════════════════════════════════════ */
   .game-board--mobile-layout {
-    --mobile-rail-w: clamp(58px, 8.2vw, 72px);
-    --mobile-effect-card-w: calc(var(--mobile-rail-w) - 2px);
+    --mobile-opponent-rail-w: clamp(56px, 7.8vw, 68px);
+    --mobile-player-rail-w: clamp(112px, 16vw, 132px);
+    --mobile-rail-w: var(--mobile-opponent-rail-w);
+    --mobile-opponent-card-w: calc(var(--mobile-opponent-rail-w) - 2px);
+    --mobile-player-card-w: calc((var(--mobile-player-rail-w) - 7px) / 2);
+    --mobile-effect-card-w: var(--mobile-opponent-card-w);
     --mobile-safe-left: env(safe-area-inset-left, 0px);
     --mobile-safe-right: env(safe-area-inset-right, 0px);
-    --effect-card-w: var(--mobile-effect-card-w);
+    --mobile-action-h: calc(92px + env(safe-area-inset-bottom, 0px));
+    --effect-card-w: var(--mobile-opponent-card-w);
     --effect-card-h: auto;
     --poker-card-h: clamp(46px, calc((100dvh - 108px) / 2.8), 74px);
     --poker-card-w: calc(var(--poker-card-h) / 1.4);
@@ -276,11 +281,12 @@
   .game-board--mobile-layout .battlefield {
     overflow: hidden;
     padding-top: 36px;
-    padding-bottom: calc(46px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 0;
   }
 
   .game-board--mobile-layout .battlefield-stack--mobile-rails {
-    height: 100%;
+    height: calc(100dvh - 36px - var(--mobile-action-h));
+    max-height: calc(100dvh - 36px - var(--mobile-action-h));
     min-height: 0;
     padding: 0;
     overflow: hidden;
@@ -291,26 +297,29 @@
     flex-direction: row;
     align-items: stretch;
     height: 100%;
+    max-height: 100%;
     min-height: 0;
     width: 100%;
   }
 
   .mobile-effect-rail {
-    width: var(--mobile-rail-w);
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     min-height: 0;
+    max-height: 100%;
     z-index: 12;
     background: transparent;
   }
 
   .mobile-effect-rail--player {
+    width: var(--mobile-player-rail-w);
     border-right: 1px solid rgba(212, 168, 67, 0.1);
     margin-right: -2px;
   }
 
   .mobile-effect-rail--opponent {
+    width: var(--mobile-opponent-rail-w);
     border-left: 1px solid rgba(192, 57, 43, 0.1);
     margin-left: -2px;
   }
@@ -345,25 +354,33 @@
     display: grid;
     grid-template-columns: 1fr;
     gap: 3px;
-    padding: 2px 1px 6px;
+    padding: 2px 1px 10px;
     align-content: start;
+    scroll-padding-top: 4px;
+    scroll-padding-bottom: 12px;
   }
 
-  /* Single column — cards hug the inner edge toward the poker table */
+  /* Player: 2 cards per row, hugging the table */
   .mobile-effect-rail--player .mobile-effect-rail__grid {
-    justify-items: end;
-    padding-right: 0;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+    justify-items: stretch;
+    padding: 2px 1px 10px 2px;
   }
 
+  /* Opponent: single column toward center */
   .mobile-effect-rail--opponent .mobile-effect-rail__grid {
     justify-items: start;
     padding-left: 0;
+    padding-right: 1px;
   }
 
-  .game-board--mobile-layout.game-board--full-deck .mobile-effect-rail__grid {
+  .game-board--mobile-layout.game-board--full-deck .mobile-effect-rail--player .mobile-effect-rail__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .game-board--mobile-layout.game-board--full-deck .mobile-effect-rail--opponent .mobile-effect-rail__grid {
     grid-template-columns: 1fr;
-    gap: 3px;
-    padding: 2px 1px 6px;
   }
 
   .mobile-effect-rail__grid > .effect-row--mobile-rail {
@@ -371,21 +388,31 @@
   }
 
   .mobile-effect-rail__grid .effect-flight-anchor {
-    width: var(--mobile-effect-card-w);
+    width: 100%;
     max-width: 100%;
     min-width: 0;
     display: flex;
     justify-content: stretch;
   }
 
+  .mobile-effect-rail--opponent .mobile-effect-rail__grid .effect-flight-anchor {
+    width: var(--mobile-opponent-card-w);
+  }
+
   /* Full-detail effect cards in side rails */
   .effect-card--mobile-rail,
   .effect-card-back--mobile-rail {
-    width: var(--mobile-effect-card-w) !important;
+    width: 100% !important;
     height: auto !important;
-    min-height: 66px;
-    max-width: var(--mobile-effect-card-w) !important;
+    min-height: 62px;
+    max-width: 100% !important;
     flex: unset !important;
+  }
+
+  .mobile-effect-rail--opponent .effect-card--mobile-rail,
+  .mobile-effect-rail--opponent .effect-card-back--mobile-rail {
+    width: var(--mobile-opponent-card-w) !important;
+    max-width: var(--mobile-opponent-card-w) !important;
   }
 
   .effect-card--mobile-rail:hover:not(:disabled),
@@ -439,7 +466,7 @@
   }
 
   .effect-card-back--mobile-rail {
-    min-height: 66px;
+    min-height: 62px;
     border-radius: 7px;
   }
 
@@ -490,10 +517,10 @@
   /* Commit lanes: opponent top · player bottom (center strip) */
   .game-board--mobile-layout .commit-reveal-lanes {
     position: absolute;
-    left: calc(var(--mobile-rail-w) + var(--mobile-safe-left));
-    right: calc(var(--mobile-rail-w) + var(--mobile-safe-right));
+    left: calc(var(--mobile-player-rail-w) + var(--mobile-safe-left));
+    right: calc(var(--mobile-opponent-rail-w) + var(--mobile-safe-right));
     top: 36px;
-    bottom: calc(46px + env(safe-area-inset-bottom, 0px));
+    bottom: var(--mobile-action-h);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -662,6 +689,11 @@
   .game-board--mobile-layout .right-sidebar {
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
+    z-index: 70;
+  }
+
+  .game-board--mobile-layout .mobile-effect-rail {
+    z-index: 20;
   }
 
   .mobile-topbar {
