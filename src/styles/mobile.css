@@ -259,18 +259,22 @@
      Committed cards fly to bottom (player) / top (bot)
      ═══════════════════════════════════════════════ */
   .game-board--mobile-layout {
-    --mobile-opponent-rail-w: clamp(56px, 7.8vw, 68px);
-    --mobile-player-rail-w: clamp(112px, 16vw, 132px);
-    --mobile-rail-w: var(--mobile-opponent-rail-w);
-    --mobile-opponent-card-w: calc(var(--mobile-opponent-rail-w) - 2px);
-    --mobile-player-card-w: calc((var(--mobile-player-rail-w) - 7px) / 2);
-    --mobile-effect-card-w: var(--mobile-opponent-card-w);
     --mobile-safe-left: env(safe-area-inset-left, 0px);
     --mobile-safe-right: env(safe-area-inset-right, 0px);
+    --mobile-center-min: 248px;
+    --mobile-effect-rail-w: clamp(
+      156px,
+      calc((100vw - var(--mobile-center-min) - var(--mobile-safe-left) - var(--mobile-safe-right)) / 2),
+      210px
+    );
+    --mobile-player-rail-w: var(--mobile-effect-rail-w);
+    --mobile-opponent-rail-w: var(--mobile-effect-rail-w);
+    --mobile-rail-w: var(--mobile-effect-rail-w);
+    --mobile-effect-card-w: calc((var(--mobile-effect-rail-w) - 10px) / 3);
     --mobile-action-h: calc(92px + env(safe-area-inset-bottom, 0px));
-    --effect-card-w: var(--mobile-opponent-card-w);
+    --effect-card-w: var(--mobile-effect-card-w);
     --effect-card-h: auto;
-    --poker-card-h: clamp(46px, calc((100dvh - 108px) / 2.8), 74px);
+    --poker-card-h: clamp(44px, calc((100dvh - 108px) / 2.9), 70px);
     --poker-card-w: calc(var(--poker-card-h) / 1.4);
     --poker-card-w-width: var(--poker-card-w);
     --poker-card-w-height: var(--poker-card-h);
@@ -352,35 +356,22 @@
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 3px;
-    padding: 2px 1px 10px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 3px;
+    row-gap: 4px;
+    padding: 2px 3px 12px;
     align-content: start;
+    justify-items: stretch;
     scroll-padding-top: 4px;
     scroll-padding-bottom: 12px;
   }
 
-  /* Player: 2 cards per row, hugging the table */
   .mobile-effect-rail--player .mobile-effect-rail__grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 3px;
-    justify-items: stretch;
-    padding: 2px 1px 10px 2px;
+    padding: 2px 3px 12px 2px;
   }
 
-  /* Opponent: single column toward center */
   .mobile-effect-rail--opponent .mobile-effect-rail__grid {
-    justify-items: start;
-    padding-left: 0;
-    padding-right: 1px;
-  }
-
-  .game-board--mobile-layout.game-board--full-deck .mobile-effect-rail--player .mobile-effect-rail__grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .game-board--mobile-layout.game-board--full-deck .mobile-effect-rail--opponent .mobile-effect-rail__grid {
-    grid-template-columns: 1fr;
+    padding: 2px 2px 12px 3px;
   }
 
   .mobile-effect-rail__grid > .effect-row--mobile-rail {
@@ -395,24 +386,14 @@
     justify-content: stretch;
   }
 
-  .mobile-effect-rail--opponent .mobile-effect-rail__grid .effect-flight-anchor {
-    width: var(--mobile-opponent-card-w);
-  }
-
-  /* Full-detail effect cards in side rails */
+  /* Full-detail effect cards — 3 per row */
   .effect-card--mobile-rail,
   .effect-card-back--mobile-rail {
     width: 100% !important;
     height: auto !important;
-    min-height: 62px;
+    min-height: 76px;
     max-width: 100% !important;
     flex: unset !important;
-  }
-
-  .mobile-effect-rail--opponent .effect-card--mobile-rail,
-  .mobile-effect-rail--opponent .effect-card-back--mobile-rail {
-    width: var(--mobile-opponent-card-w) !important;
-    max-width: var(--mobile-opponent-card-w) !important;
   }
 
   .effect-card--mobile-rail:hover:not(:disabled),
@@ -422,56 +403,58 @@
   }
 
   .effect-card--mobile-rail .effect-card-header {
-    padding: 4px 3px 0 !important;
+    padding: 3px 2px 0 !important;
   }
 
   .effect-card--mobile-rail .effect-card-name {
-    display: block !important;
-    font-size: clamp(0.44rem, 1.8vw, 0.52rem) !important;
-    line-height: 1.15 !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: clamp(0.36rem, 1.35vw, 0.46rem) !important;
+    line-height: 1.12 !important;
     letter-spacing: 0.01em !important;
     white-space: normal !important;
     text-align: center;
-    overflow: visible;
     text-overflow: unset;
   }
 
   .effect-card--mobile-rail .effect-card-art {
-    padding: 3px 0 !important;
+    padding: 2px 0 !important;
     min-height: 0 !important;
     flex: 0 0 auto;
   }
 
   .effect-card--mobile-rail .effect-card-icon-badge {
-    width: clamp(22px, 5vw, 28px) !important;
-    height: clamp(22px, 5vw, 28px) !important;
-    border-radius: 7px;
+    width: clamp(18px, 3.8vw, 22px) !important;
+    height: clamp(18px, 3.8vw, 22px) !important;
+    border-radius: 6px;
   }
 
   .effect-card--mobile-rail .effect-card-desc--rail {
     display: -webkit-box !important;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    font-size: clamp(0.36rem, 1.5vw, 0.42rem) !important;
-    line-height: 1.2 !important;
-    padding: 0 3px 5px !important;
+    font-size: clamp(0.31rem, 1.15vw, 0.38rem) !important;
+    line-height: 1.18 !important;
+    padding: 0 2px 4px !important;
     text-align: center;
     color: var(--text-muted);
   }
 
   .effect-card--mobile-rail .effect-card-gem {
-    width: 5px !important;
-    height: 5px !important;
+    width: 4px !important;
+    height: 4px !important;
   }
 
   .effect-card-back--mobile-rail {
-    min-height: 62px;
+    min-height: 76px;
     border-radius: 7px;
   }
 
   .effect-card-back--mobile-rail .effect-back-emblem {
-    font-size: clamp(0.7rem, 2.8vw, 0.9rem);
+    font-size: clamp(0.62rem, 2.4vw, 0.78rem);
   }
 
   /* Center poker arena — tight to effect rails */
@@ -517,8 +500,8 @@
   /* Commit lanes: opponent top · player bottom (center strip) */
   .game-board--mobile-layout .commit-reveal-lanes {
     position: absolute;
-    left: calc(var(--mobile-player-rail-w) + var(--mobile-safe-left));
-    right: calc(var(--mobile-opponent-rail-w) + var(--mobile-safe-right));
+    left: calc(var(--mobile-effect-rail-w) + var(--mobile-safe-left));
+    right: calc(var(--mobile-effect-rail-w) + var(--mobile-safe-right));
     top: 36px;
     bottom: var(--mobile-action-h);
     display: flex;
@@ -556,14 +539,14 @@
   .game-board--mobile-layout .commit-lane-slot {
     width: var(--mobile-effect-card-w);
     height: auto;
-    min-height: 62px;
+    min-height: 72px;
   }
 
   .game-board--mobile-layout .commit-lane-card .effect-card,
   .game-board--mobile-layout .commit-lane-card .effect-card-back {
     width: 100%;
     height: auto;
-    min-height: 62px;
+    min-height: 72px;
   }
 
   /* ─────────────────────────────────────────────
