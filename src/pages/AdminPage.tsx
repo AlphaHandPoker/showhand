@@ -118,6 +118,17 @@ function winnerClass(winner: 'self' | 'opponent' | 'tie'): string {
   return 'admin-match-winner--tie';
 }
 
+function isAdminStats(data: unknown): data is AdminStats {
+  if (!data || typeof data !== 'object') return false;
+  const d = data as Record<string, unknown>;
+  return typeof d.overview === 'object'
+    && d.overview !== null
+    && typeof d.funnel === 'object'
+    && d.funnel !== null
+    && typeof d.gameBalance === 'object'
+    && d.gameBalance !== null;
+}
+
 export function AdminPage() {
   const [token, setToken] = useState(() => sessionStorage.getItem(ADMIN_TOKEN_KEY) ?? '');
   const [password, setPassword] = useState('');
@@ -136,18 +147,32 @@ export function AdminPage() {
         fetch(`${API_BASE}/api/admin/stats`, { headers }),
         fetch(`${API_BASE}/api/admin/matches?limit=100`, { headers }),
       ]);
-      if (!statsRes.ok || !matchesRes.ok) {
-        if (statsRes.status === 401 || matchesRes.status === 401) {
-          sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-          setToken('');
-        }
-        throw new Error('Could not load dashboard');
+
+      if (statsRes.status === 401 || matchesRes.status === 401) {
+        sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+        setToken('');
+        throw new Error('Session expired — sign in again');
       }
-      setStats(await statsRes.json() as AdminStats);
-      const matchesData = await matchesRes.json() as { matches: AdminMatch[] };
-      setMatches(matchesData.matches);
-    } catch {
-      setFetchError('Failed to load dashboard. Check server connection and password.');
+
+      if (matchesRes.ok) {
+        const matchesData = await matchesRes.json() as { matches: AdminMatch[] };
+        setMatches(matchesData.matches ?? []);
+      }
+
+      if (!statsRes.ok) {
+        throw new Error(`Stats API returned ${statsRes.status}. Redeploy Railway if you just pushed server changes.`);
+      }
+
+      const statsData: unknown = await statsRes.json();
+      if (!isAdminStats(statsData)) {
+        throw new Error(
+          'Server returned an unexpected stats format. The Railway server may still be on an old build — try Refresh in a minute.',
+        );
+      }
+      setStats(statsData);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load dashboard';
+      setFetchError(`${message}. Check server connection and password.`);
     } finally {
       setLoading(false);
     }

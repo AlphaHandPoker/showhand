@@ -25,7 +25,9 @@ function parseTrackBody(body: unknown): TrackMatchInput | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;
   const userId = typeof b.user_id === 'string' ? b.user_id.trim() : '';
-  const opponentType = b.opponent_type === 'bot' || b.opponent_type === 'player'
+  const opponentType = b.opponent_type === 'bot'
+    || b.opponent_type === 'player'
+    || b.opponent_type === 'friend'
     ? b.opponent_type
     : null;
   const winner = b.winner === 'self' || b.winner === 'opponent' || b.winner === 'tie'
