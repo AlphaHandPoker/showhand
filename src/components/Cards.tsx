@@ -16,6 +16,7 @@ interface PlayingCardViewProps {
   selected?: boolean;
   disabled?: boolean;
   onClick?: () => void;
+  onPointerEnter?: () => void;
   small?: boolean;
   currentTurn?: number;
   animClass?: string | null;
@@ -34,6 +35,7 @@ export function PlayingCardSlot({
   hidden,
   selected,
   onClick,
+  onPointerEnter,
   currentTurn = 1,
   animClass,
   shiftDisplayRank,
@@ -55,6 +57,7 @@ export function PlayingCardSlot({
           type="button"
           className={['playing-card', 'playing-card-back-face', selected && 'selected', animClass].filter(Boolean).join(' ')}
           onClick={onClick}
+          onPointerEnter={onPointerEnter}
           disabled={!onClick}
         >
           <span className="playing-back-emblem">{theme.cardBackEmblem}</span>
@@ -106,6 +109,7 @@ export function PlayingCardSlot({
           highlightGroup === 'premium' && 'highlight-premium',
         ].filter(Boolean).join(' ')}
         onClick={onClick}
+        onPointerEnter={onPointerEnter}
         disabled={!onClick}
       >
         <span className="card-corner card-corner-tl">

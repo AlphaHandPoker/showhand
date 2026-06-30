@@ -10,7 +10,7 @@ import {
 import { buildBotCommit } from '../game/bot';
 import { getDisguisedBotSubmitDelayMs, sleep } from '../ui/botSubmitTiming';
 import { getHandHighlights } from '../game/poker';
-import { sortHandBySlot, canTargetCard } from '../game/effects';
+import { sortHandBySlot, canTargetCard, formatDeckOutcomeHint } from '../game/effects';
 import {
   PlayingCardSlot, EffectCardView, OpponentEffectStack, PokerCardEmptySlot,
 } from './Cards';
@@ -140,6 +140,7 @@ export function GameBoard({
 
   const [commitQueue, setCommitQueue] = useState<CommittedAction[]>([]);
   const [pendingPick, setPendingPick] = useState<PendingPick | null>(null);
+  const [deckHintSlot, setDeckHintSlot] = useState<SlotIndex | null>(null);
   const [resolving, setResolving] = useState(false);
   const [vsIntroDone, setVsIntroDone] = useState(false);
   const [shuffleDone, setShuffleDone] = useState(false);
@@ -223,6 +224,29 @@ export function GameBoard({
       setPendingPick(null);
     }
   }, [isCommitting, resolving]);
+
+  const isDeckOutcomePick = pendingPick?.step === 'own_slot'
+    && (pendingPick.effectType === 'transform' || pendingPick.effectType === 'shift_chance');
+
+  useEffect(() => {
+    if (!isDeckOutcomePick || !pendingPick) {
+      setDeckHintSlot(null);
+      return;
+    }
+
+    const valid = getValidOwnSlots(game, 'player', pendingPick.effectType);
+    setDeckHintSlot(valid.length === 1 ? valid[0]! : null);
+  }, [isDeckOutcomePick, pendingPick, game]);
+
+  const deckOutcomeHint = useMemo(() => {
+    if (!isDeckOutcomePick || !pendingPick || deckHintSlot === null) return null;
+    if (pendingPick.effectType !== 'transform' && pendingPick.effectType !== 'shift_chance') {
+      return null;
+    }
+    const card = game.players.player.pokerHand.find(c => c.slotIndex === deckHintSlot);
+    if (!card) return null;
+    return formatDeckOutcomeHint(game.deck, pendingPick.effectType, card);
+  }, [isDeckOutcomePick, pendingPick, deckHintSlot, game]);
 
   const maxCardsPerRound = maxCardsForState(game);
   const slotsLeft = maxCardsPerRound - commitQueue.length;
@@ -441,7 +465,10 @@ export function GameBoard({
   };
 
 
-  const handleCancelPick = () => setPendingPick(null);
+  const handleCancelPick = () => {
+    setPendingPick(null);
+    setDeckHintSlot(null);
+  };
 
   const validOwnSlots = pendingPick
     ? new Set(getValidOwnSlots(game, 'player', pendingPick.effectType))
@@ -540,6 +567,11 @@ export function GameBoard({
             ),
           );
 
+          const showDeckOutcomeHint = selectable
+            && isDeckOutcomePick
+            && ownerId === 'player'
+            && pendingPick.step === 'own_slot';
+
           return (
             <PlayingCardSlot
               key={card.id}
@@ -556,6 +588,7 @@ export function GameBoard({
               targeted={isTargeted}
               untargetable={blockedByStatus}
               onClick={selectable ? () => handleSlotClick(ownerId, slot) : undefined}
+              onPointerEnter={showDeckOutcomeHint ? () => setDeckHintSlot(slot) : undefined}
             />
           );
         })}
@@ -621,6 +654,12 @@ export function GameBoard({
 
       {pendingPick?.step === 'opponent_effect' && canPickOpponentEffects && (
         <span className="pick-hint">Select an opponent effect card</span>
+      )}
+
+      {isDeckOutcomePick && (
+        <span className="pick-hint pick-hint--deck">
+          {deckOutcomeHint ?? 'Select one of your cards'}
+        </span>
       )}
 
       {canInteract && (

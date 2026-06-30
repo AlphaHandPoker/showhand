@@ -67,6 +67,22 @@ export function getShiftChanceTargets(
   return results;
 }
 
+export function formatDeckOutcomeHint(
+  deck: PlayingCard[],
+  effectType: 'transform' | 'shift_chance',
+  card: PlayingCard,
+): string {
+  if (effectType === 'transform') {
+    const count = getAvailableSuitsForTransform(deck, card.rank, card.suit).length;
+    if (count === 0) return 'No possible suits left in deck';
+    return `${count} possible suit${count === 1 ? '' : 's'} left in deck`;
+  }
+
+  const count = getShiftChanceTargets(deck, card.suit, card.rank).length;
+  if (count === 0) return 'No possible ranks left in deck';
+  return `${count} possible rank${count === 1 ? '' : 's'} left in deck`;
+}
+
 export function applyTransform(
   state: GameState,
   card: PlayingCard,
