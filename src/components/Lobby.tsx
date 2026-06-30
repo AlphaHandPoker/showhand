@@ -3,6 +3,7 @@ import type { GameMode } from '../game/types';
 import { GAME_MODE_INFO } from '../game/gameModes';
 import type { UseOnlineGame } from '../hooks/useOnlineGame';
 import { GAME_NAME } from '../config/brand';
+import { AnalyticsEvents } from '../analytics';
 import './Lobby.css';
 import './GameModePicker.css';
 
@@ -129,7 +130,10 @@ export function Lobby({ online, createMode, onBack }: LobbyProps) {
           type="button"
           className="lobby-btn lobby-btn--primary"
           disabled={!socketConnected}
-          onClick={() => createRoom(createMode)}
+          onClick={() => {
+            AnalyticsEvents.roomCreated(createMode);
+            createRoom(createMode);
+          }}
         >
           Create room
         </button>
@@ -160,7 +164,10 @@ export function Lobby({ online, createMode, onBack }: LobbyProps) {
             type="button"
             className="lobby-btn lobby-btn--secondary"
             disabled={!socketConnected || !joinCode.trim()}
-            onClick={() => joinRoom(joinCode)}
+            onClick={() => {
+              AnalyticsEvents.roomJoined();
+              joinRoom(joinCode);
+            }}
           >
             Join
           </button>

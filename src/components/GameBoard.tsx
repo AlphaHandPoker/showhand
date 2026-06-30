@@ -43,6 +43,7 @@ import { BattlefieldArena } from './BattlefieldArena';
 import { MatchEndCinematic, getMatchEndZoneClass } from './MatchEndCinematic';
 import { useAnimatedGame } from '../hooks/useAnimatedGame';
 import { gameStateSyncSig } from '../hooks/useOnlineGame';
+import { AnalyticsEvents } from '../analytics';
 import { useMobileGameLayout } from '../hooks/useMobileGameLayout';
 import { getCardAnimationClass } from '../ui/detectAnimations';
 import './GameBoard.css';
@@ -472,9 +473,21 @@ export function GameBoard({
 
   const isCommitting = game.phase === 'committing';
   const isFinished = game.phase === 'finished';
+  const finishedTrackedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isFinished || !game.winner || finishedTrackedRef.current) return;
+    finishedTrackedRef.current = true;
+    AnalyticsEvents.gameFinished(
+      online ? 'online' : 'bot',
+      game.winner,
+      game.currentRound,
+    );
+  }, [isFinished, game.winner, game.currentRound, online]);
 
   useEffect(() => {
     if (!isFinished) {
+      finishedTrackedRef.current = false;
       setMatchEndPhase('idle');
       return;
     }

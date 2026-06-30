@@ -11,6 +11,7 @@ import { buildFullEffectDeck } from './game/deckBuilder';
 import { DEFAULT_GAME_MODE } from './game/gameModes';
 import { GAME_NAME } from './config/brand';
 import { OnlinePlayersBadge } from './components/OnlinePlayersBadge';
+import { AnalyticsEvents, trackScreen } from './analytics';
 import './App.css';
 import './components/CosmeticsMenu.css';
 import './components/MatchmakingScreen.css';
@@ -33,6 +34,7 @@ function App() {
   const online = useOnlineGame();
 
   const startBotMatch = useCallback((disguised: boolean) => {
+    AnalyticsEvents.botGameStarted(disguised, DEFAULT_GAME_MODE);
     setMatchConfig({ mode: DEFAULT_GAME_MODE, disguisedOpponent: disguised });
     setGameKey(k => k + 1);
     setScreen('game');
@@ -44,22 +46,30 @@ function App() {
   };
 
   const handlePlayVsComputer = () => {
+    AnalyticsEvents.ctaClick('play_vs_computer');
     startBotMatch(false);
   };
 
   const handleFindPlayer = () => {
+    AnalyticsEvents.ctaClick('find_player');
     online.cancelFindMatch();
     online.leaveRoom();
     setScreen('searching');
   };
 
   const handleMatchFound = useCallback(() => {
+    AnalyticsEvents.matchFound(DEFAULT_GAME_MODE);
     setScreen('online');
   }, []);
 
   const handleMatchmakingFallback = useCallback(() => {
+    AnalyticsEvents.matchmakingFallbackBot();
     startBotMatch(true);
   }, [startBotMatch]);
+
+  useEffect(() => {
+    trackScreen(screen);
+  }, [screen]);
 
   const rs = online.roomState;
   const onlineNeedsHome = screen === 'online'
@@ -100,6 +110,7 @@ function App() {
         <OnlineGameBoard
           online={online}
           onLeave={() => {
+            AnalyticsEvents.onlineMatchLeft();
             online.leaveRoom();
             setScreen('home');
           }}
@@ -143,10 +154,16 @@ function App() {
         <button type="button" className="home-btn home-btn--search" onClick={handleFindPlayer}>
           Find Player
         </button>
-        <button type="button" className="home-btn home-btn--guide" onClick={() => setShowHowToPlay(true)}>
+        <button type="button" className="home-btn home-btn--guide" onClick={() => {
+          AnalyticsEvents.ctaClick('how_to_play');
+          setShowHowToPlay(true);
+        }}>
           How to Play
         </button>
-        <button type="button" className="home-btn home-btn--cosmetics" onClick={() => setShowCosmetics(true)}>
+        <button type="button" className="home-btn home-btn--cosmetics" onClick={() => {
+          AnalyticsEvents.ctaClick('cosmetics');
+          setShowCosmetics(true);
+        }}>
           Cosmetics
         </button>
       </div>

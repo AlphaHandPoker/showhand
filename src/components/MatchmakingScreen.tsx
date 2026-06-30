@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { UseOnlineGame } from '../hooks/useOnlineGame';
 import { DEFAULT_GAME_MODE } from '../game/gameModes';
 import { GAME_NAME } from '../config/brand';
+import { AnalyticsEvents } from '../analytics';
 import './MatchmakingScreen.css';
 
 /** Time in queue after socket is connected (not from screen mount). */
@@ -45,6 +46,7 @@ export function MatchmakingScreen({ online, onMatched, onFallbackToBot }: Matchm
     }
     if (searchStartedRef.current) return;
     searchStartedRef.current = true;
+    AnalyticsEvents.matchmakingStarted();
     onlineRef.current.findMatch(DEFAULT_GAME_MODE);
     scheduleFallback();
   }, [online.socketConnected, scheduleFallback, clearSearchTimeout]);
