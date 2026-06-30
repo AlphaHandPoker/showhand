@@ -10,6 +10,7 @@ import {
 } from '../shared/protocol.js';
 
 const SERVER = process.env.SERVER_URL ?? 'http://localhost:3001';
+const DISCONNECT_FORFEIT_MS = Number(process.env.DISCONNECT_FORFEIT_MS ?? 5000);
 
 const SAMPLE_DECK_A = ['steal_card', 'send_back', 'protect', 'transform', 'freeze'];
 const SAMPLE_DECK_B = ['shift_chance', 'spy', 'force_delete', 'cleanse', 'last_draw'];
@@ -107,7 +108,10 @@ async function main() {
   await Promise.all([playingPromise1, playingPromise2]);
 
   const winPromise = new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Timeout waiting for forfeit win')), 5000);
+    const timer = setTimeout(
+      () => reject(new Error('Timeout waiting for forfeit win')),
+      DISCONNECT_FORFEIT_MS + 3000,
+    );
     p1.on(ServerEvents.GAME_STATE, payload => {
       if (payload.game.phase === 'finished' && payload.game.winner === 'player') {
         clearTimeout(timer);
@@ -117,8 +121,67 @@ async function main() {
   });
   p2.disconnect();
   await winPromise;
-  console.log('PASS: opponent disconnect → remaining player wins');
+  console.log('PASS: opponent disconnect → remaining player wins after grace');
   p1.disconnect();
+
+  await new Promise(r => setTimeout(r, 500));
+
+  // Reconnect mid-match → reclaim slot and lock in round 2
+  const r1 = io(SERVER, { transports: ['websocket'], forceNew: true });
+  const r2 = io(SERVER, { transports: ['websocket'], forceNew: true });
+  await waitFor<void>(r1, 'connect');
+  await waitFor<void>(r2, 'connect');
+  r1.emit(ClientEvents.FIND_MATCH, { mode: 'full_deck' });
+  await new Promise(r => setTimeout(r, 400));
+  const r1Playing = waitForRoomStatus(r1, 'playing');
+  const r2Playing = waitForRoomStatus(r2, 'playing');
+  r2.emit(ClientEvents.FIND_MATCH, { mode: 'full_deck' });
+  const [room1, room2] = await Promise.all([r1Playing, r2Playing]);
+  if (room1.code !== room2.code) throw new Error('Rejoin test: room mismatch');
+
+  r1.emit(ClientEvents.LOCK_COMMIT, { actions: [] });
+  await waitFor<{ youLocked: boolean }>(r1, ServerEvents.GAME_STATE);
+  const round2Ready = new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timeout waiting for round 2')), 10000);
+    r1.on(ServerEvents.GAME_STATE, payload => {
+      if (payload.game.phase === 'committing' && payload.game.currentRound >= 2) {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+  });
+  r2.emit(ClientEvents.LOCK_COMMIT, { actions: [] });
+  await round2Ready;
+
+  r2.disconnect();
+  await new Promise(r => setTimeout(r, 300));
+
+  const r2b = io(SERVER, { transports: ['websocket'], forceNew: true });
+  await waitFor<void>(r2b, 'connect');
+  r2b.emit(ClientEvents.JOIN_ROOM, { code: room2.code, reclaimSlot: room2.yourSlot });
+  await waitForRoomStatus(r2b, 'playing');
+
+  const round2Promise = new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timeout waiting for round 2 lock after rejoin')), 8000);
+    const onError = (err: { message: string }) => {
+      clearTimeout(timer);
+      reject(new Error(`Rejoin lock failed: ${err.message}`));
+    };
+    const onGame = (payload: { youLocked: boolean }) => {
+      if (payload.youLocked) {
+        clearTimeout(timer);
+        r2b.off(ServerEvents.ROOM_ERROR, onError);
+        resolve();
+      }
+    };
+    r2b.on(ServerEvents.ROOM_ERROR, onError);
+    r2b.on(ServerEvents.GAME_STATE, onGame);
+    r2b.emit(ClientEvents.LOCK_COMMIT, { actions: [] });
+  });
+  await round2Promise;
+  console.log('PASS: reconnect mid-match → reclaim slot and lock in');
+  r1.disconnect();
+  r2b.disconnect();
 
   await new Promise(r => setTimeout(r, 500));
 
@@ -134,8 +197,18 @@ async function main() {
   b.emit(ClientEvents.FIND_MATCH, { mode: 'full_deck' });
   await Promise.all([aPlaying, bPlaying]);
 
-  a.emit(ClientEvents.LOCK_COMMIT, { actions: [] });
-  const aWaiting = await waitFor<{ youLocked: boolean; opponentLocked: boolean }>(a, ServerEvents.GAME_STATE);
+  const aWaiting = await new Promise<{ youLocked: boolean; opponentLocked: boolean }>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timeout waiting for player A lock')), 8000);
+    const handler = (payload: { youLocked: boolean; opponentLocked: boolean }) => {
+      if (payload.youLocked && !payload.opponentLocked) {
+        clearTimeout(timer);
+        a.off(ServerEvents.GAME_STATE, handler);
+        resolve(payload);
+      }
+    };
+    a.on(ServerEvents.GAME_STATE, handler);
+    a.emit(ClientEvents.LOCK_COMMIT, { actions: [] });
+  });
   if (!aWaiting.youLocked || aWaiting.opponentLocked) {
     throw new Error('Player A should be locked waiting for opponent');
   }

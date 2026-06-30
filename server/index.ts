@@ -36,6 +36,7 @@ const io = new Server(httpServer, {
 });
 
 const rooms = new GameRoomManager();
+rooms.setDisconnectForfeitHandler((code) => emitAll(code));
 const resolutionLoops = new Set<string>();
 
 function emitRoomState(code: string): void {
@@ -81,6 +82,7 @@ async function finishResolution(code: string): Promise<void> {
 
     while (rooms.getRoom(code)?.resolving) {
       const stillResolving = rooms.advanceResolution(code);
+      emitGameState(code);
       if (!stillResolving) break;
     }
 
@@ -120,7 +122,15 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const result = rooms.joinRoom(code, socket.id);
+    let result = rooms.joinRoom(code, socket.id, payload.reclaimSlot);
+    if (!result && payload.reclaimSlot !== undefined) {
+      const room = rooms.getRoom(code);
+      const staleId = room?.slots[payload.reclaimSlot];
+      if (staleId && staleId !== socket.id && !io.sockets.sockets.has(staleId)) {
+        result = rooms.forceReplaceSlot(code, payload.reclaimSlot, socket.id);
+      }
+    }
+
     if (!result) {
       emitError(socket.id, 'Room not found or full');
       return;
@@ -128,7 +138,13 @@ io.on('connection', (socket) => {
 
     void socket.join(code);
     emitAll(code);
-    console.log(`[room] joined ${code} guest=${socket.id}`);
+    console.log(`[room] joined ${code} guest=${socket.id}${payload.reclaimSlot !== undefined ? ' (rejoin)' : ''}`);
+  });
+
+  socket.on(ClientEvents.LEAVE_ROOM, () => {
+    const code = rooms.leaveRoom(socket.id, { intentional: true });
+    console.log(`[room] left ${code ?? 'none'} socket=${socket.id}`);
+    if (code) emitAll(code);
   });
 
   socket.on(ClientEvents.FIND_MATCH, (payload?: FindMatchPayload) => {

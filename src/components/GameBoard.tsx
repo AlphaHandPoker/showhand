@@ -85,6 +85,7 @@ interface GameBoardProps {
     onForfeit?: () => void;
     onRequestSync?: () => void;
     syncedGame: GameState;
+    ackGameSync?: () => void;
     opponentLabel?: string;
   };
 }
@@ -94,6 +95,37 @@ type PendingPick =
   | { effectId: string; effectType: EffectType; step: 'own_slot'; partial: CommittedAction }
   | { effectId: string; effectType: EffectType; step: 'opponent_effect' }
   | { effectId: string; effectType: EffectType; step: 'cleanse_slot' };
+
+function pokerHandsMatch(a: GameState, b: GameState): boolean {
+  for (const pid of ['player', 'bot'] as const) {
+    const handA = a.players[pid].pokerHand;
+    const handB = b.players[pid].pokerHand;
+    if (handA.length !== handB.length) return false;
+    for (let i = 0; i < handA.length; i++) {
+      const ca = handA[i]!;
+      const cb = handB[i]!;
+      if (
+        ca.id !== cb.id
+        || ca.suit !== cb.suit
+        || ca.rank !== cb.rank
+        || ca.slotIndex !== cb.slotIndex
+      ) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function serverStateMatchesLocal(local: GameState, server: GameState): boolean {
+  return local.phase === server.phase
+    && local.currentRound === server.currentRound
+    && local.resolutionIndex === server.resolutionIndex
+    && local.log.length === server.log.length
+    && local.winner === server.winner
+    && local.deck.length === server.deck.length
+    && pokerHandsMatch(local, server);
+}
 
 export function GameBoard({
   playerDeck,
@@ -115,6 +147,7 @@ export function GameBoard({
     visual,
     slotTokens,
     applyUpdate,
+    runCommitRevealPhase,
     runResolutionCinematic,
     runIntroReveal,
     getGameState,
@@ -210,62 +243,26 @@ export function GameBoard({
   }, [online, youLocked, opponentLocked, isCommitting, serverPhase]);
 
   const syncQueueRef = useRef(Promise.resolve());
-  const lastSyncSigRef = useRef('');
 
   useEffect(() => {
     if (!online?.syncedGame) return;
     const g = online.syncedGame;
-    const sig = `${g.phase}-${g.currentRound}-${g.resolutionIndex}-${g.log.length}-${g.winner ?? ''}`;
-    if (sig === lastSyncSigRef.current) return;
-    lastSyncSigRef.current = sig;
 
     syncQueueRef.current = syncQueueRef.current.then(async () => {
       const local = getGameState();
 
-      // Both players locked — play full resolution locally (same path as vs bot).
-      if (online && g.phase === 'resolving' && g.resolutionQueue.length > 0) {
-        if (local.phase === 'committing' || local.currentRound === g.currentRound) {
-          setResolving(true);
-          await runResolutionCinematic(g, resolveNextInQueue);
-          setResolving(false);
-          setCommitQueue([]);
-          setPendingPick(null);
-          return;
-        }
-      }
-
-      // Server finished resolution while cinematic is still playing.
-      if (online && g.phase === 'committing' && local.phase === 'resolving') {
-        await applyUpdate(g);
-        setResolving(false);
-        setCommitQueue([]);
-        setPendingPick(null);
-        return;
-      }
-
-      // Server finished before we received the resolving snapshot.
-      if (
-        online
-        && g.phase === 'committing'
-        && local.phase === 'committing'
-        && g.currentRound > local.currentRound
-      ) {
-        await applyUpdate(g);
-        setResolving(false);
-        setCommitQueue([]);
-        setPendingPick(null);
-        return;
-      }
-
-      // Skip duplicate resolving snapshots from the server.
-      if (online && g.phase === 'resolving' && local.phase === 'resolving') {
+      if (serverStateMatchesLocal(local, g)) {
+        online.ackGameSync?.();
         return;
       }
 
       if (g.phase === 'resolving' && local.phase === 'committing') {
         setResolving(true);
+        await runCommitRevealPhase(local);
       }
+
       await applyUpdate(g);
+
       if (g.phase !== 'resolving') {
         setResolving(false);
         if (g.phase === 'committing') {
@@ -273,8 +270,10 @@ export function GameBoard({
           setPendingPick(null);
         }
       }
+
+      online.ackGameSync?.();
     });
-  }, [online, online?.syncedGame, applyUpdate, getGameState, runResolutionCinematic]);
+  }, [online, online?.syncedGame, applyUpdate, getGameState, runCommitRevealPhase]);
 
   useEffect(() => {
     if (!isCommitting || resolving) {

@@ -14,6 +14,8 @@ import type {
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const MAX_ROOMS = 500;
+/** Grace period before a disconnected player is forfeited (allows socket reconnect). */
+const DISCONNECT_FORFEIT_MS = Number(process.env.DISCONNECT_FORFEIT_MS ?? 5000);
 
 export interface GameRoom {
   code: string;
@@ -64,6 +66,13 @@ export class GameRoomManager {
   private socketRoom = new Map<string, string>();
   /** Players waiting for matchmaking */
   private matchQueue: { socketId: string; gameMode: GameMode }[] = [];
+  /** Timers to forfeit a slot after disconnect grace expires */
+  private disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private onDisconnectForfeit: ((code: string) => void) | null = null;
+
+  setDisconnectForfeitHandler(handler: (code: string) => void): void {
+    this.onDisconnectForfeit = handler;
+  }
 
   createRoom(socketId: string, gameMode: GameMode = 'full_deck'): { code: string; slot: 0 | 1 } {
     if (this.socketRoom.has(socketId)) {
@@ -96,12 +105,28 @@ export class GameRoomManager {
     return { code, slot: 0 };
   }
 
-  joinRoom(code: string, socketId: string): { code: string; slot: 0 | 1 } | null {
+  joinRoom(
+    code: string,
+    socketId: string,
+    reclaimSlot?: 0 | 1,
+  ): { code: string; slot: 0 | 1 } | null {
     const room = this.rooms.get(code);
     if (!room) return null;
 
     if (room.slots[0] === socketId) return { code, slot: 0 };
     if (room.slots[1] === socketId) return { code, slot: 1 };
+
+    if (reclaimSlot !== undefined) {
+      const slot = reclaimSlot;
+      const occupant = room.slots[slot];
+      if (occupant === null || occupant === socketId) {
+        room.slots[slot] = socketId;
+        this.socketRoom.set(socketId, code);
+        this.clearDisconnectGrace(code, slot);
+        return { code, slot };
+      }
+      return null;
+    }
 
     if (room.slots[0] !== null && room.slots[1] !== null) return null;
 
@@ -117,6 +142,22 @@ export class GameRoomManager {
       }
     }
 
+    return { code, slot };
+  }
+
+  /** Replace a stale socket id in a slot (old connection gone, player reconnecting). */
+  forceReplaceSlot(code: string, slot: 0 | 1, socketId: string): { code: string; slot: 0 | 1 } | null {
+    const room = this.rooms.get(code);
+    if (!room) return null;
+
+    const previous = room.slots[slot];
+    if (previous && previous !== socketId) {
+      this.socketRoom.delete(previous);
+    }
+
+    room.slots[slot] = socketId;
+    this.socketRoom.set(socketId, code);
+    this.clearDisconnectGrace(code, slot);
     return { code, slot };
   }
 
@@ -310,7 +351,7 @@ export class GameRoomManager {
     room.resolving = false;
   }
 
-  leaveRoom(socketId: string): string | null {
+  leaveRoom(socketId: string, options?: { intentional?: boolean }): string | null {
     this.removeFromMatchQueue(socketId);
 
     const code = this.socketRoom.get(socketId);
@@ -339,16 +380,23 @@ export class GameRoomManager {
 
     const anyoneLeft = room.slots[0] !== null || room.slots[1] !== null;
     if (!anyoneLeft) {
+      this.clearAllDisconnectGrace(code);
       this.rooms.delete(code);
       return null;
     }
 
     if (wasActiveMatch && slot !== null) {
-      const forfeitingActor: 'player' | 'bot' = slot === 0 ? 'player' : 'bot';
-      room.gameState = forfeitGame(room.gameState!, forfeitingActor);
-      room.status = 'finished';
-      room.resolving = false;
-      room.pendingCommits = [null, null];
+      if (options?.intentional) {
+        const forfeitingActor: 'player' | 'bot' = slot === 0 ? 'player' : 'bot';
+        room.gameState = forfeitGame(room.gameState!, forfeitingActor);
+        room.status = 'finished';
+        room.resolving = false;
+        room.pendingCommits = [null, null];
+        this.clearAllDisconnectGrace(code);
+        return code;
+      }
+
+      this.scheduleDisconnectForfeit(code, slot);
       return code;
     }
 
@@ -360,6 +408,51 @@ export class GameRoomManager {
       room.resolving = false;
     }
 
+    return code;
+  }
+
+  private disconnectTimerKey(code: string, slot: 0 | 1): string {
+    return `${code}:${slot}`;
+  }
+
+  private clearDisconnectGrace(code: string, slot: 0 | 1): void {
+    const key = this.disconnectTimerKey(code, slot);
+    const timer = this.disconnectTimers.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      this.disconnectTimers.delete(key);
+    }
+  }
+
+  private clearAllDisconnectGrace(code: string): void {
+    for (const slot of [0, 1] as const) {
+      this.clearDisconnectGrace(code, slot);
+    }
+  }
+
+  private scheduleDisconnectForfeit(code: string, slot: 0 | 1): void {
+    this.clearDisconnectGrace(code, slot);
+    const key = this.disconnectTimerKey(code, slot);
+    const timer = setTimeout(() => {
+      this.disconnectTimers.delete(key);
+      this.forfeitDisconnectedSlot(code, slot);
+    }, DISCONNECT_FORFEIT_MS);
+    this.disconnectTimers.set(key, timer);
+  }
+
+  /** Called after disconnect grace expires if the slot was not reclaimed. Returns room code if forfeited. */
+  forfeitDisconnectedSlot(code: string, slot: 0 | 1): string | null {
+    const room = this.rooms.get(code);
+    if (!room?.gameState || room.gameState.phase === 'finished') return null;
+    if (room.slots[slot] !== null) return null;
+
+    const forfeitingActor: 'player' | 'bot' = slot === 0 ? 'player' : 'bot';
+    room.gameState = forfeitGame(room.gameState, forfeitingActor);
+    room.status = 'finished';
+    room.resolving = false;
+    room.pendingCommits = [null, null];
+    this.clearAllDisconnectGrace(code);
+    this.onDisconnectForfeit?.(code);
     return code;
   }
 

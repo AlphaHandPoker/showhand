@@ -1107,6 +1107,10 @@ export function useAnimatedGame(initial: GameState) {
   }, []);
 
   // ── Full resolution cinematic ──
+  const runCommitRevealPhase = useCallback(async (startState: GameState) => {
+    await runCommitToLanesPhase(startState);
+  }, []);
+
   const runResolutionCinematic = useCallback(async (
     startState: GameState,
     resolveStep: (s: GameState) => GameState,
@@ -1204,6 +1208,7 @@ export function useAnimatedGame(initial: GameState) {
     visual,
     slotTokens: visual.slotTokens,
     applyUpdate,
+    runCommitRevealPhase,
     runResolutionCinematic,
     requestFastForward,
     resetGame,

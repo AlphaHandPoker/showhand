@@ -6,6 +6,7 @@ import type { GameState, GameMode } from '../src/game/types';
 export const ClientEvents = {
   CREATE_ROOM: 'CREATE_ROOM',
   JOIN_ROOM: 'JOIN_ROOM',
+  LEAVE_ROOM: 'LEAVE_ROOM',
   FIND_MATCH: 'FIND_MATCH',
   CANCEL_FIND_MATCH: 'CANCEL_FIND_MATCH',
   FORFEIT_MATCH: 'FORFEIT_MATCH',
@@ -34,6 +35,8 @@ export type RoomStatus = 'waiting' | 'drafting' | 'draft_ready' | 'playing' | 'f
 
 export interface JoinRoomPayload {
   code: string;
+  /** Reclaim your slot after a socket reconnect mid-match. */
+  reclaimSlot?: 0 | 1;
 }
 
 export interface SubmitDraftPayload {
