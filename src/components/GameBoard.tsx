@@ -44,6 +44,7 @@ import { MatchEndCinematic, getMatchEndZoneClass } from './MatchEndCinematic';
 import { useAnimatedGame } from '../hooks/useAnimatedGame';
 import { gameStateSyncSig } from '../hooks/useOnlineGame';
 import { AnalyticsEvents } from '../analytics';
+import { reportMatchToServer } from '../analytics/reportMatch';
 import { useMobileGameLayout } from '../hooks/useMobileGameLayout';
 import { getCardAnimationClass } from '../ui/detectAnimations';
 import './GameBoard.css';
@@ -474,6 +475,7 @@ export function GameBoard({
   const isCommitting = game.phase === 'committing';
   const isFinished = game.phase === 'finished';
   const finishedTrackedRef = useRef(false);
+  const matchStartedAtRef = useRef(Date.now());
 
   useEffect(() => {
     if (!isFinished || !game.winner || finishedTrackedRef.current) return;
@@ -483,7 +485,12 @@ export function GameBoard({
       game.winner,
       game.currentRound,
     );
-  }, [isFinished, game.winner, game.currentRound, online]);
+    reportMatchToServer(game, {
+      online: Boolean(online),
+      disguisedOpponent,
+      matchStartedAt: matchStartedAtRef.current,
+    });
+  }, [isFinished, game.winner, game.currentRound, online, disguisedOpponent, game]);
 
   useEffect(() => {
     if (!isFinished) {

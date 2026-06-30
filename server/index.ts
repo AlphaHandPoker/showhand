@@ -14,6 +14,8 @@ import {
   type FindMatchPayload,
 } from '../shared/protocol.js';
 import { GameRoomManager } from './gameRoom.js';
+import { analyticsRouter } from './analytics/routes.js';
+import { initAnalyticsSchema } from './analytics/db.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const allowedOrigins = (process.env.CLIENT_ORIGIN ?? 'http://localhost:5173')
@@ -23,9 +25,11 @@ const allowedOrigins = (process.env.CLIENT_ORIGIN ?? 'http://localhost:5173')
 
 const app = express();
 app.use(cors({ origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins }));
+app.use(express.json({ limit: '32kb' }));
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'showhand-server' });
 });
+app.use('/api', analyticsRouter);
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -236,4 +240,7 @@ io.on('connection', (socket) => {
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`SHOWHAND server listening on 0.0.0.0:${PORT}`);
   console.log(`CORS origins: ${allowedOrigins.join(', ')}`);
+  void initAnalyticsSchema().catch(err => {
+    console.error('[analytics] schema init failed', err);
+  });
 });
