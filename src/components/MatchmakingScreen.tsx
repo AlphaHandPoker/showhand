@@ -5,7 +5,7 @@ import { GAME_NAME } from '../config/brand';
 import { AnalyticsEvents } from '../analytics';
 import './MatchmakingScreen.css';
 
-const SEARCH_DURATION_MS = 15000;
+const SEARCH_DURATION_MS = 8000;
 
 function randomEstimateSeconds(): number {
   return 6 + Math.floor(Math.random() * 3);
