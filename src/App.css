@@ -137,6 +137,7 @@ button {
 }
 
 .home-btn--online,
+.home-btn--friend,
 .home-btn--search {
   border: 1.5px solid rgba(212, 168, 67, 0.45);
   background: rgba(212, 168, 67, 0.08);

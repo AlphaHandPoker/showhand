@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { GameMode } from './game/types';
 import { GameBoard } from './components/GameBoard';
+import { DraftScreen } from './components/DraftScreen';
+import { Lobby } from './components/Lobby';
 import { OnlineGameBoard } from './components/OnlineGameBoard';
 import { MatchmakingScreen } from './components/MatchmakingScreen';
 import { HomeModeSelect } from './components/HomeModeSelect';
@@ -14,11 +16,13 @@ import { OnlinePlayersBadge } from './components/OnlinePlayersBadge';
 import { AnalyticsEvents, trackScreen } from './analytics';
 import './App.css';
 import './components/CosmeticsMenu.css';
+import './components/DraftScreen.css';
+import './components/Lobby.css';
 import './components/MatchmakingScreen.css';
 import './components/HomeModeSelect.css';
 import './components/OnlinePlayersBadge.css';
 
-type Screen = 'home' | 'searching' | 'online' | 'game';
+type Screen = 'home' | 'searching' | 'friend' | 'online' | 'game';
 
 interface MatchConfig {
   mode: GameMode;
@@ -57,6 +61,18 @@ function App() {
     setScreen('searching');
   };
 
+  const handlePlayWithFriend = () => {
+    AnalyticsEvents.ctaClick('play_with_friend');
+    online.cancelFindMatch();
+    online.leaveRoom();
+    setScreen('friend');
+  };
+
+  const handleLeaveFriendFlow = () => {
+    online.leaveRoom();
+    setScreen('home');
+  };
+
   const handleMatchFound = useCallback(() => {
     setScreen('online');
   }, []);
@@ -86,6 +102,57 @@ function App() {
       setScreen('home');
     }
   }, [onlineNeedsHome, online]);
+
+  if (screen === 'friend') {
+    const rs = online.roomState;
+    const inMatch = rs && (
+      rs.status === 'playing'
+      || rs.status === 'finished'
+      || online.gamePayload !== null
+    );
+
+    if (inMatch) {
+      return (
+        <OnlineGameBoard
+          online={online}
+          onLeave={() => {
+            AnalyticsEvents.onlineMatchLeft();
+            handleLeaveFriendFlow();
+          }}
+        />
+      );
+    }
+
+    if (rs && (rs.status === 'drafting' || rs.status === 'draft_ready')) {
+      return (
+        <div className="app">
+          <DraftScreen
+            onStart={() => {}}
+            online={{
+              submitted: rs.draft?.youSubmitted ?? false,
+              opponentSubmitted: rs.draft?.opponentSubmitted ?? false,
+              bothReady: rs.draft?.bothReady ?? false,
+              roomCode: rs.code,
+              statusMessage: rs.message,
+              serverError: online.error,
+              onSubmit: selection => online.submitDraft(selection),
+              onLeave: handleLeaveFriendFlow,
+            }}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div className="app">
+        <Lobby
+          online={online}
+          createMode={DEFAULT_GAME_MODE}
+          onBack={handleLeaveFriendFlow}
+        />
+      </div>
+    );
+  }
 
   if (screen === 'searching') {
     return (
@@ -152,6 +219,9 @@ function App() {
       <div className="home-actions">
         <button type="button" className="home-btn home-btn--primary" onClick={handlePlayOnline}>
           Play Online
+        </button>
+        <button type="button" className="home-btn home-btn--friend" onClick={handlePlayWithFriend}>
+          Play with a Friend
         </button>
         <button type="button" className="home-btn home-btn--search" onClick={handlePlayVsComputer}>
           Play vs Computer

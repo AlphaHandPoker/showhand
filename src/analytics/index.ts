@@ -1,7 +1,7 @@
 import { track } from '@vercel/analytics';
 import { trackEventToServer } from './trackEvent';
 
-export type AppScreen = 'home' | 'searching' | 'online' | 'game';
+export type AppScreen = 'home' | 'searching' | 'friend' | 'online' | 'game';
 
 /** Fire an analytics event (Vercel + self-hosted admin). */
 export function trackEvent(
@@ -27,7 +27,7 @@ export function trackScreen(screen: AppScreen): void {
 }
 
 export const AnalyticsEvents = {
-  ctaClick: (action: 'play_vs_computer' | 'play_online' | 'how_to_play' | 'cosmetics') =>
+  ctaClick: (action: 'play_vs_computer' | 'play_online' | 'play_with_friend' | 'how_to_play' | 'cosmetics') =>
     trackEvent('cta_click', { action }),
   matchmakingStarted: () => trackEvent('matchmaking_started'),
   matchFound: (mode: string, waitSeconds?: number) =>

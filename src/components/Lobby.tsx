@@ -177,7 +177,7 @@ export function Lobby({ online, createMode, onBack }: LobbyProps) {
       </div>
 
       <button type="button" className="lobby-btn lobby-btn--ghost lobby-back" onClick={onBack}>
-        ← Back to bot match
+        ← Back to menu
       </button>
     </div>
   );

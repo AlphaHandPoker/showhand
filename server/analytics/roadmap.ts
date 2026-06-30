@@ -49,10 +49,12 @@ export interface RoadmapDashboard {
 const STEP_DEFS: { id: string; label: string; parentId: string | null }[] = [
   { id: 'main_menu', label: 'Main menu', parentId: null },
   { id: 'play_online', label: 'Play Online', parentId: 'main_menu' },
+  { id: 'play_with_friend', label: 'Play with a Friend', parentId: 'main_menu' },
   { id: 'play_vs_computer', label: 'Play vs Computer', parentId: 'main_menu' },
   { id: 'how_to_play', label: 'How to Play', parentId: 'main_menu' },
   { id: 'cosmetics', label: 'Cosmetics', parentId: 'main_menu' },
   { id: 'matchmaking', label: 'Matchmaking queue', parentId: 'play_online' },
+  { id: 'friend_room', label: 'Room created / joined', parentId: 'play_with_friend' },
   { id: 'match_found', label: 'Player matched', parentId: 'matchmaking' },
   { id: 'bot_fallback', label: 'Queue → bot', parentId: 'matchmaking' },
   { id: 'game_started', label: 'Game started', parentId: 'main_menu' },
@@ -69,6 +71,7 @@ function eventToStepId(eventName: string, props: Record<string, unknown>): strin
     case 'cta_click': {
       const action = props.action;
       if (action === 'play_online' || action === 'find_player') return 'play_online';
+      if (action === 'play_with_friend') return 'play_with_friend';
       if (action === 'play_vs_computer') return 'play_vs_computer';
       if (action === 'how_to_play') return 'how_to_play';
       if (action === 'cosmetics') return 'cosmetics';
@@ -80,6 +83,9 @@ function eventToStepId(eventName: string, props: Record<string, unknown>): strin
       return 'match_found';
     case 'matchmaking_fallback_bot':
       return 'bot_fallback';
+    case 'room_created':
+    case 'room_joined':
+      return 'friend_room';
     case 'game_started':
       return 'game_started';
     case 'game_finished':
@@ -179,6 +185,10 @@ export async function fetchRoadmapDashboard(): Promise<RoadmapDashboard> {
       sql: `event_name = 'cta_click' AND properties->>'action' IN ('play_online', 'find_player')${exTail}`,
       params: ex.params,
     },
+    play_with_friend: {
+      sql: `event_name = 'cta_click' AND properties->>'action' = 'play_with_friend'${exTail}`,
+      params: ex.params,
+    },
     play_vs_computer: {
       sql: `event_name = 'cta_click' AND properties->>'action' = 'play_vs_computer'${exTail}`,
       params: ex.params,
@@ -193,6 +203,10 @@ export async function fetchRoadmapDashboard(): Promise<RoadmapDashboard> {
     },
     matchmaking: {
       sql: `event_name = 'matchmaking_started'${exTail}`,
+      params: ex.params,
+    },
+    friend_room: {
+      sql: `event_name IN ('room_created', 'room_joined')${exTail}`,
       params: ex.params,
     },
     match_found: {
