@@ -39,12 +39,12 @@ export const AnalyticsEvents = {
   botGameStarted: (disguised: boolean, mode: string) =>
     trackEvent('bot_game_started', { disguised, mode }),
   onlineMatchLeft: () => trackEvent('online_match_left'),
-  gameFinished: (mode: 'online' | 'bot', winner: string, round: number) =>
+  gameFinished: (mode: 'online' | 'bot' | 'friend', winner: string, round: number) =>
     trackEvent('game_finished', { mode, winner, round }),
   roomCreated: (mode: string) => trackEvent('room_created', { mode }),
   roomJoined: () => trackEvent('room_joined'),
   draftSubmitted: (mode: 'online' | 'bot') => trackEvent('draft_submitted', { mode }),
-  gameStarted: (mode: 'online' | 'bot', disguised: boolean) =>
+  gameStarted: (mode: 'online' | 'bot' | 'friend', disguised: boolean) =>
     trackEvent('game_started', { mode, disguised }),
   matchForfeited: (mode: 'online' | 'bot') => trackEvent('match_forfeited', { mode }),
   mainMenuView: () => trackEvent('main_menu_view'),

@@ -5,9 +5,10 @@ import type { UseOnlineGame } from '../hooks/useOnlineGame';
 interface OnlineGameBoardProps {
   online: UseOnlineGame;
   onLeave: () => void;
+  matchKind?: 'matchmaking' | 'friend';
 }
 
-export function OnlineGameBoard({ online, onLeave }: OnlineGameBoardProps) {
+export function OnlineGameBoard({ online, onLeave, matchKind = 'matchmaking' }: OnlineGameBoardProps) {
   const payload = online.gamePayload;
   const room = online.roomState;
 
@@ -46,6 +47,7 @@ export function OnlineGameBoard({ online, onLeave }: OnlineGameBoardProps) {
           onRequestSync: online.requestSync,
           syncedGame: payload.game,
           opponentLabel: 'Opponent',
+          matchKind,
         }}
       />
     </div>

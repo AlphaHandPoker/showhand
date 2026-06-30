@@ -68,7 +68,7 @@ export async function initAnalyticsSchema(): Promise<void> {
 
 export interface TrackMatchInput {
   userId: string;
-  opponentType: 'bot' | 'player';
+  opponentType: 'bot' | 'player' | 'friend';
   winner: 'self' | 'opponent' | 'tie';
   roundsPlayed: number;
   durationSeconds: number;

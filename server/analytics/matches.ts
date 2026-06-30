@@ -4,7 +4,7 @@ import { getExcludedUserIds, userExclusionClause } from './excludeUsers.js';
 export interface AdminMatchRow {
   id: number;
   userId: string;
-  opponentType: 'bot' | 'player';
+  opponentType: 'bot' | 'player' | 'friend';
   winner: 'self' | 'opponent' | 'tie';
   roundsPlayed: number;
   durationSeconds: number;
@@ -25,7 +25,7 @@ export async function fetchRecentMatches(limit = 100): Promise<AdminMatchRow[]> 
   const result = await db.query<{
     id: number;
     user_id: string;
-    opponent_type: 'bot' | 'player';
+    opponent_type: 'bot' | 'player' | 'friend';
     winner: 'self' | 'opponent' | 'tie';
     rounds_played: number;
     duration_seconds: number;

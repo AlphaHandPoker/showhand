@@ -92,6 +92,7 @@ interface GameBoardProps {
     onRequestSync?: () => void;
     syncedGame: GameState;
     opponentLabel?: string;
+    matchKind?: 'matchmaking' | 'friend';
   };
 }
 
@@ -483,7 +484,7 @@ export function GameBoard({
     gameStartedTrackedRef.current = true;
     matchStartedAtRef.current = Date.now();
     AnalyticsEvents.gameStarted(
-      online ? 'online' : 'bot',
+      online?.matchKind === 'friend' ? 'friend' : online ? 'online' : 'bot',
       disguisedOpponent,
     );
   }, [online, disguisedOpponent]);
@@ -492,13 +493,14 @@ export function GameBoard({
     if (!isFinished || !game.winner || finishedTrackedRef.current) return;
     finishedTrackedRef.current = true;
     AnalyticsEvents.gameFinished(
-      online ? 'online' : 'bot',
+      online?.matchKind === 'friend' ? 'friend' : online ? 'online' : 'bot',
       game.winner,
       game.currentRound,
     );
     reportMatchToServer(game, {
       online: Boolean(online),
       disguisedOpponent,
+      friendMatch: online?.matchKind === 'friend',
       matchStartedAt: matchStartedAtRef.current,
     });
   }, [isFinished, game.winner, game.currentRound, online, disguisedOpponent, game]);

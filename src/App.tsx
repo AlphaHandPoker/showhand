@@ -115,6 +115,7 @@ function App() {
       return (
         <OnlineGameBoard
           online={online}
+          matchKind="friend"
           onLeave={() => {
             AnalyticsEvents.onlineMatchLeft();
             handleLeaveFriendFlow();

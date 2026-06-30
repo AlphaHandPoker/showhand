@@ -5,7 +5,7 @@ import {
   verifyAdminPassword,
   verifyAdminToken,
 } from './adminAuth.js';
-import { fetchRoadmapDashboard } from './roadmap.js';
+import { fetchAdminStats } from './stats.js';
 import { fetchRecentMatches } from './matches.js';
 import { insertMatchEvent, insertAnalyticsEvent, isAnalyticsEnabled, type TrackMatchInput } from './db.js';
 
@@ -149,10 +149,10 @@ analyticsRouter.get('/admin/stats', requireAdmin, async (_req, res) => {
   }
 
   try {
-    const dashboard = await fetchRoadmapDashboard();
-    res.json(dashboard);
+    const stats = await fetchAdminStats();
+    res.json(stats);
   } catch (err) {
-    console.error('[analytics] roadmap failed', err);
+    console.error('[analytics] stats failed', err);
     res.status(500).json({ error: 'Could not load dashboard' });
   }
 });

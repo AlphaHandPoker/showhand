@@ -32,15 +32,21 @@ export function reportMatchToServer(
   options: {
     online: boolean;
     disguisedOpponent?: boolean;
+    friendMatch?: boolean;
     matchStartedAt: number;
   },
 ): void {
   const winner = toWinnerField(game.winner);
   if (!winner) return;
 
-  const opponentType: 'bot' | 'player' = options.online && !options.disguisedOpponent
-    ? 'player'
-    : 'bot';
+  let opponentType: 'bot' | 'player' | 'friend';
+  if (options.friendMatch) {
+    opponentType = 'friend';
+  } else if (options.online && !options.disguisedOpponent) {
+    opponentType = 'player';
+  } else {
+    opponentType = 'bot';
+  }
 
   const durationSeconds = Math.max(
     0,

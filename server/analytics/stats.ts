@@ -26,8 +26,10 @@ export interface AdminStats {
     effectUsage: { effect: string; count: number }[];
     winRateVsBot: number;
     winRateVsPlayer: number;
+    winRateVsFriend: number;
     botMatches: number;
     playerMatches: number;
+    friendMatches: number;
   };
   matchesPerDay: { date: string; count: number }[];
   recentUsers: {
@@ -43,6 +45,8 @@ export interface AdminStats {
     playVsComputerUsers: number;
     findPlayerClicks: number;
     findPlayerUsers: number;
+    playWithFriendClicks: number;
+    playWithFriendUsers: number;
     matchmakingStarted: number;
     matchFound: number;
     botGameStarted: number;
@@ -75,6 +79,7 @@ export async function fetchAdminStats(): Promise<AdminStats> {
     effectRes,
     botWinRes,
     playerWinRes,
+    friendWinRes,
     dailyRes,
     excludedCountRes,
     recentUsersRes,
@@ -138,6 +143,13 @@ export async function fetchAdminStats(): Promise<AdminStats> {
       FROM match_events
       WHERE opponent_type = 'player'${eventExclusion.clause}
     `, eventExclusion.params),
+    db.query<{ total: string; wins: string }>(`
+      SELECT
+        COUNT(*)::text AS total,
+        COUNT(*) FILTER (WHERE winner = 'self')::text AS wins
+      FROM match_events
+      WHERE opponent_type = 'friend'${eventExclusion.clause}
+    `, eventExclusion.params),
     db.query<{ day: string; count: string }>(`
       SELECT
         to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
@@ -171,6 +183,8 @@ export async function fetchAdminStats(): Promise<AdminStats> {
       play_vs_computer_users: string;
       find_player_clicks: string;
       find_player_users: string;
+      play_with_friend_clicks: string;
+      play_with_friend_users: string;
       matchmaking_started: string;
       match_found: string;
       bot_game_started: string;
@@ -191,6 +205,8 @@ export async function fetchAdminStats(): Promise<AdminStats> {
         COUNT(DISTINCT user_id) FILTER (WHERE event_name = 'cta_click' AND properties->>'action' = 'play_vs_computer')::text AS play_vs_computer_users,
         COUNT(*) FILTER (WHERE event_name = 'cta_click' AND properties->>'action' IN ('find_player', 'play_online'))::text AS find_player_clicks,
         COUNT(DISTINCT user_id) FILTER (WHERE event_name = 'cta_click' AND properties->>'action' IN ('find_player', 'play_online'))::text AS find_player_users,
+        COUNT(*) FILTER (WHERE event_name = 'cta_click' AND properties->>'action' = 'play_with_friend')::text AS play_with_friend_clicks,
+        COUNT(DISTINCT user_id) FILTER (WHERE event_name = 'cta_click' AND properties->>'action' = 'play_with_friend')::text AS play_with_friend_users,
         COUNT(*) FILTER (WHERE event_name = 'matchmaking_started')::text AS matchmaking_started,
         COUNT(*) FILTER (WHERE event_name = 'match_found')::text AS match_found,
         COUNT(*) FILTER (WHERE event_name = 'bot_game_started')::text AS bot_game_started,
@@ -224,6 +240,8 @@ export async function fetchAdminStats(): Promise<AdminStats> {
   const botWins = Number(botWinRes.rows[0]?.wins) || 0;
   const playerTotal = Number(playerWinRes.rows[0]?.total) || 0;
   const playerWins = Number(playerWinRes.rows[0]?.wins) || 0;
+  const friendTotal = Number(friendWinRes.rows[0]?.total) || 0;
+  const friendWins = Number(friendWinRes.rows[0]?.wins) || 0;
 
   const dailyMap = new Map(dailyRes.rows.map(row => [row.day, Number(row.count)]));
   const matchesPerDay: { date: string; count: number }[] = [];
@@ -281,8 +299,10 @@ export async function fetchAdminStats(): Promise<AdminStats> {
       effectUsage,
       winRateVsBot: botTotal > 0 ? (botWins / botTotal) * 100 : 0,
       winRateVsPlayer: playerTotal > 0 ? (playerWins / playerTotal) * 100 : 0,
+      winRateVsFriend: friendTotal > 0 ? (friendWins / friendTotal) * 100 : 0,
       botMatches: botTotal,
       playerMatches: playerTotal,
+      friendMatches: friendTotal,
     },
     matchesPerDay,
     recentUsers,
@@ -293,6 +313,8 @@ export async function fetchAdminStats(): Promise<AdminStats> {
       playVsComputerUsers: Number(f.play_vs_computer_users) || 0,
       findPlayerClicks: Number(f.find_player_clicks) || 0,
       findPlayerUsers: Number(f.find_player_users) || 0,
+      playWithFriendClicks: Number(f.play_with_friend_clicks) || 0,
+      playWithFriendUsers: Number(f.play_with_friend_users) || 0,
       matchmakingStarted: Number(f.matchmaking_started) || 0,
       matchFound: Number(f.match_found) || 0,
       botGameStarted: Number(f.bot_game_started) || 0,

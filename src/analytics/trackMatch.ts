@@ -2,7 +2,7 @@ import { API_BASE } from '../config/api';
 
 export interface TrackMatchPayload {
   user_id: string;
-  opponent_type: 'bot' | 'player';
+  opponent_type: 'bot' | 'player' | 'friend';
   winner: 'self' | 'opponent' | 'tie';
   rounds_played: number;
   duration_seconds: number;
