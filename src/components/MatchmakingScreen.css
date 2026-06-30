@@ -68,6 +68,25 @@
   color: var(--text-primary);
 }
 
+.matchmaking-estimate {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent-gold);
+  text-align: center;
+  max-width: 280px;
+  line-height: 1.45;
+}
+
+.matchmaking-estimate-meta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #8b93a7);
+  text-align: center;
+  max-width: 300px;
+  line-height: 1.4;
+}
+
 .matchmaking-dots {
   display: flex;
   gap: 8px;

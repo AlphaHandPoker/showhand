@@ -58,7 +58,6 @@ function App() {
   };
 
   const handleMatchFound = useCallback(() => {
-    AnalyticsEvents.matchFound(DEFAULT_GAME_MODE);
     setScreen('online');
   }, []);
 

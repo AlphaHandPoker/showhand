@@ -30,7 +30,11 @@ export const AnalyticsEvents = {
   ctaClick: (action: 'play_vs_computer' | 'find_player' | 'how_to_play' | 'cosmetics') =>
     trackEvent('cta_click', { action }),
   matchmakingStarted: () => trackEvent('matchmaking_started'),
-  matchFound: (mode: string) => trackEvent('match_found', { mode }),
+  matchFound: (mode: string, waitSeconds?: number) =>
+    trackEvent('match_found', {
+      mode,
+      ...(waitSeconds !== undefined ? { wait_seconds: waitSeconds } : {}),
+    }),
   matchmakingFallbackBot: () => trackEvent('matchmaking_fallback_bot'),
   botGameStarted: (disguised: boolean, mode: string) =>
     trackEvent('bot_game_started', { disguised, mode }),

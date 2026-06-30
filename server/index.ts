@@ -16,6 +16,8 @@ import {
 import { GameRoomManager } from './gameRoom.js';
 import { analyticsRouter } from './analytics/routes.js';
 import { initAnalyticsSchema } from './analytics/db.js';
+import { fetchMatchmakingEstimate } from './analytics/matchmakingEstimate.js';
+import type { GameMode } from '../src/game/types.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const allowedOrigins = (process.env.CLIENT_ORIGIN ?? 'http://localhost:5173')
@@ -29,6 +31,7 @@ app.use(express.json({ limit: '32kb' }));
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'showhand-server' });
 });
+
 app.use('/api', analyticsRouter);
 
 const httpServer = createServer(app);
@@ -75,6 +78,24 @@ function emitAll(code: string): void {
   emitRoomState(code);
   emitGameState(code);
 }
+
+app.get('/api/matchmaking-estimate', async (req, res) => {
+  const mode: GameMode = req.query.mode === 'draft' ? 'draft' : 'full_deck';
+  const queueSize = rooms.getMatchQueueSize(mode);
+  try {
+    const estimate = await fetchMatchmakingEstimate(queueSize, mode);
+    res.json(estimate);
+  } catch (err) {
+    console.error('[matchmaking] estimate failed', err);
+    res.json({
+      estimatedSeconds: 15,
+      maxWaitSeconds: 15,
+      queueSize,
+      source: 'default',
+      sampleSize: 0,
+    });
+  }
+});
 
 async function finishResolution(code: string): Promise<void> {
   if (resolutionLoops.has(code)) return;
