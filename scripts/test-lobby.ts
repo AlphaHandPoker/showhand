@@ -227,6 +227,26 @@ async function main() {
   console.log('PASS: both players lock → round advances');
   a.disconnect();
   b.disconnect();
+
+  await new Promise(r => setTimeout(r, 500));
+
+  // Second search after match — stale finished room must not block queue
+  const x = io(SERVER, { transports: ['websocket'], forceNew: true });
+  const y = io(SERVER, { transports: ['websocket'], forceNew: true });
+  await waitFor<void>(x, 'connect');
+  await waitFor<void>(y, 'connect');
+  x.emit(ClientEvents.FIND_MATCH, { mode: 'full_deck' });
+  await new Promise(r => setTimeout(r, 400));
+  const xPlaying = waitForRoomStatus(x, 'playing');
+  const yPlaying = waitForRoomStatus(y, 'playing');
+  y.emit(ClientEvents.FIND_MATCH, { mode: 'full_deck' });
+  const [xRoom, yRoom] = await Promise.all([xPlaying, yPlaying]);
+  if (xRoom.code !== yRoom.code) {
+    throw new Error(`Second search failed to pair: ${xRoom.code} vs ${yRoom.code}`);
+  }
+  console.log('PASS: second FIND_MATCH pairs after previous match');
+  x.disconnect();
+  y.disconnect();
 }
 
 main().catch(err => {

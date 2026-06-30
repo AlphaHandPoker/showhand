@@ -147,11 +147,12 @@ export function useOnlineGame(): UseOnlineGame {
 
   const findMatch = useCallback((mode: GameMode = DEFAULT_GAME_MODE) => {
     setError(null);
-    setRoomState(null);
-    setGamePayload(null);
     clearPayloadQueue();
     activeRoomCodeRef.current = null;
     activeYourSlotRef.current = null;
+    socketRef.current?.emit(ClientEvents.LEAVE_ROOM);
+    setRoomState(null);
+    setGamePayload(null);
     socketRef.current?.emit(ClientEvents.FIND_MATCH, { mode });
   }, [clearPayloadQueue]);
 
@@ -178,7 +179,6 @@ export function useOnlineGame(): UseOnlineGame {
     setError(null);
     setGamePayload(prev => (prev ? { ...prev, youLocked: true } : prev));
     socketRef.current?.emit(ClientEvents.LOCK_COMMIT, { actions });
-    socketRef.current?.emit(ClientEvents.REQUEST_SYNC);
   }, []);
 
   const requestSync = useCallback(() => {

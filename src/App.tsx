@@ -48,6 +48,8 @@ function App() {
   };
 
   const handleFindPlayer = () => {
+    online.cancelFindMatch();
+    online.leaveRoom();
     setScreen('searching');
   };
 

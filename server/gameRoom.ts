@@ -169,7 +169,18 @@ export class GameRoomManager {
 
     const existingCode = this.socketRoom.get(socketId);
     if (existingCode) {
-      return { matched: true, code: existingCode };
+      const room = this.rooms.get(existingCode);
+      const slot = room ? slotForSocket(room, socketId) : null;
+      const inLiveMatch = room
+        && slot !== null
+        && room.status === 'playing'
+        && room.gameState !== null
+        && room.gameState.phase !== 'finished'
+        && bothConnected(room);
+      if (inLiveMatch) {
+        return { matched: true, code: existingCode };
+      }
+      this.leaveRoom(socketId, { intentional: true });
     }
 
     const waitingIdx = this.matchQueue.findIndex(
@@ -177,6 +188,20 @@ export class GameRoomManager {
     );
     if (waitingIdx >= 0) {
       const [waiting] = this.matchQueue.splice(waitingIdx, 1);
+      const waitingCode = this.socketRoom.get(waiting.socketId);
+      if (waitingCode) {
+        const waitingRoom = this.rooms.get(waitingCode);
+        const waitingLive = waitingRoom
+          && waitingRoom.status === 'playing'
+          && waitingRoom.gameState?.phase !== 'finished'
+          && bothConnected(waitingRoom);
+        if (!waitingLive) {
+          this.leaveRoom(waiting.socketId, { intentional: true });
+        } else {
+          this.matchQueue.push({ socketId, gameMode });
+          return { matched: false };
+        }
+      }
       const code = this.createMatchedRoom(waiting.socketId, socketId, gameMode);
       return { matched: true, code };
     }

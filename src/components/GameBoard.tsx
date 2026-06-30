@@ -249,29 +249,30 @@ export function GameBoard({
     const g = online.syncedGame;
 
     syncQueueRef.current = syncQueueRef.current.then(async () => {
-      const local = getGameState();
+      try {
+        const local = getGameState();
 
-      if (serverStateMatchesLocal(local, g)) {
-        online.ackGameSync?.();
-        return;
-      }
-
-      if (g.phase === 'resolving' && local.phase === 'committing') {
-        setResolving(true);
-        await runCommitRevealPhase(local);
-      }
-
-      await applyUpdate(g);
-
-      if (g.phase !== 'resolving') {
-        setResolving(false);
-        if (g.phase === 'committing') {
-          setCommitQueue([]);
-          setPendingPick(null);
+        if (serverStateMatchesLocal(local, g)) {
+          return;
         }
-      }
 
-      online.ackGameSync?.();
+        if (g.phase === 'resolving' && local.phase === 'committing') {
+          setResolving(true);
+          await runCommitRevealPhase(local);
+        }
+
+        await applyUpdate(g);
+
+        if (g.phase !== 'resolving') {
+          setResolving(false);
+          if (g.phase === 'committing') {
+            setCommitQueue([]);
+            setPendingPick(null);
+          }
+        }
+      } finally {
+        online.ackGameSync?.();
+      }
     });
   }, [online, online?.syncedGame, applyUpdate, getGameState, runCommitRevealPhase]);
 
