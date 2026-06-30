@@ -6,6 +6,7 @@ import {
   verifyAdminToken,
 } from './adminAuth.js';
 import { fetchAdminStats } from './stats.js';
+import { fetchRecentMatches } from './matches.js';
 import { insertMatchEvent, insertAnalyticsEvent, isAnalyticsEnabled, type TrackMatchInput } from './db.js';
 
 export const analyticsRouter = Router();
@@ -153,5 +154,22 @@ analyticsRouter.get('/admin/stats', requireAdmin, async (_req, res) => {
   } catch (err) {
     console.error('[analytics] stats failed', err);
     res.status(500).json({ error: 'Could not load stats' });
+  }
+});
+
+analyticsRouter.get('/admin/matches', requireAdmin, async (req, res) => {
+  if (!isAnalyticsEnabled()) {
+    res.status(503).json({ error: 'Analytics not configured' });
+    return;
+  }
+
+  const limit = Number(req.query.limit ?? 100);
+
+  try {
+    const matches = await fetchRecentMatches(limit);
+    res.json({ matches });
+  } catch (err) {
+    console.error('[analytics] matches failed', err);
+    res.status(500).json({ error: 'Could not load matches' });
   }
 });

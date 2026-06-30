@@ -66,6 +66,18 @@ interface AdminStats {
   };
 }
 
+interface AdminMatch {
+  id: number;
+  userId: string;
+  opponentType: 'bot' | 'player';
+  winner: 'self' | 'opponent' | 'tie';
+  roundsPlayed: number;
+  durationSeconds: number;
+  effectsUsed: string[];
+  createdAt: string;
+  excluded: boolean;
+}
+
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.round(seconds % 60);
@@ -84,29 +96,50 @@ function formatLastSeen(iso: string): string {
   return new Date(iso).toLocaleString();
 }
 
+function modeLabel(type: 'bot' | 'player'): string {
+  return type === 'player' ? 'Online' : 'Bot';
+}
+
+function winnerLabel(winner: 'self' | 'opponent' | 'tie'): string {
+  if (winner === 'self') return 'Won';
+  if (winner === 'opponent') return 'Lost';
+  return 'Tie';
+}
+
+function winnerClass(winner: 'self' | 'opponent' | 'tie'): string {
+  if (winner === 'self') return 'admin-match-winner--win';
+  if (winner === 'opponent') return 'admin-match-winner--loss';
+  return 'admin-match-winner--tie';
+}
+
 export function AdminPage() {
   const [token, setToken] = useState(() => sessionStorage.getItem(ADMIN_TOKEN_KEY) ?? '');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [matches, setMatches] = useState<AdminMatch[]>([]);
   const [fetchError, setFetchError] = useState('');
 
   const fetchStats = useCallback(async (authToken: string) => {
     setLoading(true);
     setFetchError('');
     try {
-      const res = await fetch(`${API_BASE}/api/admin/stats`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      if (!res.ok) {
-        if (res.status === 401) {
+      const headers = { Authorization: `Bearer ${authToken}` };
+      const [statsRes, matchesRes] = await Promise.all([
+        fetch(`${API_BASE}/api/admin/stats`, { headers }),
+        fetch(`${API_BASE}/api/admin/matches?limit=100`, { headers }),
+      ]);
+      if (!statsRes.ok || !matchesRes.ok) {
+        if (statsRes.status === 401 || matchesRes.status === 401) {
           sessionStorage.removeItem(ADMIN_TOKEN_KEY);
           setToken('');
         }
         throw new Error('Could not load stats');
       }
-      setStats(await res.json() as AdminStats);
+      setStats(await statsRes.json() as AdminStats);
+      const matchesData = await matchesRes.json() as { matches: AdminMatch[] };
+      setMatches(matchesData.matches);
     } catch {
       setFetchError('Failed to load stats. Check server connection and password.');
     } finally {
@@ -147,6 +180,7 @@ export function AdminPage() {
     sessionStorage.removeItem(ADMIN_TOKEN_KEY);
     setToken('');
     setStats(null);
+    setMatches([]);
   };
 
   const myDeviceId = getOrCreateUserId();
@@ -231,6 +265,68 @@ export function AdminPage() {
           </button>
         </p>
       </details>
+
+      {stats && matches.length === 0 && (
+        <section className="admin-section">
+          <h2>Recent matches</h2>
+          <p className="admin-section__hint">No finished matches recorded yet.</p>
+        </section>
+      )}
+
+      {matches.length > 0 && (
+        <section className="admin-section">
+          <h2>Recent matches</h2>
+          <p className="admin-section__hint">
+            Last {matches.length} finished games (test users excluded from stats are hidden here too).
+          </p>
+          <div className="admin-user-table-wrap">
+            <table className="admin-user-table admin-match-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>User</th>
+                  <th>Mode</th>
+                  <th>Result</th>
+                  <th>Rounds</th>
+                  <th>Duration</th>
+                  <th>Effects used</th>
+                </tr>
+              </thead>
+              <tbody>
+                {matches.map(match => (
+                  <tr key={match.id}>
+                    <td className="admin-match-table__time">{formatLastSeen(match.createdAt)}</td>
+                    <td>
+                      <code title={match.userId}>{shortUserId(match.userId)}</code>
+                    </td>
+                    <td>{modeLabel(match.opponentType)}</td>
+                    <td>
+                      <span className={`admin-match-winner ${winnerClass(match.winner)}`}>
+                        {winnerLabel(match.winner)}
+                      </span>
+                    </td>
+                    <td>{match.roundsPlayed}</td>
+                    <td>{formatDuration(match.durationSeconds)}</td>
+                    <td>
+                      {match.effectsUsed.length === 0 ? (
+                        <span className="admin-match-table__muted">—</span>
+                      ) : (
+                        <div className="admin-match-effects">
+                          {match.effectsUsed.map((effect, i) => (
+                            <span key={`${match.id}-${effect}-${i}`} className="admin-match-effect">
+                              {effectLabel(effect)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {stats && stats.recentUsers.length > 0 && (
         <section className="admin-section">
