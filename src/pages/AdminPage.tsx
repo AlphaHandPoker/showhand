@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { API_BASE } from '../config/api';
 import { GAME_NAME } from '../config/brand';
+import { getOrCreateUserId } from '../analytics/userId';
 import { EFFECT_NAMES, type EffectType } from '../game/types';
 import './AdminPage.css';
 
 const ADMIN_TOKEN_KEY = 'pd_admin_token';
 
 interface AdminStats {
+  meta: {
+    excludedUserIds: string[];
+    excludedMatchCount: number;
+  };
   overview: {
     matchesToday: number;
     matchesThisWeek: number;
@@ -31,6 +36,12 @@ interface AdminStats {
     playerMatches: number;
   };
   matchesPerDay: { date: string; count: number }[];
+  recentUsers: {
+    userId: string;
+    totalMatches: number;
+    lastSeen: string;
+    excluded: boolean;
+  }[];
 }
 
 function formatDuration(seconds: number): string {
@@ -41,6 +52,14 @@ function formatDuration(seconds: number): string {
 
 function effectLabel(type: string): string {
   return EFFECT_NAMES[type as EffectType] ?? type;
+}
+
+function shortUserId(id: string): string {
+  return `${id.slice(0, 8)}…`;
+}
+
+function formatLastSeen(iso: string): string {
+  return new Date(iso).toLocaleString();
 }
 
 export function AdminPage() {
@@ -108,6 +127,16 @@ export function AdminPage() {
     setStats(null);
   };
 
+  const myDeviceId = getOrCreateUserId();
+
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // clipboard may be blocked
+    }
+  };
+
   if (!token) {
     return (
       <div className="admin-page">
@@ -156,6 +185,80 @@ export function AdminPage() {
 
       {loading && !stats && <p className="admin-loading">Loading…</p>}
       {fetchError && <p className="admin-error">{fetchError}</p>}
+
+      {stats && stats.meta.excludedUserIds.length > 0 && (
+        <p className="admin-filter-note">
+          Hiding {stats.meta.excludedUserIds.length} test user
+          {stats.meta.excludedUserIds.length === 1 ? '' : 's'}
+          {' '}({stats.meta.excludedMatchCount} match
+          {stats.meta.excludedMatchCount === 1 ? '' : 'es'} not counted).
+        </p>
+      )}
+
+      <details className="admin-exclude-help">
+        <summary>Exclude your own test plays</summary>
+        <p>
+          Your PC and phone each get a separate anonymous ID. Pick yours from the list below
+          (marked &quot;this device&quot; when you open admin on that browser), copy the IDs,
+          and add them to <code>ANALYTICS_EXCLUDE_USER_IDS</code> on Railway.
+        </p>
+        <p>
+          This browser: <code>{myDeviceId}</code>{' '}
+          <button type="button" className="admin-btn admin-btn--ghost" onClick={() => void copyText(myDeviceId)}>
+            Copy
+          </button>
+        </p>
+      </details>
+
+      {stats && stats.recentUsers.length > 0 && (
+        <section className="admin-section">
+          <h2>Recent players</h2>
+          <p className="admin-section__hint">
+            Likely your test devices are the ones with the most matches. Copy their IDs into Railway.
+          </p>
+          <div className="admin-user-table-wrap">
+            <table className="admin-user-table">
+              <thead>
+                <tr>
+                  <th>User ID</th>
+                  <th>Matches</th>
+                  <th>Last seen</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {stats.recentUsers.map(row => (
+                  <tr
+                    key={row.userId}
+                    className={row.userId === myDeviceId ? 'admin-user-table__row--mine' : undefined}
+                  >
+                    <td>
+                      <code title={row.userId}>{shortUserId(row.userId)}</code>
+                      {row.userId === myDeviceId && (
+                        <span className="admin-user-table__badge">this device</span>
+                      )}
+                      {row.excluded && (
+                        <span className="admin-user-table__badge admin-user-table__badge--muted">excluded</span>
+                      )}
+                    </td>
+                    <td>{row.totalMatches}</td>
+                    <td>{formatLastSeen(row.lastSeen)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="admin-btn admin-btn--ghost"
+                        onClick={() => void copyText(row.userId)}
+                      >
+                        Copy ID
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {stats && (
         <>

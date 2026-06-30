@@ -1,6 +1,11 @@
 import { getPool } from './db.js';
+import { getExcludedUserIds, userExclusionClause } from './excludeUsers.js';
 
 export interface AdminStats {
+  meta: {
+    excludedUserIds: string[];
+    excludedMatchCount: number;
+  };
   overview: {
     matchesToday: number;
     matchesThisWeek: number;
@@ -25,11 +30,21 @@ export interface AdminStats {
     playerMatches: number;
   };
   matchesPerDay: { date: string; count: number }[];
+  recentUsers: {
+    userId: string;
+    totalMatches: number;
+    lastSeen: string;
+    excluded: boolean;
+  }[];
 }
 
 export async function fetchAdminStats(): Promise<AdminStats> {
   const db = getPool();
   if (!db) throw new Error('Analytics database not configured');
+
+  const excluded = getExcludedUserIds();
+  const eventExclusion = userExclusionClause('user_id', excluded);
+  const sessionExclusion = userExclusionClause('user_id', excluded);
 
   const [
     overviewRes,
@@ -38,6 +53,8 @@ export async function fetchAdminStats(): Promise<AdminStats> {
     botWinRes,
     playerWinRes,
     dailyRes,
+    excludedCountRes,
+    recentUsersRes,
   ] = await Promise.all([
     db.query<{
       matches_today: string;
@@ -59,7 +76,8 @@ export async function fetchAdminStats(): Promise<AdminStats> {
         AVG(rounds_played)::text AS avg_rounds,
         AVG(duration_seconds)::text AS avg_duration
       FROM match_events
-    `),
+      WHERE 1=1${eventExclusion.clause}
+    `, eventExclusion.params),
     db.query<{
       total_users: string;
       returning_users: string;
@@ -72,35 +90,54 @@ export async function fetchAdminStats(): Promise<AdminStats> {
         COUNT(*) FILTER (WHERE total_matches >= 5)::text AS five_plus,
         COUNT(*) FILTER (WHERE total_matches = 1)::text AS played_once
       FROM user_sessions
-    `),
+      WHERE 1=1${sessionExclusion.clause}
+    `, sessionExclusion.params),
     db.query<{ effect: string; count: string }>(`
       SELECT effect, COUNT(*)::text AS count
       FROM match_events, unnest(effects_used) AS effect
+      WHERE 1=1${eventExclusion.clause}
       GROUP BY effect
       ORDER BY COUNT(*) DESC
-    `),
+    `, eventExclusion.params),
     db.query<{ total: string; wins: string }>(`
       SELECT
         COUNT(*)::text AS total,
         COUNT(*) FILTER (WHERE winner = 'self')::text AS wins
       FROM match_events
-      WHERE opponent_type = 'bot'
-    `),
+      WHERE opponent_type = 'bot'${eventExclusion.clause}
+    `, eventExclusion.params),
     db.query<{ total: string; wins: string }>(`
       SELECT
         COUNT(*)::text AS total,
         COUNT(*) FILTER (WHERE winner = 'self')::text AS wins
       FROM match_events
-      WHERE opponent_type = 'player'
-    `),
+      WHERE opponent_type = 'player'${eventExclusion.clause}
+    `, eventExclusion.params),
     db.query<{ day: string; count: string }>(`
       SELECT
         to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
         COUNT(*)::text AS count
       FROM match_events
-      WHERE created_at >= CURRENT_DATE - INTERVAL '13 days'
+      WHERE created_at >= CURRENT_DATE - INTERVAL '13 days'${eventExclusion.clause}
       GROUP BY 1
       ORDER BY 1
+    `, eventExclusion.params),
+    excluded.length > 0
+      ? db.query<{ count: string }>(`
+          SELECT COUNT(*)::text AS count
+          FROM match_events
+          WHERE user_id IN (${excluded.map((_, i) => `$${i + 1}`).join(', ')})
+        `, excluded)
+      : Promise.resolve({ rows: [{ count: '0' }] }),
+    db.query<{
+      user_id: string;
+      total_matches: string;
+      last_seen: Date;
+    }>(`
+      SELECT user_id, total_matches::text, last_seen
+      FROM user_sessions
+      ORDER BY total_matches DESC, last_seen DESC
+      LIMIT 20
     `),
   ]);
 
@@ -128,7 +165,19 @@ export async function fetchAdminStats(): Promise<AdminStats> {
     count: Number(row.count),
   }));
 
+  const excludedSet = new Set(excluded);
+  const recentUsers = recentUsersRes.rows.map(row => ({
+    userId: row.user_id,
+    totalMatches: Number(row.total_matches) || 0,
+    lastSeen: row.last_seen.toISOString(),
+    excluded: excludedSet.has(row.user_id),
+  }));
+
   return {
+    meta: {
+      excludedUserIds: excluded,
+      excludedMatchCount: Number(excludedCountRes.rows[0]?.count) || 0,
+    },
     overview: {
       matchesToday: Number(o.matches_today) || 0,
       matchesThisWeek: Number(o.matches_week) || 0,
@@ -153,5 +202,6 @@ export async function fetchAdminStats(): Promise<AdminStats> {
       playerMatches: playerTotal,
     },
     matchesPerDay,
+    recentUsers,
   };
 }

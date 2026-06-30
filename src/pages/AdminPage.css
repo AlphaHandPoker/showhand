@@ -57,11 +57,60 @@
   color: #b8bfd0;
 }
 
+.admin-section__hint {
+  margin: -0.5rem 0 1rem;
+  color: #8b93a7;
+  font-size: 0.875rem;
+}
+
+.admin-user-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-user-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.admin-user-table th,
+.admin-user-table td {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #2a3142;
+}
+
+.admin-user-table th {
+  color: #8b93a7;
+  font-weight: 600;
+}
+
+.admin-user-table__row--mine {
+  background: #1a2438;
+}
+
+.admin-user-table__badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.admin-user-table__badge--muted {
+  background: #374151;
+  color: #d1d5db;
+}
+
 .admin-section h3 {
   margin: 1.5rem 0 0.75rem;
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #8b93a7;
+  color: #b8bfd0;
 }
 
 .admin-cards {
@@ -224,6 +273,55 @@
 }
 
 .admin-login__error,
+.admin-filter-note {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #1a2438;
+  border: 1px solid #2d4a6f;
+  color: #93c5fd;
+  font-size: 0.875rem;
+}
+
+.admin-exclude-help {
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #151922;
+  border: 1px solid #2a3142;
+  font-size: 0.875rem;
+  color: #b8bfce;
+}
+
+.admin-exclude-help summary {
+  cursor: pointer;
+  color: #e8eaef;
+  font-weight: 600;
+}
+
+.admin-exclude-help p,
+.admin-exclude-help ol {
+  margin: 0.75rem 0 0;
+}
+
+.admin-exclude-help ol {
+  padding-left: 1.25rem;
+}
+
+.admin-exclude-help code {
+  font-size: 0.8rem;
+  background: #0f1117;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.admin-exclude-help__device {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .admin-error {
   color: #f87171;
   font-size: 0.875rem;
