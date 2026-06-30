@@ -24,6 +24,7 @@ export interface UseOnlineGame {
   joinRoom: (code: string) => void;
   submitDraft: (deck: string[]) => void;
   lockCommit: (actions: CommittedAction[]) => void;
+  requestSync: () => void;
   leaveRoom: () => void;
   clearError: () => void;
 }
@@ -54,6 +55,7 @@ export function useOnlineGame(): UseOnlineGame {
     });
     socket.on(ServerEvents.ROOM_ERROR, (payload: RoomErrorPayload) => {
       setError(payload.message);
+      setGamePayload(prev => (prev ? { ...prev, youLocked: false } : prev));
       socketRef.current?.emit(ClientEvents.REQUEST_SYNC);
     });
 
@@ -109,6 +111,11 @@ export function useOnlineGame(): UseOnlineGame {
     setError(null);
     setGamePayload(prev => (prev ? { ...prev, youLocked: true } : prev));
     socketRef.current?.emit(ClientEvents.LOCK_COMMIT, { actions });
+    socketRef.current?.emit(ClientEvents.REQUEST_SYNC);
+  }, []);
+
+  const requestSync = useCallback(() => {
+    socketRef.current?.emit(ClientEvents.REQUEST_SYNC);
   }, []);
 
   const leaveRoom = useCallback(() => {
@@ -133,6 +140,7 @@ export function useOnlineGame(): UseOnlineGame {
     joinRoom,
     submitDraft,
     lockCommit,
+    requestSync,
     leaveRoom,
     clearError,
   };

@@ -215,12 +215,18 @@ export class GameRoomManager {
     if (!room || !room.gameState) return 'Match is not in progress';
 
     if (room.status !== 'playing') return 'Not in commit phase';
+
+    // Recover from a stale resolving flag left by an interrupted resolution run.
+    if (room.resolving && room.gameState.phase !== 'resolving') {
+      room.resolving = false;
+    }
+
     if (room.gameState.phase !== 'committing') return 'Commit is closed for this round';
     if (room.resolving) return 'Resolution in progress';
 
     const slot = slotForSocket(room, socketId);
     if (slot === null) return 'Invalid session';
-    if (room.pendingCommits[slot] !== null) return 'Zaten kilitledin';
+    if (room.pendingCommits[slot] !== null) return 'Already locked in';
 
     const actions = viewerActionsToServer(rawActions, slot);
     const actorId = slot === 0 ? 'player' : 'bot';

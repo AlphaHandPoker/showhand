@@ -119,6 +119,41 @@ async function main() {
   await winPromise;
   console.log('PASS: opponent disconnect → remaining player wins');
   p1.disconnect();
+
+  await new Promise(r => setTimeout(r, 500));
+
+  // Both players lock in round 1 → resolution completes
+  const a = io(SERVER, { transports: ['websocket'], forceNew: true });
+  const b = io(SERVER, { transports: ['websocket'], forceNew: true });
+  await waitFor<void>(a, 'connect');
+  await waitFor<void>(b, 'connect');
+  a.emit(ClientEvents.FIND_MATCH, { mode: 'full_deck' });
+  await new Promise(r => setTimeout(r, 400));
+  const aPlaying = waitForRoomStatus(a, 'playing');
+  const bPlaying = waitForRoomStatus(b, 'playing');
+  b.emit(ClientEvents.FIND_MATCH, { mode: 'full_deck' });
+  await Promise.all([aPlaying, bPlaying]);
+
+  a.emit(ClientEvents.LOCK_COMMIT, { actions: [] });
+  const aWaiting = await waitFor<{ youLocked: boolean; opponentLocked: boolean }>(a, ServerEvents.GAME_STATE);
+  if (!aWaiting.youLocked || aWaiting.opponentLocked) {
+    throw new Error('Player A should be locked waiting for opponent');
+  }
+
+  const roundAdvanced = new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timeout waiting for round 2 after both lock')), 8000);
+    a.on(ServerEvents.GAME_STATE, payload => {
+      if (payload.game.phase === 'committing' && payload.game.currentRound >= 2) {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+  });
+  b.emit(ClientEvents.LOCK_COMMIT, { actions: [] });
+  await roundAdvanced;
+  console.log('PASS: both players lock → round advances');
+  a.disconnect();
+  b.disconnect();
 }
 
 main().catch(err => {

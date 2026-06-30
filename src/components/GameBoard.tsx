@@ -83,6 +83,7 @@ interface GameBoardProps {
     opponentLocked: boolean;
     onLockCommit: (actions: CommittedAction[]) => void;
     onForfeit?: () => void;
+    onRequestSync?: () => void;
     syncedGame: GameState;
     opponentLabel?: string;
   };
@@ -179,6 +180,7 @@ export function GameBoard({
 
   const youLocked = online?.youLocked ?? disguisedWaiting;
   const opponentLocked = online?.opponentLocked ?? false;
+  const serverPhase = online?.syncedGame.phase;
   const canInteract = introReady && isCommitting && !isFinished && !isAnimating && !resolving
     && !youLocked && !leavingMatch;
   const canCancelPick = isCommitting && !isFinished && pendingPick !== null;
@@ -196,6 +198,17 @@ export function GameBoard({
     }
   }, [isCommitting]);
 
+  useEffect(() => {
+    if (!online?.onRequestSync) return;
+    if (!youLocked || opponentLocked || !isCommitting || serverPhase !== 'committing') return;
+
+    const timer = window.setInterval(() => {
+      online.onRequestSync?.();
+    }, 2000);
+
+    return () => window.clearInterval(timer);
+  }, [online, youLocked, opponentLocked, isCommitting, serverPhase]);
+
   const syncQueueRef = useRef(Promise.resolve());
   const lastSyncSigRef = useRef('');
 
@@ -210,18 +223,15 @@ export function GameBoard({
       const local = getGameState();
 
       // Both players locked — play full resolution locally (same path as vs bot).
-      if (
-        online
-        && g.phase === 'resolving'
-        && local.phase === 'committing'
-        && g.resolutionQueue.length > 0
-      ) {
-        setResolving(true);
-        await runResolutionCinematic(g, resolveNextInQueue);
-        setResolving(false);
-        setCommitQueue([]);
-        setPendingPick(null);
-        return;
+      if (online && g.phase === 'resolving' && g.resolutionQueue.length > 0) {
+        if (local.phase === 'committing' || local.currentRound === g.currentRound) {
+          setResolving(true);
+          await runResolutionCinematic(g, resolveNextInQueue);
+          setResolving(false);
+          setCommitQueue([]);
+          setPendingPick(null);
+          return;
+        }
       }
 
       // Server finished resolution while cinematic is still playing.
@@ -715,11 +725,14 @@ export function GameBoard({
         </button>
       )}
 
-      {youLocked && !opponentLocked && isCommitting && (
+      {youLocked && !opponentLocked && isCommitting && serverPhase === 'committing' && (
         <span className="online-status-msg">Locked in — waiting for opponent…</span>
       )}
-      {opponentLocked && !youLocked && isCommitting && (
+      {opponentLocked && !youLocked && isCommitting && serverPhase === 'committing' && (
         <span className="online-status-msg online-status-msg--urgent">Opponent locked in — your turn!</span>
+      )}
+      {serverPhase === 'resolving' && (isCommitting || resolving) && (
+        <span className="online-status-msg">Resolving moves…</span>
       )}
     </>
   );

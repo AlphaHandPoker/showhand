@@ -23,6 +23,8 @@ export function OnlineGameBoard({ online, onLeave }: OnlineGameBoardProps) {
   const playerDeck = payload.game.players.player.effectHand.map(c => c.type) as EffectType[];
   const opponentDeck = payload.game.players.bot.effectHand.map(c => c.type) as EffectType[];
 
+  const commit = room.commit;
+
   return (
     <div className="app">
       {online.error && (
@@ -37,10 +39,11 @@ export function OnlineGameBoard({ online, onLeave }: OnlineGameBoardProps) {
         botDeck={opponentDeck}
         onRestart={onLeave}
         online={{
-          youLocked: payload.youLocked,
-          opponentLocked: payload.opponentLocked,
+          youLocked: commit?.youLocked ?? payload.youLocked,
+          opponentLocked: commit?.opponentLocked ?? payload.opponentLocked,
           onLockCommit: online.lockCommit,
           onForfeit: online.forfeitMatch,
+          onRequestSync: online.requestSync,
           syncedGame: payload.game,
           opponentLabel: 'Opponent',
         }}

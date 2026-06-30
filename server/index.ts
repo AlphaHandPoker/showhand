@@ -76,8 +76,17 @@ async function finishResolution(code: string): Promise<void> {
   resolutionLoops.add(code);
 
   try {
+    const room = rooms.getRoom(code);
+    if (!room?.resolving) return;
+
     while (rooms.getRoom(code)?.resolving) {
-      rooms.advanceResolution(code);
+      const stillResolving = rooms.advanceResolution(code);
+      if (!stillResolving) break;
+    }
+
+    const after = rooms.getRoom(code);
+    if (after) {
+      after.resolving = false;
     }
     emitAll(code);
   } finally {
@@ -190,10 +199,10 @@ io.on('connection', (socket) => {
     console.log(`[commit] locked in ${code} by ${socket.id}`);
 
     if (room?.resolving) {
-      // Let clients receive the resolving state before the final post-resolution emit.
+      // Give clients time to receive the resolving snapshot before the final state.
       setTimeout(() => {
         void finishResolution(code);
-      }, 150);
+      }, 500);
     }
   });
 
