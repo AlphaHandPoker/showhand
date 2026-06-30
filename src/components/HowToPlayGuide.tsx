@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { GAME_NAME } from '../config/brand';
 import {
   ALL_EFFECT_TYPES,
   EFFECT_DESCRIPTIONS,
@@ -116,7 +117,7 @@ export function HowToPlayGuide({ onClose }: HowToPlayGuideProps) {
             <span className="htp-header-mark">♠</span>
             <div>
               <h2 id="htp-title">How to Play</h2>
-              <p className="htp-header-sub">SHOWHAND — Open poker, hidden effects</p>
+              <p className="htp-header-sub">{GAME_NAME} — Open poker, hidden effects</p>
             </div>
           </div>
           <button type="button" className="htp-close" onClick={onClose} aria-label="Close">×</button>

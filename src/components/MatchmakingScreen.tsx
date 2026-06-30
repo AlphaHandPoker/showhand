@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { UseOnlineGame } from '../hooks/useOnlineGame';
 import { DEFAULT_GAME_MODE } from '../game/gameModes';
+import { GAME_NAME } from '../config/brand';
 import './MatchmakingScreen.css';
 
 /** Time in queue after socket is connected (not from screen mount). */
@@ -76,7 +77,7 @@ export function MatchmakingScreen({ online, onMatched, onFallbackToBot }: Matchm
   return (
     <div className="matchmaking-screen">
       <header className="matchmaking-header">
-        <h1>SHOWHAND</h1>
+        <h1>{GAME_NAME}</h1>
       </header>
 
       <div className="matchmaking-body">

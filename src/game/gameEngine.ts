@@ -486,7 +486,7 @@ export function createGame(
 
   drawRoundCards(state);
   addLog(state, 'Round 1 started', undefined, 'round');
-  addLog(state, 'SHOWHAND started! Round 1 — secretly choose your moves.');
+  addLog(state, 'PokerDuel started! Round 1 — secretly choose your moves.');
   addLog(state, `Resolution order: ${startingPlayer === 'player' ? 'You' : 'Bot'} go first in Round 1.`, startingPlayer);
   return state;
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { GameMode } from '../game/types';
 import { GAME_MODE_INFO } from '../game/gameModes';
 import type { UseOnlineGame } from '../hooks/useOnlineGame';
+import { GAME_NAME } from '../config/brand';
 import './Lobby.css';
 import './GameModePicker.css';
 
@@ -27,7 +28,7 @@ export function Lobby({ online, createMode, onBack }: LobbyProps) {
       return (
         <div className="lobby-screen">
           <header className="lobby-header">
-            <h1>SHOWHAND</h1>
+            <h1>{GAME_NAME}</h1>
             <p className="lobby-subtitle">Loading match…</p>
           </header>
           <p className="lobby-status-message">{roomState.message}</p>
@@ -39,7 +40,7 @@ export function Lobby({ online, createMode, onBack }: LobbyProps) {
     return (
       <div className="lobby-screen">
         <header className="lobby-header">
-          <h1>SHOWHAND</h1>
+          <h1>{GAME_NAME}</h1>
           <p className="lobby-subtitle">Online room</p>
         </header>
 
@@ -109,7 +110,7 @@ export function Lobby({ online, createMode, onBack }: LobbyProps) {
   return (
     <div className="lobby-screen">
       <header className="lobby-header">
-        <h1>SHOWHAND</h1>
+        <h1>{GAME_NAME}</h1>
         <p className="lobby-subtitle">Play with a friend</p>
       </header>
 

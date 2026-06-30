@@ -6,6 +6,7 @@ import {
 } from '../game/types';
 import { validateDeckSelection } from '../game/deckBuilder';
 import { EffectCardView } from './Cards';
+import { GAME_NAME } from '../config/brand';
 import './DraftScreen.css';
 
 export interface DraftOnlineProps {
@@ -59,7 +60,7 @@ export function DraftScreen({ onStart, online }: DraftScreenProps) {
   return (
     <div className="draft-screen">
       <header className="draft-header">
-        <h1>SHOWHAND</h1>
+        <h1>{GAME_NAME}</h1>
         {online ? (
           <>
             <p className="draft-subtitle">Online draft — {online.roomCode}</p>

@@ -9,10 +9,13 @@ import { HowToPlayGuide } from './components/HowToPlayGuide';
 import { useOnlineGame } from './hooks/useOnlineGame';
 import { buildFullEffectDeck } from './game/deckBuilder';
 import { DEFAULT_GAME_MODE } from './game/gameModes';
+import { GAME_NAME } from './config/brand';
+import { OnlinePlayersBadge } from './components/OnlinePlayersBadge';
 import './App.css';
 import './components/CosmeticsMenu.css';
 import './components/MatchmakingScreen.css';
 import './components/HomeModeSelect.css';
+import './components/OnlinePlayersBadge.css';
 
 type Screen = 'home' | 'searching' | 'online' | 'game';
 
@@ -126,8 +129,9 @@ function App() {
       {showCosmetics && <CosmeticsMenu onClose={() => setShowCosmetics(false)} />}
       {showHowToPlay && <HowToPlayGuide onClose={() => setShowHowToPlay(false)} />}
       <header className="home-header">
-        <h1>SHOWHAND</h1>
+        <h1>{GAME_NAME}</h1>
         <p className="home-tagline">Open poker hands, hidden effect cards</p>
+        <OnlinePlayersBadge />
       </header>
       <HomeModeSelect />
       <div className="home-actions">

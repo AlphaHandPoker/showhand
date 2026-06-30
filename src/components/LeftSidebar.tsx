@@ -1,6 +1,7 @@
 import type { GameLogEntry, PlayingCard } from '../game/types';
 import { HandRankLadder } from './HandRankLadder';
 import { GameLogPanel } from './GameLogPanel';
+import { GAME_NAME } from '../config/brand';
 import './LeftSidebar.css';
 import './GameLogPanel.css';
 
@@ -19,7 +20,7 @@ export function LeftSidebar({
     <aside className="left-sidebar" aria-label="Hand ranks and event log">
       <header className="rail-brand">
         <span className="rail-brand-mark">♠</span>
-        <span className="rail-brand-word">SHOWHAND</span>
+        <span className="rail-brand-word">{GAME_NAME}</span>
       </header>
 
       <div className="left-sidebar-top">
