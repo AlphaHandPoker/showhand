@@ -127,6 +127,76 @@ function serverStateMatchesLocal(local: GameState, server: GameState): boolean {
     && pokerHandsMatch(local, server);
 }
 
+/**
+ * For each card drawn during an effect step (i.e. a card present in
+ * stepState but not in prevState), replace it with the actual card the
+ * SERVER drew (from finalState at the same slot).  Also keeps the deck
+ * consistent so subsequent steps draw the right cards too.
+ */
+function patchDrawnCards(
+  prevState: GameState,
+  stepState: GameState,
+  finalState: GameState,
+): GameState {
+  let patchedDeck = stepState.deck;
+  let deckChanged = false;
+  const patchedPlayers = { player: stepState.players.player, bot: stepState.players.bot };
+  let playersChanged = false;
+
+  for (const pid of ['player', 'bot'] as const) {
+    const prevIds = new Set(stepState.players[pid] === prevState.players[pid]
+      ? prevState.players[pid].pokerHand.map(c => c.id)
+      : prevState.players[pid].pokerHand.map(c => c.id));
+    let handChanged = false;
+    const newHand = stepState.players[pid].pokerHand.map(card => {
+      if (prevIds.has(card.id)) return card; // not drawn this step
+      const serverCard = finalState.players[pid].pokerHand.find(
+        c => c.slotIndex === card.slotIndex,
+      );
+      if (!serverCard || serverCard.id === card.id) return card;
+      // Swap: remove server card from deck, add locally-drawn card back.
+      if (!deckChanged) patchedDeck = [...stepState.deck];
+      patchedDeck = patchedDeck.filter(c => c.id !== serverCard.id);
+      patchedDeck.push({
+        suit: card.suit, rank: card.rank, id: card.id,
+        slotIndex: 0, protectedUntilTurn: 0, frozenUntilTurn: 0,
+      });
+      deckChanged = true;
+      handChanged = true;
+      return { ...serverCard, slotIndex: card.slotIndex };
+    });
+    if (handChanged) {
+      patchedPlayers[pid] = { ...stepState.players[pid], pokerHand: newHand };
+      playersChanged = true;
+    }
+  }
+
+  if (!playersChanged && !deckChanged) return stepState;
+  return {
+    ...stepState,
+    players: playersChanged
+      ? { player: patchedPlayers.player, bot: patchedPlayers.bot }
+      : stepState.players,
+    deck: patchedDeck,
+  };
+}
+
+/**
+ * Returns a resolveStep function that steps through the resolution queue
+ * but patches any randomly-drawn cards to use the server's actual cards
+ * from finalState. This ensures the animation uses the exact same card
+ * identities that the server computed, avoiding visual "second draw"
+ * artifacts when the client and server deck draws diverge.
+ */
+function makeResolveStep(
+  finalState: GameState,
+): (state: GameState) => GameState {
+  return (state: GameState) => {
+    const stepped = resolveNextInQueue(state);
+    return patchDrawnCards(state, stepped, finalState);
+  };
+}
+
 export function GameBoard({
   playerDeck,
   botDeck,
@@ -148,6 +218,7 @@ export function GameBoard({
     slotTokens,
     applyUpdate,
     snapToState,
+    runCommitRevealPhase,
     runResolutionCinematic,
     runIntroReveal,
     getGameState,
@@ -244,56 +315,64 @@ export function GameBoard({
 
   const syncQueueRef = useRef(Promise.resolve());
   const processedSyncSigRef = useRef('');
+  // Holds the server's resolving snapshot while we wait for the matching
+  // committing snapshot. The two states are needed together so that the
+  // deck-draw animation uses the server's actual card identities.
+  const pendingResolvingRef = useRef<GameState | null>(null);
   const syncedGame = online?.syncedGame;
 
   useEffect(() => {
     if (!syncedGame) return;
 
-    // Deduplicate: if we've already queued work for this exact game state, skip.
     const sig = gameStateSyncSig(syncedGame);
     if (sig === processedSyncSigRef.current) return;
     processedSyncSigRef.current = sig;
 
     const g = syncedGame;
 
-    syncQueueRef.current = syncQueueRef.current.then(async () => {
-      const local = getGameState();
+    // ── ONLINE: resolving snapshot ──
+    // Start the lane-reveal animation immediately so there's no visible delay.
+    // Store the state and wait for the committing snapshot to run effects.
+    if (online && g.phase === 'resolving' && g.resolutionQueue.length > 0) {
+      pendingResolvingRef.current = g;
+      setResolving(true);
+      syncQueueRef.current = syncQueueRef.current.then(async () => {
+        await runCommitRevealPhase(g);
+      });
+      return;
+    }
 
-      // ── Case 1: Both locked — run full resolution locally ──
-      // The server's resolving snapshot has the complete resolutionQueue and both
-      // players' committed effects.  We replay it locally for animation, then
-      // wait for the server's committing snapshot (Case 2) as ground truth.
-      if (
-        g.phase === 'resolving'
-        && g.resolutionQueue.length > 0
-        && (local.phase === 'committing' || local.currentRound === g.currentRound)
-      ) {
-        setResolving(true);
+    // ── ONLINE: committing snapshot (paired with a pending resolving snapshot) ──
+    // Now we have both states. Run the effect animations using server's actual
+    // card identities — no random divergence, no silent correction needed.
+    if (online && g.phase === 'committing' && pendingResolvingRef.current) {
+      const resolvingG = pendingResolvingRef.current;
+      pendingResolvingRef.current = null;
+      syncQueueRef.current = syncQueueRef.current.then(async () => {
         try {
-          await runResolutionCinematic(g, resolveNextInQueue);
+          await runResolutionCinematic(
+            resolvingG,
+            makeResolveStep(g),   // resolver uses server's actual drawn cards
+            undefined,
+            g,                    // finalState → round-end draws use server cards
+            true,                 // skipLanes → already played above
+          );
         } finally {
           setResolving(false);
           setCommitQueue([]);
           setPendingPick(null);
         }
-        return;
-      }
+      });
+      return;
+    }
 
-      // ── Case 2: Server ground-truth after resolution ──
-      // After our local cinematic the server sends the authoritative committing
-      // state (possibly with different card IDs from deck draws). Snap silently.
-      if (
-        g.phase === 'committing'
-        && local.phase === 'committing'
-        && g.currentRound === local.currentRound
-        && !serverStateMatchesLocal(local, g)
-      ) {
-        await snapToState(g);
-        return;
-      }
+    syncQueueRef.current = syncQueueRef.current.then(async () => {
+      const local = getGameState();
 
-      // ── Case 3: Missed the resolving phase entirely (e.g. reconnect) ──
-      if (g.phase === 'committing' && (local.phase === 'resolving' || g.currentRound > local.currentRound)) {
+      // ── Reconnect / missed resolving phase ──
+      if (g.phase === 'committing' && local.phase !== 'committing') {
+        // Clear any stale pending resolving state.
+        pendingResolvingRef.current = null;
         await applyUpdate(g);
         setResolving(false);
         setCommitQueue([]);
@@ -301,10 +380,20 @@ export function GameBoard({
         return;
       }
 
-      // ── Case 4: Skip stale resolving states (safety) ──
+      // ── Silent ground-truth correction (same round, same phase, different cards) ──
+      if (
+        g.phase === 'committing'
+        && local.phase === 'committing'
+        && !serverStateMatchesLocal(local, g)
+      ) {
+        await snapToState(g);
+        return;
+      }
+
+      // ── Stale resolving state (safety) ──
       if (g.phase === 'resolving' && local.phase === 'resolving') return;
 
-      // ── Case 5: Initial / general sync ──
+      // ── Initial game state or general transition ──
       if (!serverStateMatchesLocal(local, g)) {
         await applyUpdate(g);
         if (g.phase !== 'resolving') {
@@ -316,7 +405,8 @@ export function GameBoard({
         }
       }
     });
-  }, [syncedGame, applyUpdate, getGameState, runResolutionCinematic, snapToState]);
+  }, [syncedGame, online, applyUpdate, getGameState, runResolutionCinematic,
+    snapToState, runCommitRevealPhase]);
 
   useEffect(() => {
     if (!isCommitting || resolving) {

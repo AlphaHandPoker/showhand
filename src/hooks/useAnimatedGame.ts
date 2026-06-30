@@ -1106,10 +1106,26 @@ export function useAnimatedGame(initial: GameState) {
     return queueRef.current;
   }, []);
 
+  /** Re-exported so GameBoard can start the lane animation immediately on the
+   *  resolving snapshot while waiting for the committing snapshot. */
+  const runCommitRevealPhase = useCallback(async (startState: GameState) => {
+    setVisual(v => ({ ...v, isAnimating: true }));
+    await runCommitToLanesPhase(startState);
+  }, []);
+
+  /**
+   * @param finalState  Server's committing state. When provided:
+   *   • deck-draw effects use the actual drawn cards (via caller-supplied resolveStep)
+   *   • round-end draws animate the server's actual new cards, not locally random ones
+   *   • `skipLanes` must be true (lanes already animated via runCommitRevealPhase)
+   * @param skipLanes   Skip the commit-to-lane animation (already played separately).
+   */
   const runResolutionCinematic = useCallback(async (
     startState: GameState,
     resolveStep: (s: GameState) => GameState,
     onProgress?: (state: GameState) => void,
+    finalState?: GameState,
+    skipLanes?: boolean,
   ): Promise<GameState> => {
     skipRef.current = false;
     gameRef.current = startState;
@@ -1118,7 +1134,9 @@ export function useAnimatedGame(initial: GameState) {
     let current = startState;
 
     setVisual(v => ({ ...v, isAnimating: true }));
-    await runCommitToLanesPhase(startState);
+    if (!skipLanes) {
+      await runCommitToLanesPhase(startState);
+    }
 
     const queue = startState.resolutionQueue;
     let queueIdx = 0;
@@ -1145,8 +1163,16 @@ export function useAnimatedGame(initial: GameState) {
     ) {
       await holdForMs(DRAW_BEAT_MS);
       const beforeFinish = current;
-      current = finishResolutionIfComplete(current);
-      await runSequentialRoundDraws(beforeFinish, current);
+      if (finalState) {
+        // Online mode: use server's authoritative committing state for round-end
+        // draws. This ensures the animated card IDs match exactly what the server
+        // dealt — no silent correction needed after the cinematic.
+        await runSequentialRoundDraws(beforeFinish, finalState);
+        current = finalState;
+      } else {
+        current = finishResolutionIfComplete(current);
+        await runSequentialRoundDraws(beforeFinish, current);
+      }
       setGame(current);
       setDisplayGame(current);
       gameRef.current = current;
@@ -1155,11 +1181,15 @@ export function useAnimatedGame(initial: GameState) {
 
     if (skipRef.current && current.phase === 'resolving') {
       resolveAllOverlays();
-      while (current.phase === 'resolving') {
-        if (current.resolutionIndex >= current.resolutionQueue.length) {
-          current = finishResolutionIfComplete(current);
-        } else {
-          current = resolveStep(current);
+      if (finalState) {
+        current = finalState;
+      } else {
+        while (current.phase === 'resolving') {
+          if (current.resolutionIndex >= current.resolutionQueue.length) {
+            current = finishResolutionIfComplete(current);
+          } else {
+            current = resolveStep(current);
+          }
         }
       }
       setGame(current);
@@ -1218,6 +1248,7 @@ export function useAnimatedGame(initial: GameState) {
     slotTokens: visual.slotTokens,
     applyUpdate,
     snapToState,
+    runCommitRevealPhase,
     runResolutionCinematic,
     requestFastForward,
     resetGame,
