@@ -301,7 +301,7 @@ export function AdminPage() {
                 <span className="admin-card__hint">{stats.funnel.playVsComputerUsers} unique users</span>
               </div>
               <div className="admin-card admin-card--highlight">
-                <span className="admin-card__label">Find Player</span>
+                <span className="admin-card__label">Play Online</span>
                 <span className="admin-card__value">{stats.funnel.findPlayerClicks}</span>
                 <span className="admin-card__hint">{stats.funnel.findPlayerUsers} unique users</span>
               </div>

@@ -214,10 +214,6 @@ export class GameRoomManager {
     this.removeFromMatchQueue(socketId);
   }
 
-  getMatchQueueSize(gameMode: GameMode = 'full_deck'): number {
-    return this.matchQueue.filter(entry => entry.gameMode === gameMode).length;
-  }
-
   private removeFromMatchQueue(socketId: string): void {
     this.matchQueue = this.matchQueue.filter(e => e.socketId !== socketId);
   }

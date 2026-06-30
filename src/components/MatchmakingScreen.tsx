@@ -3,31 +3,18 @@ import type { UseOnlineGame } from '../hooks/useOnlineGame';
 import { DEFAULT_GAME_MODE } from '../game/gameModes';
 import { GAME_NAME } from '../config/brand';
 import { AnalyticsEvents } from '../analytics';
-import { fetchMatchmakingEstimate, type MatchmakingEstimateResponse } from '../api/matchmakingEstimate';
 import './MatchmakingScreen.css';
 
-/** Time in queue after socket is connected (not from screen mount). */
-export const MATCHMAKING_MAX_WAIT_SEC = 15;
-const SEARCH_DURATION_MS = MATCHMAKING_MAX_WAIT_SEC * 1000;
+const SEARCH_DURATION_MS = 15000;
+
+function randomEstimateSeconds(): number {
+  return 6 + Math.floor(Math.random() * 3);
+}
 
 interface MatchmakingScreenProps {
   online: UseOnlineGame;
   onMatched: () => void;
   onFallbackToBot: () => void;
-}
-
-function formatEstimateText(estimate: MatchmakingEstimateResponse | null): string {
-  if (!estimate) return 'Calculating…';
-
-  if (estimate.source === 'instant') {
-    return 'Another player is waiting — match should be instant';
-  }
-
-  const sec = estimate.estimatedSeconds;
-  if (sec <= 10) return `Estimated wait: ~${sec} seconds`;
-  if (sec < 60) return `Estimated wait: ~${sec} seconds`;
-  const min = Math.round(sec / 60);
-  return `Estimated wait: ~${min} min`;
 }
 
 export function MatchmakingScreen({ online, onMatched, onFallbackToBot }: MatchmakingScreenProps) {
@@ -38,8 +25,7 @@ export function MatchmakingScreen({ online, onMatched, onFallbackToBot }: Matchm
   const onlineRef = useRef(online);
   onlineRef.current = online;
 
-  const [estimate, setEstimate] = useState<MatchmakingEstimateResponse | null>(null);
-  const [elapsedSec, setElapsedSec] = useState(0);
+  const [estimateSec] = useState(randomEstimateSeconds);
 
   const clearSearchTimeout = useCallback(() => {
     if (timeoutRef.current !== null) {
@@ -58,10 +44,6 @@ export function MatchmakingScreen({ online, onMatched, onFallbackToBot }: Matchm
     }, SEARCH_DURATION_MS);
   }, [clearSearchTimeout, onFallbackToBot]);
 
-  const refreshEstimate = useCallback(() => {
-    void fetchMatchmakingEstimate(DEFAULT_GAME_MODE).then(setEstimate);
-  }, []);
-
   useEffect(() => {
     if (!online.socketConnected) {
       searchStartedRef.current = false;
@@ -75,28 +57,7 @@ export function MatchmakingScreen({ online, onMatched, onFallbackToBot }: Matchm
     AnalyticsEvents.matchmakingStarted();
     onlineRef.current.findMatch(DEFAULT_GAME_MODE);
     scheduleFallback();
-    refreshEstimate();
-  }, [online.socketConnected, scheduleFallback, clearSearchTimeout, refreshEstimate]);
-
-  useEffect(() => {
-    if (!searchStartedAtRef.current || resolvedRef.current) return;
-
-    const tick = () => {
-      const started = searchStartedAtRef.current;
-      if (!started) return;
-      setElapsedSec(Math.max(0, Math.floor((Date.now() - started) / 1000)));
-    };
-
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [online.socketConnected]);
-
-  useEffect(() => {
-    if (!online.socketConnected || resolvedRef.current) return;
-    const id = window.setInterval(refreshEstimate, 5000);
-    return () => window.clearInterval(id);
-  }, [online.socketConnected, refreshEstimate]);
+  }, [online.socketConnected, scheduleFallback, clearSearchTimeout]);
 
   useEffect(() => {
     if (resolvedRef.current) return;
@@ -126,8 +87,6 @@ export function MatchmakingScreen({ online, onMatched, onFallbackToBot }: Matchm
     };
   }, [clearSearchTimeout]);
 
-  const maxWait = estimate?.maxWaitSeconds ?? MATCHMAKING_MAX_WAIT_SEC;
-
   return (
     <div className="matchmaking-screen">
       <header className="matchmaking-header">
@@ -143,11 +102,7 @@ export function MatchmakingScreen({ online, onMatched, onFallbackToBot }: Matchm
         </div>
 
         <p className="matchmaking-status">Searching for opponent…</p>
-        <p className="matchmaking-estimate">{formatEstimateText(estimate)}</p>
-        <p className="matchmaking-estimate-meta">
-          {elapsedSec > 0 && <span>{elapsedSec}s elapsed · </span>}
-          If no player in {maxWait}s, you&apos;ll play vs bot
-        </p>
+        <p className="matchmaking-estimate">Estimated wait: {estimateSec} seconds</p>
 
         <div className="matchmaking-dots" aria-hidden>
           <span className="matchmaking-dot" />

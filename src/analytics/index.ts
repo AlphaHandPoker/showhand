@@ -27,7 +27,7 @@ export function trackScreen(screen: AppScreen): void {
 }
 
 export const AnalyticsEvents = {
-  ctaClick: (action: 'play_vs_computer' | 'find_player' | 'how_to_play' | 'cosmetics') =>
+  ctaClick: (action: 'play_vs_computer' | 'play_online' | 'how_to_play' | 'cosmetics') =>
     trackEvent('cta_click', { action }),
   matchmakingStarted: () => trackEvent('matchmaking_started'),
   matchFound: (mode: string, waitSeconds?: number) =>

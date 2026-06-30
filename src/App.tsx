@@ -50,8 +50,8 @@ function App() {
     startBotMatch(false);
   };
 
-  const handleFindPlayer = () => {
-    AnalyticsEvents.ctaClick('find_player');
+  const handlePlayOnline = () => {
+    AnalyticsEvents.ctaClick('play_online');
     online.cancelFindMatch();
     online.leaveRoom();
     setScreen('searching');
@@ -147,11 +147,11 @@ function App() {
       </header>
       <HomeModeSelect />
       <div className="home-actions">
-        <button type="button" className="home-btn home-btn--primary" onClick={handlePlayVsComputer}>
-          Play vs Computer
+        <button type="button" className="home-btn home-btn--primary" onClick={handlePlayOnline}>
+          Play Online
         </button>
-        <button type="button" className="home-btn home-btn--search" onClick={handleFindPlayer}>
-          Find Player
+        <button type="button" className="home-btn home-btn--search" onClick={handlePlayVsComputer}>
+          Play vs Computer
         </button>
         <button type="button" className="home-btn home-btn--guide" onClick={() => {
           AnalyticsEvents.ctaClick('how_to_play');
