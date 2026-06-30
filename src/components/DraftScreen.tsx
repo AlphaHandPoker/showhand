@@ -7,6 +7,7 @@ import {
 import { validateDeckSelection } from '../game/deckBuilder';
 import { EffectCardView } from './Cards';
 import { GAME_NAME } from '../config/brand';
+import { AnalyticsEvents } from '../analytics';
 import './DraftScreen.css';
 
 export interface DraftOnlineProps {
@@ -143,8 +144,10 @@ export function DraftScreen({ onStart, online }: DraftScreenProps) {
             disabled={!canStart || (online?.submitted ?? false)}
             onClick={() => {
               if (online) {
+                AnalyticsEvents.draftSubmitted('online');
                 online.onSubmit(selection);
               } else {
+                AnalyticsEvents.draftSubmitted('bot');
                 onStart(selection);
               }
             }}

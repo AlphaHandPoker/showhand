@@ -36,6 +36,28 @@ export interface AdminStats {
     lastSeen: string;
     excluded: boolean;
   }[];
+  funnel: {
+    uniqueVisitorsToday: number;
+    uniqueVisitorsAllTime: number;
+    playVsComputerClicks: number;
+    playVsComputerUsers: number;
+    findPlayerClicks: number;
+    findPlayerUsers: number;
+    matchmakingStarted: number;
+    matchFound: number;
+    botGameStarted: number;
+    matchmakingFallbackBot: number;
+    roomCreated: number;
+    roomJoined: number;
+    draftSubmitted: number;
+    gameStarted: number;
+    gamesFinished: number;
+    matchForfeited: number;
+    onlineMatchLeft: number;
+    howToPlayClicks: number;
+    cosmeticsClicks: number;
+    screenViews: { screen: string; count: number }[];
+  };
 }
 
 export async function fetchAdminStats(): Promise<AdminStats> {
@@ -45,6 +67,7 @@ export async function fetchAdminStats(): Promise<AdminStats> {
   const excluded = getExcludedUserIds();
   const eventExclusion = userExclusionClause('user_id', excluded);
   const sessionExclusion = userExclusionClause('user_id', excluded);
+  const analyticsExclusion = userExclusionClause('user_id', excluded);
 
   const [
     overviewRes,
@@ -55,6 +78,8 @@ export async function fetchAdminStats(): Promise<AdminStats> {
     dailyRes,
     excludedCountRes,
     recentUsersRes,
+    funnelRes,
+    screenViewsRes,
   ] = await Promise.all([
     db.query<{
       matches_today: string;
@@ -139,6 +164,55 @@ export async function fetchAdminStats(): Promise<AdminStats> {
       ORDER BY total_matches DESC, last_seen DESC
       LIMIT 20
     `),
+    db.query<{
+      visitors_all: string;
+      visitors_today: string;
+      play_vs_computer_clicks: string;
+      play_vs_computer_users: string;
+      find_player_clicks: string;
+      find_player_users: string;
+      matchmaking_started: string;
+      match_found: string;
+      bot_game_started: string;
+      matchmaking_fallback_bot: string;
+      room_created: string;
+      room_joined: string;
+      draft_submitted: string;
+      game_started: string;
+      match_forfeited: string;
+      online_match_left: string;
+      how_to_play_clicks: string;
+      cosmetics_clicks: string;
+    }>(`
+      SELECT
+        COUNT(DISTINCT user_id)::text AS visitors_all,
+        COUNT(DISTINCT user_id) FILTER (WHERE created_at >= CURRENT_DATE)::text AS visitors_today,
+        COUNT(*) FILTER (WHERE event_name = 'cta_click' AND properties->>'action' = 'play_vs_computer')::text AS play_vs_computer_clicks,
+        COUNT(DISTINCT user_id) FILTER (WHERE event_name = 'cta_click' AND properties->>'action' = 'play_vs_computer')::text AS play_vs_computer_users,
+        COUNT(*) FILTER (WHERE event_name = 'cta_click' AND properties->>'action' = 'find_player')::text AS find_player_clicks,
+        COUNT(DISTINCT user_id) FILTER (WHERE event_name = 'cta_click' AND properties->>'action' = 'find_player')::text AS find_player_users,
+        COUNT(*) FILTER (WHERE event_name = 'matchmaking_started')::text AS matchmaking_started,
+        COUNT(*) FILTER (WHERE event_name = 'match_found')::text AS match_found,
+        COUNT(*) FILTER (WHERE event_name = 'bot_game_started')::text AS bot_game_started,
+        COUNT(*) FILTER (WHERE event_name = 'matchmaking_fallback_bot')::text AS matchmaking_fallback_bot,
+        COUNT(*) FILTER (WHERE event_name = 'room_created')::text AS room_created,
+        COUNT(*) FILTER (WHERE event_name = 'room_joined')::text AS room_joined,
+        COUNT(*) FILTER (WHERE event_name = 'draft_submitted')::text AS draft_submitted,
+        COUNT(*) FILTER (WHERE event_name = 'game_started')::text AS game_started,
+        COUNT(*) FILTER (WHERE event_name = 'match_forfeited')::text AS match_forfeited,
+        COUNT(*) FILTER (WHERE event_name = 'online_match_left')::text AS online_match_left,
+        COUNT(*) FILTER (WHERE event_name = 'cta_click' AND properties->>'action' = 'how_to_play')::text AS how_to_play_clicks,
+        COUNT(*) FILTER (WHERE event_name = 'cta_click' AND properties->>'action' = 'cosmetics')::text AS cosmetics_clicks
+      FROM analytics_events
+      WHERE 1=1${analyticsExclusion.clause}
+    `, analyticsExclusion.params),
+    db.query<{ screen: string | null; count: string }>(`
+      SELECT properties->>'screen' AS screen, COUNT(*)::text AS count
+      FROM analytics_events
+      WHERE event_name = 'screen_view'${analyticsExclusion.clause}
+      GROUP BY 1
+      ORDER BY COUNT(*) DESC
+    `, analyticsExclusion.params),
   ]);
 
   const o = overviewRes.rows[0]!;
@@ -173,6 +247,15 @@ export async function fetchAdminStats(): Promise<AdminStats> {
     excluded: excludedSet.has(row.user_id),
   }));
 
+  const f = funnelRes.rows[0]!;
+  const gamesFinished = Number(o.matches_all) || 0;
+  const screenViews = screenViewsRes.rows
+    .filter(row => row.screen)
+    .map(row => ({
+      screen: row.screen!,
+      count: Number(row.count) || 0,
+    }));
+
   return {
     meta: {
       excludedUserIds: excluded,
@@ -203,5 +286,27 @@ export async function fetchAdminStats(): Promise<AdminStats> {
     },
     matchesPerDay,
     recentUsers,
+    funnel: {
+      uniqueVisitorsToday: Number(f.visitors_today) || 0,
+      uniqueVisitorsAllTime: Number(f.visitors_all) || 0,
+      playVsComputerClicks: Number(f.play_vs_computer_clicks) || 0,
+      playVsComputerUsers: Number(f.play_vs_computer_users) || 0,
+      findPlayerClicks: Number(f.find_player_clicks) || 0,
+      findPlayerUsers: Number(f.find_player_users) || 0,
+      matchmakingStarted: Number(f.matchmaking_started) || 0,
+      matchFound: Number(f.match_found) || 0,
+      botGameStarted: Number(f.bot_game_started) || 0,
+      matchmakingFallbackBot: Number(f.matchmaking_fallback_bot) || 0,
+      roomCreated: Number(f.room_created) || 0,
+      roomJoined: Number(f.room_joined) || 0,
+      draftSubmitted: Number(f.draft_submitted) || 0,
+      gameStarted: Number(f.game_started) || 0,
+      gamesFinished,
+      matchForfeited: Number(f.match_forfeited) || 0,
+      onlineMatchLeft: Number(f.online_match_left) || 0,
+      howToPlayClicks: Number(f.how_to_play_clicks) || 0,
+      cosmeticsClicks: Number(f.cosmetics_clicks) || 0,
+      screenViews,
+    },
   };
 }

@@ -133,6 +133,11 @@
   gap: 0.25rem;
 }
 
+.admin-card--highlight {
+  border-color: #3b5bdb;
+  background: #1a2438;
+}
+
 .admin-card__label {
   font-size: 0.75rem;
   color: #8b93a7;

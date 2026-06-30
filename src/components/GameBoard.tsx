@@ -476,6 +476,17 @@ export function GameBoard({
   const isFinished = game.phase === 'finished';
   const finishedTrackedRef = useRef(false);
   const matchStartedAtRef = useRef(Date.now());
+  const gameStartedTrackedRef = useRef(false);
+
+  useEffect(() => {
+    if (gameStartedTrackedRef.current) return;
+    gameStartedTrackedRef.current = true;
+    matchStartedAtRef.current = Date.now();
+    AnalyticsEvents.gameStarted(
+      online ? 'online' : 'bot',
+      disguisedOpponent,
+    );
+  }, [online, disguisedOpponent]);
 
   useEffect(() => {
     if (!isFinished || !game.winner || finishedTrackedRef.current) return;
@@ -786,11 +797,13 @@ export function GameBoard({
     setDisguisedWaiting(false);
 
     if (online?.onForfeit) {
+      AnalyticsEvents.matchForfeited('online');
       online.onForfeit();
       onRestart();
       return;
     }
 
+    AnalyticsEvents.matchForfeited('bot');
     onRestart();
   }, [online, onRestart]);
 

@@ -1,16 +1,19 @@
 import { track } from '@vercel/analytics';
+import { trackEventToServer } from './trackEvent';
 
 export type AppScreen = 'home' | 'searching' | 'online' | 'game';
 
-/** Fire an analytics event (sent on production Vercel deployments). */
+/** Fire an analytics event (Vercel + self-hosted admin). */
 export function trackEvent(
   name: string,
   data?: Record<string, string | number | boolean>,
 ): void {
   if (data) {
     track(name, data);
+    trackEventToServer(name, data);
   } else {
     track(name);
+    trackEventToServer(name);
   }
 }
 
@@ -36,4 +39,8 @@ export const AnalyticsEvents = {
     trackEvent('game_finished', { mode, winner, round }),
   roomCreated: (mode: string) => trackEvent('room_created', { mode }),
   roomJoined: () => trackEvent('room_joined'),
+  draftSubmitted: (mode: 'online' | 'bot') => trackEvent('draft_submitted', { mode }),
+  gameStarted: (mode: 'online' | 'bot', disguised: boolean) =>
+    trackEvent('game_started', { mode, disguised }),
+  matchForfeited: (mode: 'online' | 'bot') => trackEvent('match_forfeited', { mode }),
 } as const;

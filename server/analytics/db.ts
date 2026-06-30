@@ -49,6 +49,18 @@ export async function initAnalyticsSchema(): Promise<void> {
 
     CREATE INDEX IF NOT EXISTS idx_match_events_created_at ON match_events (created_at);
     CREATE INDEX IF NOT EXISTS idx_match_events_user_id ON match_events (user_id);
+
+    CREATE TABLE IF NOT EXISTS analytics_events (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      event_name TEXT NOT NULL,
+      properties JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_analytics_events_created_at ON analytics_events (created_at);
+    CREATE INDEX IF NOT EXISTS idx_analytics_events_event_name ON analytics_events (event_name);
+    CREATE INDEX IF NOT EXISTS idx_analytics_events_user_id ON analytics_events (user_id);
   `);
 
   console.log('[analytics] schema ready');
@@ -98,4 +110,28 @@ export async function insertMatchEvent(input: TrackMatchInput): Promise<void> {
   } finally {
     client.release();
   }
+}
+
+export interface TrackAnalyticsEventInput {
+  userId: string;
+  eventName: string;
+  properties: Record<string, string | number | boolean>;
+}
+
+export async function insertAnalyticsEvent(input: TrackAnalyticsEventInput): Promise<void> {
+  const db = getPool();
+  if (!db) return;
+
+  await db.query(
+    `INSERT INTO analytics_events (user_id, event_name, properties)
+     VALUES ($1, $2, $3::jsonb)`,
+    [input.userId, input.eventName, JSON.stringify(input.properties)],
+  );
+
+  await db.query(
+    `INSERT INTO user_sessions (user_id, first_seen, last_seen, total_matches)
+     VALUES ($1, NOW(), NOW(), 0)
+     ON CONFLICT (user_id) DO UPDATE SET last_seen = NOW()`,
+    [input.userId],
+  );
 }

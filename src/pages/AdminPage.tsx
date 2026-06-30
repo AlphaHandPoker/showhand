@@ -42,6 +42,28 @@ interface AdminStats {
     lastSeen: string;
     excluded: boolean;
   }[];
+  funnel: {
+    uniqueVisitorsToday: number;
+    uniqueVisitorsAllTime: number;
+    playVsComputerClicks: number;
+    playVsComputerUsers: number;
+    findPlayerClicks: number;
+    findPlayerUsers: number;
+    matchmakingStarted: number;
+    matchFound: number;
+    botGameStarted: number;
+    matchmakingFallbackBot: number;
+    roomCreated: number;
+    roomJoined: number;
+    draftSubmitted: number;
+    gameStarted: number;
+    gamesFinished: number;
+    matchForfeited: number;
+    onlineMatchLeft: number;
+    howToPlayClicks: number;
+    cosmeticsClicks: number;
+    screenViews: { screen: string; count: number }[];
+  };
 }
 
 function formatDuration(seconds: number): string {
@@ -262,6 +284,95 @@ export function AdminPage() {
 
       {stats && (
         <>
+          <section className="admin-section">
+            <h2>Funnel</h2>
+            <p className="admin-section__hint">
+              Every button click and screen view. Finished games only count when a winner is decided.
+            </p>
+            <div className="admin-cards">
+              <div className="admin-card">
+                <span className="admin-card__label">Visitors today</span>
+                <span className="admin-card__value">{stats.funnel.uniqueVisitorsToday}</span>
+                <span className="admin-card__hint">{stats.funnel.uniqueVisitorsAllTime} all time</span>
+              </div>
+              <div className="admin-card admin-card--highlight">
+                <span className="admin-card__label">Play vs Computer</span>
+                <span className="admin-card__value">{stats.funnel.playVsComputerClicks}</span>
+                <span className="admin-card__hint">{stats.funnel.playVsComputerUsers} unique users</span>
+              </div>
+              <div className="admin-card admin-card--highlight">
+                <span className="admin-card__label">Find Player</span>
+                <span className="admin-card__value">{stats.funnel.findPlayerClicks}</span>
+                <span className="admin-card__hint">{stats.funnel.findPlayerUsers} unique users</span>
+              </div>
+              <div className="admin-card">
+                <span className="admin-card__label">Matchmaking started</span>
+                <span className="admin-card__value">{stats.funnel.matchmakingStarted}</span>
+              </div>
+              <div className="admin-card">
+                <span className="admin-card__label">Player match found</span>
+                <span className="admin-card__value">{stats.funnel.matchFound}</span>
+              </div>
+              <div className="admin-card">
+                <span className="admin-card__label">Bot game started</span>
+                <span className="admin-card__value">{stats.funnel.botGameStarted}</span>
+              </div>
+              <div className="admin-card">
+                <span className="admin-card__label">Queue → bot fallback</span>
+                <span className="admin-card__value">{stats.funnel.matchmakingFallbackBot}</span>
+              </div>
+              <div className="admin-card">
+                <span className="admin-card__label">Room created</span>
+                <span className="admin-card__value">{stats.funnel.roomCreated}</span>
+              </div>
+              <div className="admin-card">
+                <span className="admin-card__label">Room joined</span>
+                <span className="admin-card__value">{stats.funnel.roomJoined}</span>
+              </div>
+              <div className="admin-card">
+                <span className="admin-card__label">Game board opened</span>
+                <span className="admin-card__value">{stats.funnel.gameStarted}</span>
+              </div>
+              <div className="admin-card">
+                <span className="admin-card__label">Games finished</span>
+                <span className="admin-card__value">{stats.funnel.gamesFinished}</span>
+              </div>
+              <div className="admin-card">
+                <span className="admin-card__label">Forfeits / early leaves</span>
+                <span className="admin-card__value">{stats.funnel.matchForfeited}</span>
+              </div>
+              <div className="admin-card">
+                <span className="admin-card__label">Online match left</span>
+                <span className="admin-card__value">{stats.funnel.onlineMatchLeft}</span>
+              </div>
+              <div className="admin-card">
+                <span className="admin-card__label">How to Play opens</span>
+                <span className="admin-card__value">{stats.funnel.howToPlayClicks}</span>
+              </div>
+              <div className="admin-card">
+                <span className="admin-card__label">Cosmetics opens</span>
+                <span className="admin-card__value">{stats.funnel.cosmeticsClicks}</span>
+              </div>
+              <div className="admin-card">
+                <span className="admin-card__label">Draft submitted</span>
+                <span className="admin-card__value">{stats.funnel.draftSubmitted}</span>
+              </div>
+            </div>
+            {stats.funnel.screenViews.length > 0 && (
+              <div className="admin-effect-list">
+                <h3>Screen views</h3>
+                <ul>
+                  {stats.funnel.screenViews.map(row => (
+                    <li key={row.screen}>
+                      <span>{row.screen}</span>
+                      <span className="admin-effect-list__count">{row.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+
           <section className="admin-section">
             <h2>Overview</h2>
             <div className="admin-cards">
