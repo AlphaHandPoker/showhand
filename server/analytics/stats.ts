@@ -1,5 +1,8 @@
 import { getPool } from './db.js';
 import { getExcludedUserIds, userExclusionClause } from './excludeUsers.js';
+import { fetchActivityFeed, type ActivityEvent, type UserJourneyRow } from './activity.js';
+
+export type { ActivityEvent, UserJourneyRow };
 
 export interface AdminStats {
   meta: {
@@ -62,6 +65,10 @@ export interface AdminStats {
     cosmeticsClicks: number;
     screenViews: { screen: string; count: number }[];
   };
+  activity: {
+    recentEvents: ActivityEvent[];
+    journeys: UserJourneyRow[];
+  };
 }
 
 export async function fetchAdminStats(): Promise<AdminStats> {
@@ -85,6 +92,7 @@ export async function fetchAdminStats(): Promise<AdminStats> {
     recentUsersRes,
     funnelRes,
     screenViewsRes,
+    activityRes,
   ] = await Promise.all([
     db.query<{
       matches_today: string;
@@ -229,6 +237,7 @@ export async function fetchAdminStats(): Promise<AdminStats> {
       GROUP BY 1
       ORDER BY COUNT(*) DESC
     `, analyticsExclusion.params),
+    fetchActivityFeed(),
   ]);
 
   const o = overviewRes.rows[0]!;
@@ -330,5 +339,6 @@ export async function fetchAdminStats(): Promise<AdminStats> {
       cosmeticsClicks: Number(f.cosmetics_clicks) || 0,
       screenViews,
     },
+    activity: activityRes,
   };
 }

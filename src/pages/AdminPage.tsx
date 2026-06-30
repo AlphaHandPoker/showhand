@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_BASE } from '../config/api';
 import { GAME_NAME } from '../config/brand';
 import { getOrCreateUserId } from '../analytics/userId';
@@ -68,6 +68,33 @@ interface AdminStats {
     cosmeticsClicks: number;
     screenViews: { screen: string; count: number }[];
   };
+  activity?: {
+    recentEvents: ActivityEvent[];
+    journeys: UserJourney[];
+  };
+}
+
+interface ActivityEvent {
+  userId: string;
+  label: string;
+  at: string;
+}
+
+interface JourneyEvent {
+  name: string;
+  label: string;
+  at: string;
+}
+
+interface UserJourney {
+  userId: string;
+  firstSeen: string;
+  lastSeen: string;
+  totalMatches: number;
+  status: 'bounced' | 'browser' | 'started_no_finish' | 'played_once' | 'returning';
+  statusLabel: string;
+  path: string;
+  events: JourneyEvent[];
 }
 
 interface AdminMatch {
@@ -118,6 +145,10 @@ function winnerClass(winner: 'self' | 'opponent' | 'tie'): string {
   return 'admin-match-winner--tie';
 }
 
+function statusClass(status: UserJourney['status']): string {
+  return `admin-journey-status--${status}`;
+}
+
 function isAdminStats(data: unknown): data is AdminStats {
   if (!data || typeof data !== 'object') return false;
   const d = data as Record<string, unknown>;
@@ -137,6 +168,22 @@ export function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [matches, setMatches] = useState<AdminMatch[]>([]);
   const [fetchError, setFetchError] = useState('');
+  const [journeyFilter, setJourneyFilter] = useState<UserJourney['status'] | 'all'>('all');
+
+  const filteredJourneys = useMemo(() => {
+    const journeys = stats?.activity?.journeys ?? [];
+    if (journeyFilter === 'all') return journeys;
+    return journeys.filter(j => j.status === journeyFilter);
+  }, [stats, journeyFilter]);
+
+  const queueNoMatch = stats
+    ? Math.max(
+      0,
+      stats.funnel.matchmakingStarted
+        - stats.funnel.matchFound
+        - stats.funnel.matchmakingFallbackBot,
+    )
+    : 0;
 
   const fetchDashboard = useCallback(async (authToken: string) => {
     setLoading(true);
@@ -296,6 +343,114 @@ export function AdminPage() {
           </button>
         </p>
       </details>
+
+      {stats && stats.activity && stats.activity.recentEvents.length > 0 && (
+        <section className="admin-section">
+          <h2>Live activity</h2>
+          <p className="admin-section__hint">
+            Latest player actions — matchmaking, friend rooms, games started/finished.
+          </p>
+          <ul className="admin-activity-feed">
+            {stats.activity.recentEvents.map((ev, i) => (
+              <li key={`${ev.userId}-${ev.at}-${i}`} className="admin-activity-feed__item">
+                <span className="admin-activity-feed__time">{formatLastSeen(ev.at)}</span>
+                <code className="admin-activity-feed__user" title={ev.userId}>{shortUserId(ev.userId)}</code>
+                <span className="admin-activity-feed__label">{ev.label}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {stats && (
+        <section className="admin-section">
+          <h2>Matchmaking snapshot</h2>
+          <div className="admin-cards admin-cards--3">
+            <div className="admin-card">
+              <span className="admin-card__label">Queue started</span>
+              <span className="admin-card__value">{stats.funnel.matchmakingStarted}</span>
+            </div>
+            <div className="admin-card admin-card--highlight">
+              <span className="admin-card__label">Player matched</span>
+              <span className="admin-card__value">{stats.funnel.matchFound}</span>
+            </div>
+            <div className="admin-card">
+              <span className="admin-card__label">Queue → bot</span>
+              <span className="admin-card__value">{stats.funnel.matchmakingFallbackBot}</span>
+            </div>
+            <div className="admin-card">
+              <span className="admin-card__label">Left queue (est.)</span>
+              <span className="admin-card__value">{queueNoMatch}</span>
+              <span className="admin-card__hint">Started but no match / bot</span>
+            </div>
+            <div className="admin-card admin-card--highlight">
+              <span className="admin-card__label">Friend room created</span>
+              <span className="admin-card__value">{stats.funnel.roomCreated}</span>
+            </div>
+            <div className="admin-card admin-card--highlight">
+              <span className="admin-card__label">Friend room joined</span>
+              <span className="admin-card__value">{stats.funnel.roomJoined}</span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {stats?.activity && stats.activity.journeys.length > 0 && (
+        <section className="admin-section">
+          <h2>User activity</h2>
+          <p className="admin-section__hint">
+            Who clicked what — bounced, matchmaking, friend rooms, or finished games.
+          </p>
+          <div className="admin-journey-filters">
+            {(['all', 'bounced', 'browser', 'started_no_finish', 'played_once', 'returning'] as const).map(f => (
+              <button
+                key={f}
+                type="button"
+                className={`admin-btn admin-btn--ghost${journeyFilter === f ? ' admin-btn--active' : ''}`}
+                onClick={() => setJourneyFilter(f)}
+              >
+                {f === 'all' ? 'All' : f.replace(/_/g, ' ')}
+              </button>
+            ))}
+          </div>
+          <div className="admin-user-table-wrap">
+            <table className="admin-user-table admin-journey-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Status</th>
+                  <th>Path</th>
+                  <th>Games</th>
+                  <th>Last seen</th>
+                  <th>Recent steps</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredJourneys.map(journey => (
+                  <tr key={journey.userId}>
+                    <td><code title={journey.userId}>{shortUserId(journey.userId)}</code></td>
+                    <td>
+                      <span className={`admin-journey-status ${statusClass(journey.status)}`}>
+                        {journey.statusLabel}
+                      </span>
+                    </td>
+                    <td className="admin-journey-path">{journey.path}</td>
+                    <td>{journey.totalMatches}</td>
+                    <td className="admin-match-table__time">{formatLastSeen(journey.lastSeen)}</td>
+                    <td>
+                      <ul className="admin-journey-events">
+                        {journey.events.map((ev, i) => (
+                          <li key={`${journey.userId}-${i}`}>{ev.label}</li>
+                        ))}
+                      </ul>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {stats && (
         <>
