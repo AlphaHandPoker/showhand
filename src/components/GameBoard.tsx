@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CommittedAction, EffectType, GameState, SlotIndex, GameMode, ResolutionItem, PlayerId } from '../game/types';
-import { HAND_SIZE, TOTAL_ROUNDS } from '../game/types';
+import type {
+  CommittedAction, EffectType, GameState, SlotIndex, GameMode,
+  ResolutionItem, PlayerId, PlayingCard, Suit, Rank,
+} from '../game/types';
+import { HAND_SIZE, TOTAL_ROUNDS, EFFECT_NAMES } from '../game/types';
 import { maxCardsForState } from '../game/gameModes';
 import {
   createGame, lockPlayerCommit, lockBothPlayerCommits, resolveNextInQueue,
@@ -127,17 +130,133 @@ function serverStateMatchesLocal(local: GameState, server: GameState): boolean {
     && pokerHandsMatch(local, server);
 }
 
+const SUIT_FROM_NAME: Record<string, Suit> = {
+  Spades: 'spades',
+  Hearts: 'hearts',
+  Diamonds: 'diamonds',
+  Clubs: 'clubs',
+};
+
+function parsePlayingCardName(name: string): Pick<PlayingCard, 'suit' | 'rank'> | null {
+  const parts = name.trim().split(' ');
+  if (parts.length < 2) return null;
+  const rankStr = parts[parts.length - 1]!;
+  const suitStr = parts.slice(0, -1).join(' ');
+  const suit = SUIT_FROM_NAME[suitStr];
+  if (!suit) return null;
+
+  let rank: Rank;
+  if (rankStr === 'Ace') rank = 14;
+  else if (rankStr === 'King') rank = 13;
+  else if (rankStr === 'Queen') rank = 12;
+  else if (rankStr === 'Jack') rank = 11;
+  else {
+    const n = parseInt(rankStr, 10);
+    if (Number.isNaN(n) || n < 2 || n > 10) return null;
+    rank = n as Rank;
+  }
+  return { suit, rank };
+}
+
+function findCardBySuitRank(state: GameState, suit: Suit, rank: Rank): PlayingCard | null {
+  for (const pid of ['player', 'bot'] as const) {
+    const found = state.players[pid].pokerHand.find(c => c.suit === suit && c.rank === rank);
+    if (found) return found;
+  }
+  return state.deck.find(c => c.suit === suit && c.rank === rank) ?? null;
+}
+
+function getEffectLogForQueueIndex(
+  finalState: GameState,
+  queue: ResolutionItem[],
+  queueIndex: number,
+): string | null {
+  const effectLogs = finalState.log.filter(e => e.kind === 'effect');
+  let logCursor = 0;
+
+  for (let i = 0; i < queue.length; i++) {
+    const expected = EFFECT_NAMES[queue[i]!.action.effectType];
+    while (logCursor < effectLogs.length) {
+      const log = effectLogs[logCursor++]!;
+      if (log.detail?.startsWith('fizzled')) continue;
+      if (log.effectName === expected || log.message.includes(expected)) {
+        if (i === queueIndex) return log.message;
+        break;
+      }
+    }
+  }
+  return null;
+}
+
+/** Card removed by a later send_back / last_draw on the same slot — i.e. this step's draw. */
+function cardSentToDeckFromLog(message: string, effectType: EffectType): Pick<PlayingCard, 'suit' | 'rank'> | null {
+  const detail = message.includes(': ')
+    ? message.split(': ').slice(1).join(': ').trim()
+    : message.trim();
+  if (effectType === 'last_draw') {
+    const m = detail.match(/^(.+?) sent to deck/);
+    return m ? parsePlayingCardName(m[1]!.trim()) : null;
+  }
+  if (effectType === 'send_back') {
+    const m = detail.match(/^(.+?) sent to deck, new card drawn$/);
+    return m ? parsePlayingCardName(m[1]!.trim()) : null;
+  }
+  return null;
+}
+
+function findLaterDeckEffectOnSlot(
+  queue: ResolutionItem[],
+  afterIndex: number,
+  playerId: PlayerId,
+  slot: SlotIndex,
+): { item: ResolutionItem; index: number } | null {
+  for (let i = afterIndex + 1; i < queue.length; i++) {
+    const item = queue[i]!;
+    if (!actionTouchesPlayerSlot(item, playerId, slot)) continue;
+    if (item.action.effectType === 'last_draw' || item.action.effectType === 'send_back') {
+      return { item, index: i };
+    }
+  }
+  return null;
+}
+
+/**
+ * When a later deck effect hits the same slot, the final hand still shows the
+ * last draw — not this step's intermediate card. Parse the later effect's log
+ * to recover what was on the slot after this step's draw.
+ */
+function getIntermediateDrawnCard(
+  finalState: GameState,
+  queue: ResolutionItem[],
+  stepIndex: number,
+  playerId: PlayerId,
+  slot: SlotIndex,
+): PlayingCard | null {
+  const later = findLaterDeckEffectOnSlot(queue, stepIndex, playerId, slot);
+  if (!later) return null;
+
+  const logMessage = getEffectLogForQueueIndex(finalState, queue, later.index);
+  if (!logMessage) return null;
+
+  const parsed = cardSentToDeckFromLog(logMessage, later.item.action.effectType);
+  if (!parsed) return null;
+
+  return findCardBySuitRank(finalState, parsed.suit, parsed.rank);
+}
+
 /**
  * For each card drawn during an effect step (i.e. a card present in
- * stepState but not in prevState), replace it with the actual card the
- * SERVER drew (from finalState at the same slot).  Also keeps the deck
- * consistent so subsequent steps draw the right cards too.
+ * stepState but not in prevState), replace it with the server's actual card.
+ * When a later effect will change the same slot, use the intermediate card
+ * (from the later effect's log) instead of the final card at that slot.
  */
 function patchDrawnCards(
   prevState: GameState,
   stepState: GameState,
   finalState: GameState,
+  stepIndex: number,
 ): GameState {
+  const queue = prevState.resolutionQueue;
   let patchedDeck = stepState.deck;
   let deckChanged = false;
   const patchedPlayers = { player: stepState.players.player, bot: stepState.players.bot };
@@ -148,11 +267,18 @@ function patchDrawnCards(
     let handChanged = false;
     const newHand = stepState.players[pid].pokerHand.map(card => {
       if (prevIds.has(card.id)) return card; // not drawn this step
-      const serverCard = finalState.players[pid].pokerHand.find(
-        c => c.slotIndex === card.slotIndex,
-      );
+
+      const slot = card.slotIndex as SlotIndex;
+      let serverCard: PlayingCard | undefined;
+
+      if (slotTouchedLater(queue, stepIndex, pid, slot)) {
+        serverCard = getIntermediateDrawnCard(finalState, queue, stepIndex, pid, slot) ?? undefined;
+      } else {
+        serverCard = finalState.players[pid].pokerHand.find(c => c.slotIndex === slot);
+      }
+
       if (!serverCard || serverCard.id === card.id) return card;
-      // Swap: remove server card from deck, add locally-drawn card back.
+
       if (!deckChanged) patchedDeck = [...stepState.deck];
       patchedDeck = patchedDeck.filter(c => c.id !== serverCard.id);
       patchedDeck.push({
@@ -161,7 +287,7 @@ function patchDrawnCards(
       });
       deckChanged = true;
       handChanged = true;
-      return { ...serverCard, slotIndex: card.slotIndex };
+      return { ...serverCard, slotIndex: slot };
     });
     if (handChanged) {
       patchedPlayers[pid] = { ...stepState.players[pid], pokerHand: newHand };
@@ -230,7 +356,7 @@ function patchStepOutcome(
   finalState: GameState,
   stepIndex: number,
 ): GameState {
-  let patched = patchDrawnCards(prevState, stepState, finalState);
+  let patched = patchDrawnCards(prevState, stepState, finalState, stepIndex);
   const item = prevState.resolutionQueue[stepIndex];
   if (!item) return patched;
 
