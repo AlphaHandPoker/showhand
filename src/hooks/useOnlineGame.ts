@@ -54,6 +54,7 @@ export function useOnlineGame(): UseOnlineGame {
     });
     socket.on(ServerEvents.ROOM_ERROR, (payload: RoomErrorPayload) => {
       setError(payload.message);
+      socketRef.current?.emit(ClientEvents.REQUEST_SYNC);
     });
 
     return () => {
@@ -106,6 +107,7 @@ export function useOnlineGame(): UseOnlineGame {
 
   const lockCommit = useCallback((actions: CommittedAction[]) => {
     setError(null);
+    setGamePayload(prev => (prev ? { ...prev, youLocked: true } : prev));
     socketRef.current?.emit(ClientEvents.LOCK_COMMIT, { actions });
   }, []);
 

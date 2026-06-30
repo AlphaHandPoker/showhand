@@ -36,6 +36,7 @@ const io = new Server(httpServer, {
 });
 
 const rooms = new GameRoomManager();
+const resolutionLoops = new Set<string>();
 
 function emitRoomState(code: string): void {
   const room = rooms.getRoom(code);
@@ -71,16 +72,23 @@ function emitAll(code: string): void {
 }
 
 async function runResolutionLoop(code: string): Promise<void> {
-  const room = rooms.getRoom(code);
-  if (!room?.resolving) return;
+  if (resolutionLoops.has(code)) return;
+  resolutionLoops.add(code);
 
-  emitAll(code);
+  try {
+    const room = rooms.getRoom(code);
+    if (!room?.resolving) return;
 
-  while (rooms.getRoom(code)?.resolving) {
-    const stillResolving = rooms.advanceResolution(code);
     emitAll(code);
-    if (!stillResolving) break;
-    await new Promise(r => setTimeout(r, 80));
+
+    while (rooms.getRoom(code)?.resolving) {
+      const stillResolving = rooms.advanceResolution(code);
+      emitAll(code);
+      if (!stillResolving) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+  } finally {
+    resolutionLoops.delete(code);
   }
 }
 

@@ -116,6 +116,8 @@ export function GameBoard({
     applyUpdate,
     runResolutionCinematic,
     runIntroReveal,
+    resetGame,
+    getGameState,
     completeDeckTravel,
     completeCardToDeck,
     completeCardSwap,
@@ -153,17 +155,15 @@ export function GameBoard({
   const isMobileLayout = useMobileGameLayout();
   const resolvingRef = useRef(false);
   const botDelayAbortRef = useRef(false);
-  const isFinished = game.phase === 'finished';
   const opponentLabel = online?.opponentLabel ?? (disguisedOpponent ? 'Opponent' : 'Bot');
 
-  useEffect(() => {
-    document.documentElement.classList.add('game-board-active');
-    document.body.classList.add('game-board-active');
-    return () => {
-      document.documentElement.classList.remove('game-board-active');
-      document.body.classList.remove('game-board-active');
-    };
-  }, []);
+  const authority = online?.syncedGame ?? game;
+  const isCommitting = authority.phase === 'committing';
+  const isFinished = authority.phase === 'finished';
+  const onlineInSync = !online || (
+    game.currentRound === authority.currentRound
+    && game.phase === authority.phase
+  );
 
   useEffect(() => {
     if (!isFinished) {
@@ -174,11 +174,19 @@ export function GameBoard({
     return () => window.clearTimeout(t);
   }, [isFinished]);
 
-  const isCommitting = game.phase === 'committing';
+  useEffect(() => {
+    document.documentElement.classList.add('game-board-active');
+    document.body.classList.add('game-board-active');
+    return () => {
+      document.documentElement.classList.remove('game-board-active');
+      document.body.classList.remove('game-board-active');
+    };
+  }, []);
+
   const youLocked = online?.youLocked ?? disguisedWaiting;
   const opponentLocked = online?.opponentLocked ?? false;
   const canInteract = introReady && isCommitting && !isFinished && !isAnimating && !resolving
-    && !youLocked && !leavingMatch;
+    && !youLocked && !leavingMatch && onlineInSync;
   const canCancelPick = isCommitting && !isFinished && pendingPick !== null;
   const canPickOpponentEffects = isCommitting && !isFinished && !resolving
     && pendingPick?.step === 'opponent_effect'
@@ -204,8 +212,26 @@ export function GameBoard({
     if (sig === lastSyncSigRef.current) return;
     lastSyncSigRef.current = sig;
 
+    const local = getGameState();
+    const ahead = g.currentRound > local.currentRound
+      || (g.phase === 'committing' && local.phase === 'resolving' && g.currentRound >= local.currentRound)
+      || (g.phase === 'finished' && local.phase !== 'finished');
+
+    if (ahead) {
+      syncQueueRef.current = Promise.resolve();
+    }
+
     syncQueueRef.current = syncQueueRef.current.then(async () => {
-      if (g.phase === 'resolving' && game.phase === 'committing') {
+      if (ahead) {
+        resetGame(g);
+        setResolving(false);
+        setCommitQueue([]);
+        setPendingPick(null);
+        return;
+      }
+
+      const current = getGameState();
+      if (g.phase === 'resolving' && current.phase === 'committing') {
         setResolving(true);
       }
       await applyUpdate(g);
@@ -217,7 +243,7 @@ export function GameBoard({
         }
       }
     });
-  }, [online?.syncedGame, game.phase, applyUpdate]);
+  }, [online?.syncedGame, applyUpdate, resetGame, getGameState]);
 
   useEffect(() => {
     if (!isCommitting || resolving) {
@@ -668,6 +694,10 @@ export function GameBoard({
         </button>
       )}
 
+      {online && !onlineInSync && isCommitting && (
+        <span className="online-status-msg">Syncing round…</span>
+      )}
+
       {youLocked && !opponentLocked && isCommitting && (
         <span className="online-status-msg">Locked in — waiting for opponent…</span>
       )}
@@ -772,7 +802,7 @@ export function GameBoard({
 
       <RoundTimer
         active={timerActive}
-        round={game.currentRound}
+        round={authority.currentRound}
         onExpire={handleTimerExpire}
       />
 

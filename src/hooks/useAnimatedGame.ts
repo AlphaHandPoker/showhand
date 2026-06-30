@@ -1196,6 +1196,8 @@ export function useAnimatedGame(initial: GameState) {
     setVisual({ ...IDLE_VISUAL, slotTokens: new Map() });
   }, []);
 
+  const getGameState = useCallback(() => gameRef.current, []);
+
   return {
     game,
     displayGame,
@@ -1205,6 +1207,7 @@ export function useAnimatedGame(initial: GameState) {
     runResolutionCinematic,
     requestFastForward,
     resetGame,
+    getGameState,
     runIntroReveal,
     completeDeckTravel,
     completeCardToDeck,
