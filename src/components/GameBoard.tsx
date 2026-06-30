@@ -39,6 +39,7 @@ import { VsIntroScreen } from './VsIntroScreen';
 import { BattlefieldArena } from './BattlefieldArena';
 import { MatchEndCinematic, getMatchEndZoneClass } from './MatchEndCinematic';
 import { useAnimatedGame } from '../hooks/useAnimatedGame';
+import { gameStateSyncSig } from '../hooks/useOnlineGame';
 import { useMobileGameLayout } from '../hooks/useMobileGameLayout';
 import { getCardAnimationClass } from '../ui/detectAnimations';
 import './GameBoard.css';
@@ -240,19 +241,30 @@ export function GameBoard({
     }, 2000);
 
     return () => window.clearInterval(timer);
-  }, [online, youLocked, opponentLocked, isCommitting, serverPhase]);
+  }, [online?.onRequestSync, youLocked, opponentLocked, isCommitting, serverPhase]);
 
   const syncQueueRef = useRef(Promise.resolve());
+  const ackGameSyncRef = useRef(online?.ackGameSync);
+  ackGameSyncRef.current = online?.ackGameSync;
+  const processedSyncSigRef = useRef('');
+  const inflightSyncSigRef = useRef<string | null>(null);
+  const syncedGame = online?.syncedGame;
 
   useEffect(() => {
-    if (!online?.syncedGame) return;
-    const g = online.syncedGame;
+    if (!syncedGame) return;
+
+    const sig = gameStateSyncSig(syncedGame);
+    if (sig === processedSyncSigRef.current || sig === inflightSyncSigRef.current) return;
+
+    inflightSyncSigRef.current = sig;
+    const g = syncedGame;
 
     syncQueueRef.current = syncQueueRef.current.then(async () => {
       try {
         const local = getGameState();
 
         if (serverStateMatchesLocal(local, g)) {
+          processedSyncSigRef.current = sig;
           return;
         }
 
@@ -270,11 +282,16 @@ export function GameBoard({
             setPendingPick(null);
           }
         }
+
+        processedSyncSigRef.current = sig;
       } finally {
-        online.ackGameSync?.();
+        if (inflightSyncSigRef.current === sig) {
+          inflightSyncSigRef.current = null;
+        }
+        ackGameSyncRef.current?.();
       }
     });
-  }, [online, online?.syncedGame, applyUpdate, getGameState, runCommitRevealPhase]);
+  }, [syncedGame, applyUpdate, getGameState, runCommitRevealPhase]);
 
   useEffect(() => {
     if (!isCommitting || resolving) {

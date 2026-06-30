@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { SERVER_URL } from '../config/server';
 import {
@@ -15,6 +15,10 @@ import { DEFAULT_GAME_MODE } from '../game/gameModes';
 function gameSyncSig(payload: GameStatePayload): string {
   const g = payload.game;
   return `${g.phase}-${g.currentRound}-${g.resolutionIndex}-${g.log.length}-${g.winner ?? ''}-${payload.youLocked}-${payload.opponentLocked}`;
+}
+
+export function gameStateSyncSig(game: GameStatePayload['game']): string {
+  return `${game.phase}-${game.currentRound}-${game.resolutionIndex}-${game.log.length}-${game.winner ?? ''}`;
 }
 
 export interface UseOnlineGame {
@@ -197,7 +201,7 @@ export function useOnlineGame(): UseOnlineGame {
 
   const clearError = useCallback(() => setError(null), []);
 
-  return {
+  return useMemo(() => ({
     socketConnected,
     roomState,
     gamePayload,
@@ -213,5 +217,21 @@ export function useOnlineGame(): UseOnlineGame {
     leaveRoom,
     clearError,
     ackGameSync,
-  };
+  }), [
+    socketConnected,
+    roomState,
+    gamePayload,
+    error,
+    findMatch,
+    cancelFindMatch,
+    forfeitMatch,
+    createRoom,
+    joinRoom,
+    submitDraft,
+    lockCommit,
+    requestSync,
+    leaveRoom,
+    clearError,
+    ackGameSync,
+  ]);
 }
