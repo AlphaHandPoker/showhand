@@ -82,7 +82,6 @@ async function finishResolution(code: string): Promise<void> {
 
     while (rooms.getRoom(code)?.resolving) {
       const stillResolving = rooms.advanceResolution(code);
-      emitGameState(code);
       if (!stillResolving) break;
     }
 

@@ -44,7 +44,6 @@ export function OnlineGameBoard({ online, onLeave }: OnlineGameBoardProps) {
           onLockCommit: online.lockCommit,
           onForfeit: online.forfeitMatch,
           onRequestSync: online.requestSync,
-          ackGameSync: online.ackGameSync,
           syncedGame: payload.game,
           opponentLabel: 'Opponent',
         }}

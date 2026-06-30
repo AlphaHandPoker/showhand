@@ -1106,11 +1106,6 @@ export function useAnimatedGame(initial: GameState) {
     return queueRef.current;
   }, []);
 
-  // ── Full resolution cinematic ──
-  const runCommitRevealPhase = useCallback(async (startState: GameState) => {
-    await runCommitToLanesPhase(startState);
-  }, []);
-
   const runResolutionCinematic = useCallback(async (
     startState: GameState,
     resolveStep: (s: GameState) => GameState,
@@ -1200,6 +1195,20 @@ export function useAnimatedGame(initial: GameState) {
     setVisual({ ...IDLE_VISUAL, slotTokens: new Map() });
   }, []);
 
+  /**
+   * Silently snap to a new game state through the animation queue — no visual
+   * transitions, no token reset. Used to apply server ground-truth corrections
+   * after local resolution may have diverged (e.g. deck-draw randomness).
+   */
+  const snapToState = useCallback((next: GameState) => {
+    queueRef.current = queueRef.current.then(() => {
+      setGame(next);
+      setDisplayGame(next);
+      gameRef.current = next;
+    });
+    return queueRef.current;
+  }, []);
+
   const getGameState = useCallback(() => gameRef.current, []);
 
   return {
@@ -1208,7 +1217,7 @@ export function useAnimatedGame(initial: GameState) {
     visual,
     slotTokens: visual.slotTokens,
     applyUpdate,
-    runCommitRevealPhase,
+    snapToState,
     runResolutionCinematic,
     requestFastForward,
     resetGame,

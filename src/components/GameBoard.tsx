@@ -86,7 +86,6 @@ interface GameBoardProps {
     onForfeit?: () => void;
     onRequestSync?: () => void;
     syncedGame: GameState;
-    ackGameSync?: () => void;
     opponentLabel?: string;
   };
 }
@@ -148,7 +147,7 @@ export function GameBoard({
     visual,
     slotTokens,
     applyUpdate,
-    runCommitRevealPhase,
+    snapToState,
     runResolutionCinematic,
     runIntroReveal,
     getGameState,
@@ -244,37 +243,70 @@ export function GameBoard({
   }, [online?.onRequestSync, youLocked, opponentLocked, isCommitting, serverPhase]);
 
   const syncQueueRef = useRef(Promise.resolve());
-  const ackGameSyncRef = useRef(online?.ackGameSync);
-  ackGameSyncRef.current = online?.ackGameSync;
   const processedSyncSigRef = useRef('');
-  const inflightSyncSigRef = useRef<string | null>(null);
   const syncedGame = online?.syncedGame;
 
   useEffect(() => {
     if (!syncedGame) return;
 
+    // Deduplicate: if we've already queued work for this exact game state, skip.
     const sig = gameStateSyncSig(syncedGame);
-    if (sig === processedSyncSigRef.current || sig === inflightSyncSigRef.current) return;
+    if (sig === processedSyncSigRef.current) return;
+    processedSyncSigRef.current = sig;
 
-    inflightSyncSigRef.current = sig;
     const g = syncedGame;
 
     syncQueueRef.current = syncQueueRef.current.then(async () => {
-      try {
-        const local = getGameState();
+      const local = getGameState();
 
-        if (serverStateMatchesLocal(local, g)) {
-          processedSyncSigRef.current = sig;
-          return;
+      // ── Case 1: Both locked — run full resolution locally ──
+      // The server's resolving snapshot has the complete resolutionQueue and both
+      // players' committed effects.  We replay it locally for animation, then
+      // wait for the server's committing snapshot (Case 2) as ground truth.
+      if (
+        g.phase === 'resolving'
+        && g.resolutionQueue.length > 0
+        && (local.phase === 'committing' || local.currentRound === g.currentRound)
+      ) {
+        setResolving(true);
+        try {
+          await runResolutionCinematic(g, resolveNextInQueue);
+        } finally {
+          setResolving(false);
+          setCommitQueue([]);
+          setPendingPick(null);
         }
+        return;
+      }
 
-        if (g.phase === 'resolving' && local.phase === 'committing') {
-          setResolving(true);
-          await runCommitRevealPhase(local);
-        }
+      // ── Case 2: Server ground-truth after resolution ──
+      // After our local cinematic the server sends the authoritative committing
+      // state (possibly with different card IDs from deck draws). Snap silently.
+      if (
+        g.phase === 'committing'
+        && local.phase === 'committing'
+        && g.currentRound === local.currentRound
+        && !serverStateMatchesLocal(local, g)
+      ) {
+        await snapToState(g);
+        return;
+      }
 
+      // ── Case 3: Missed the resolving phase entirely (e.g. reconnect) ──
+      if (g.phase === 'committing' && (local.phase === 'resolving' || g.currentRound > local.currentRound)) {
         await applyUpdate(g);
+        setResolving(false);
+        setCommitQueue([]);
+        setPendingPick(null);
+        return;
+      }
 
+      // ── Case 4: Skip stale resolving states (safety) ──
+      if (g.phase === 'resolving' && local.phase === 'resolving') return;
+
+      // ── Case 5: Initial / general sync ──
+      if (!serverStateMatchesLocal(local, g)) {
+        await applyUpdate(g);
         if (g.phase !== 'resolving') {
           setResolving(false);
           if (g.phase === 'committing') {
@@ -282,16 +314,9 @@ export function GameBoard({
             setPendingPick(null);
           }
         }
-
-        processedSyncSigRef.current = sig;
-      } finally {
-        if (inflightSyncSigRef.current === sig) {
-          inflightSyncSigRef.current = null;
-        }
-        ackGameSyncRef.current?.();
       }
     });
-  }, [syncedGame, applyUpdate, getGameState, runCommitRevealPhase]);
+  }, [syncedGame, applyUpdate, getGameState, runResolutionCinematic, snapToState]);
 
   useEffect(() => {
     if (!isCommitting || resolving) {
