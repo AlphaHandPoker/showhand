@@ -1033,7 +1033,7 @@ export function useAnimatedGame(initial: GameState) {
       if (prev === next) return;
 
       // After effects resolve, round cards must animate one-by-one (like intro / pass).
-      if (prev.phase === 'resolving' && next.phase === 'committing') {
+      if (prev.phase === 'resolving' && (next.phase === 'committing' || next.phase === 'finished')) {
         const roundDraws = collectNewRoundCards(prev, next);
         if (roundDraws.length > 0) {
           await runSequentialRoundDraws(prev, next);

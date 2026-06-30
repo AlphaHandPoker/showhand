@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CommittedAction, EffectType, GameState, SlotIndex, GameMode } from '../game/types';
+import type { CommittedAction, EffectType, GameState, SlotIndex, GameMode, ResolutionItem, PlayerId } from '../game/types';
 import { HAND_SIZE, TOTAL_ROUNDS } from '../game/types';
 import { maxCardsForState } from '../game/gameModes';
 import {
@@ -144,9 +144,7 @@ function patchDrawnCards(
   let playersChanged = false;
 
   for (const pid of ['player', 'bot'] as const) {
-    const prevIds = new Set(stepState.players[pid] === prevState.players[pid]
-      ? prevState.players[pid].pokerHand.map(c => c.id)
-      : prevState.players[pid].pokerHand.map(c => c.id));
+    const prevIds = new Set(prevState.players[pid].pokerHand.map(c => c.id));
     let handChanged = false;
     const newHand = stepState.players[pid].pokerHand.map(card => {
       if (prevIds.has(card.id)) return card; // not drawn this step
@@ -181,19 +179,104 @@ function patchDrawnCards(
   };
 }
 
+function actionTouchesPlayerSlot(
+  item: ResolutionItem,
+  playerId: PlayerId,
+  slot: SlotIndex,
+): boolean {
+  const { playerId: actorId, action: a } = item;
+  const opponentId: PlayerId = actorId === 'player' ? 'bot' : 'player';
+
+  if (a.effectType === 'steal_card') {
+    if (actorId === playerId && a.ownSlot === slot) return true;
+    if (opponentId === playerId && a.opponentSlot === slot) return true;
+  }
+  if (a.effectType === 'send_back' && opponentId === playerId && a.opponentSlot === slot) {
+    return true;
+  }
+  if (
+    (a.effectType === 'protect' || a.effectType === 'transform'
+      || a.effectType === 'shift_chance' || a.effectType === 'last_draw')
+    && actorId === playerId
+    && a.ownSlot === slot
+  ) {
+    return true;
+  }
+  if (a.effectType === 'freeze' && opponentId === playerId && a.opponentSlot === slot) {
+    return true;
+  }
+  if (a.effectType === 'cleanse' && a.cleanseOwnerId === playerId && a.cleanseSlot === slot) {
+    return true;
+  }
+  return false;
+}
+
+function slotTouchedLater(
+  queue: ResolutionItem[],
+  afterIndex: number,
+  playerId: PlayerId,
+  slot: SlotIndex,
+): boolean {
+  for (let i = afterIndex + 1; i < queue.length; i++) {
+    if (actionTouchesPlayerSlot(queue[i]!, playerId, slot)) return true;
+  }
+  return false;
+}
+
+/** Patch one resolution step so random outcomes match the server's final state. */
+function patchStepOutcome(
+  prevState: GameState,
+  stepState: GameState,
+  finalState: GameState,
+  stepIndex: number,
+): GameState {
+  let patched = patchDrawnCards(prevState, stepState, finalState);
+  const item = prevState.resolutionQueue[stepIndex];
+  if (!item) return patched;
+
+  const { playerId, action } = item;
+
+  // Transform / shift change suit or rank in-place (same card id).
+  // patchDrawnCards only handles newly drawn ids, so fix those here.
+  if (
+    (action.effectType === 'transform' || action.effectType === 'shift_chance')
+    && action.ownSlot !== undefined
+    && !slotTouchedLater(prevState.resolutionQueue, stepIndex, playerId, action.ownSlot)
+  ) {
+    const serverCard = finalState.players[playerId].pokerHand.find(
+      c => c.slotIndex === action.ownSlot,
+    );
+    if (serverCard) {
+      patched = {
+        ...patched,
+        players: {
+          ...patched.players,
+          [playerId]: {
+            ...patched.players[playerId],
+            pokerHand: patched.players[playerId].pokerHand.map(c =>
+              c.slotIndex === action.ownSlot ? { ...serverCard, slotIndex: action.ownSlot } : c,
+            ),
+          },
+        },
+      };
+    }
+  }
+
+  return patched;
+}
+
 /**
  * Returns a resolveStep function that steps through the resolution queue
- * but patches any randomly-drawn cards to use the server's actual cards
- * from finalState. This ensures the animation uses the exact same card
- * identities that the server computed, avoiding visual "second draw"
- * artifacts when the client and server deck draws diverge.
+ * but patches random outcomes (deck draws, transform, shift) to match the
+ * server's authoritative final state.
  */
 function makeResolveStep(
   finalState: GameState,
 ): (state: GameState) => GameState {
   return (state: GameState) => {
+    const stepIndex = state.resolutionIndex;
     const stepped = resolveNextInQueue(state);
-    return patchDrawnCards(state, stepped, finalState);
+    return patchStepOutcome(state, stepped, finalState, stepIndex);
   };
 }
 
@@ -342,20 +425,24 @@ export function GameBoard({
       return;
     }
 
-    // ── ONLINE: committing snapshot (paired with a pending resolving snapshot) ──
-    // Now we have both states. Run the effect animations using server's actual
-    // card identities — no random divergence, no silent correction needed.
-    if (online && g.phase === 'committing' && pendingResolvingRef.current) {
+    // ── ONLINE: committing / finished snapshot (paired with pending resolving) ──
+    // Round 5 ends with phase 'finished' instead of 'committing'. Both need the
+    // full effect cinematic with the server as ground truth.
+    if (
+      online
+      && (g.phase === 'committing' || g.phase === 'finished')
+      && pendingResolvingRef.current
+    ) {
       const resolvingG = pendingResolvingRef.current;
       pendingResolvingRef.current = null;
       syncQueueRef.current = syncQueueRef.current.then(async () => {
         try {
           await runResolutionCinematic(
             resolvingG,
-            makeResolveStep(g),   // resolver uses server's actual drawn cards
+            makeResolveStep(g),
             undefined,
-            g,                    // finalState → round-end draws use server cards
-            true,                 // skipLanes → already played above
+            g,
+            true,
           );
         } finally {
           setResolving(false);
@@ -370,7 +457,10 @@ export function GameBoard({
       const local = getGameState();
 
       // ── Reconnect / missed resolving phase ──
-      if (g.phase === 'committing' && local.phase !== 'committing') {
+      if (
+        (g.phase === 'committing' || g.phase === 'finished')
+        && local.phase !== g.phase
+      ) {
         // Clear any stale pending resolving state.
         pendingResolvingRef.current = null;
         await applyUpdate(g);

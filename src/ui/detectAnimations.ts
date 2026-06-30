@@ -253,7 +253,7 @@ function detectDrawPlans(prev: GameState, next: GameState): AnimationPlan[] {
 
 export function detectAnimations(prev: GameState, next: GameState): AnimationPlan[] {
   // Tur sonu çekilişleri useAnimatedGame içinde ayrı işlenir (efekt sonrası sıralı animasyon).
-  if (prev.phase === 'resolving' && next.phase === 'committing') {
+  if (prev.phase === 'resolving' && (next.phase === 'committing' || next.phase === 'finished')) {
     return detectDrawPlans(prev, next);
   }
 
