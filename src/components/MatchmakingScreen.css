@@ -78,6 +78,13 @@
   line-height: 1.45;
 }
 
+.matchmaking-elapsed {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #8b93a7);
+  text-align: center;
+}
+
 .matchmaking-dots {
   display: flex;
   gap: 8px;

@@ -26,6 +26,8 @@ export function MatchmakingScreen({ online, onMatched, onFallbackToBot }: Matchm
   onlineRef.current = online;
 
   const [estimateSec] = useState(randomEstimateSeconds);
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const [searching, setSearching] = useState(false);
 
   const clearSearchTimeout = useCallback(() => {
     if (timeoutRef.current !== null) {
@@ -48,16 +50,34 @@ export function MatchmakingScreen({ online, onMatched, onFallbackToBot }: Matchm
     if (!online.socketConnected) {
       searchStartedRef.current = false;
       searchStartedAtRef.current = null;
+      setSearching(false);
+      setElapsedSec(0);
       clearSearchTimeout();
       return;
     }
     if (searchStartedRef.current) return;
     searchStartedRef.current = true;
     searchStartedAtRef.current = Date.now();
+    setSearching(true);
+    setElapsedSec(0);
     AnalyticsEvents.matchmakingStarted();
     onlineRef.current.findMatch(DEFAULT_GAME_MODE);
     scheduleFallback();
   }, [online.socketConnected, scheduleFallback, clearSearchTimeout]);
+
+  useEffect(() => {
+    if (!searchStartedAtRef.current || resolvedRef.current) return;
+
+    const tick = () => {
+      const started = searchStartedAtRef.current;
+      if (!started) return;
+      setElapsedSec(Math.max(0, Math.floor((Date.now() - started) / 1000)));
+    };
+
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [online.socketConnected]);
 
   useEffect(() => {
     if (resolvedRef.current) return;
@@ -103,6 +123,9 @@ export function MatchmakingScreen({ online, onMatched, onFallbackToBot }: Matchm
 
         <p className="matchmaking-status">Searching for opponent…</p>
         <p className="matchmaking-estimate">Estimated wait: {estimateSec} seconds</p>
+        {elapsedSec > 0 && (
+          <p className="matchmaking-elapsed">{elapsedSec}s elapsed</p>
+        )}
 
         <div className="matchmaking-dots" aria-hidden>
           <span className="matchmaking-dot" />
