@@ -80,9 +80,11 @@
 
 .matchmaking-elapsed {
   margin: 0;
-  font-size: 0.85rem;
-  color: var(--text-secondary, #8b93a7);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary, #e8eaef);
   text-align: center;
+  letter-spacing: 0.04em;
 }
 
 .matchmaking-dots {
