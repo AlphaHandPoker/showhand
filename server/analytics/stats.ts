@@ -20,10 +20,13 @@ export interface AdminStats {
     avgMatchDurationSeconds: number;
   };
   retention: {
-    returningUsersPercent: number;
-    usersWithFivePlusMatches: number;
-    usersPlayedOnce: number;
     totalUsers: number;
+    bouncedUsers: number;
+    playedOnce: number;
+    returningUsers: number;
+    returningPercent: number;
+    fivePlusMatches: number;
+    finishedMatches: number;
   };
   gameBalance: {
     effectUsage: { effect: string; count: number }[];
@@ -242,8 +245,6 @@ export async function fetchAdminStats(): Promise<AdminStats> {
 
   const o = overviewRes.rows[0]!;
   const r = retentionRes.rows[0]!;
-  const totalUsers = Number(r.total_users) || 0;
-  const returningUsers = Number(r.returning_users) || 0;
 
   const botTotal = Number(botWinRes.rows[0]?.total) || 0;
   const botWins = Number(botWinRes.rows[0]?.wins) || 0;
@@ -276,6 +277,9 @@ export async function fetchAdminStats(): Promise<AdminStats> {
 
   const f = funnelRes.rows[0]!;
   const gamesFinished = Number(o.matches_all) || 0;
+  const journeys = activityRes.journeys;
+  const totalUsers = Number(r.total_users) || 0;
+  const returningFromJourneys = journeys.filter(j => j.status === 'returning').length;
   const screenViews = screenViewsRes.rows
     .filter(row => row.screen)
     .map(row => ({
@@ -299,10 +303,13 @@ export async function fetchAdminStats(): Promise<AdminStats> {
       avgMatchDurationSeconds: Number(o.avg_duration) || 0,
     },
     retention: {
-      returningUsersPercent: totalUsers > 0 ? (returningUsers / totalUsers) * 100 : 0,
-      usersWithFivePlusMatches: Number(r.five_plus) || 0,
-      usersPlayedOnce: Number(r.played_once) || 0,
       totalUsers,
+      bouncedUsers: journeys.filter(j => j.status === 'bounced').length,
+      playedOnce: journeys.filter(j => j.status === 'played_once').length,
+      returningUsers: returningFromJourneys,
+      returningPercent: totalUsers > 0 ? (returningFromJourneys / totalUsers) * 100 : 0,
+      fivePlusMatches: Number(r.five_plus) || 0,
+      finishedMatches: gamesFinished,
     },
     gameBalance: {
       effectUsage,

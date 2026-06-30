@@ -23,10 +23,13 @@ interface AdminStats {
     avgMatchDurationSeconds: number;
   };
   retention: {
-    returningUsersPercent: number;
-    usersWithFivePlusMatches: number;
-    usersPlayedOnce: number;
     totalUsers: number;
+    bouncedUsers: number;
+    playedOnce: number;
+    returningUsers: number;
+    returningPercent: number;
+    fivePlusMatches: number;
+    finishedMatches: number;
   };
   gameBalance: {
     effectUsage: { effect: string; count: number }[];
@@ -157,7 +160,10 @@ function isAdminStats(data: unknown): data is AdminStats {
     && typeof d.funnel === 'object'
     && d.funnel !== null
     && typeof d.gameBalance === 'object'
-    && d.gameBalance !== null;
+    && d.gameBalance !== null
+    && typeof d.retention === 'object'
+    && d.retention !== null
+    && typeof (d.retention as AdminStats['retention']).bouncedUsers === 'number';
 }
 
 export function AdminPage() {
@@ -343,6 +349,42 @@ export function AdminPage() {
           </button>
         </p>
       </details>
+
+      {stats && (
+        <section className="admin-section">
+          <h2>Retention</h2>
+          <p className="admin-section__hint">
+            How visitors behave — left immediately, clicked and left, or kept playing.
+          </p>
+          <div className="admin-cards admin-cards--retention">
+            <div className="admin-card">
+              <span className="admin-card__label">Total visitors</span>
+              <span className="admin-card__value">{stats.retention.totalUsers}</span>
+            </div>
+            <div className="admin-card">
+              <span className="admin-card__label">Left immediately</span>
+              <span className="admin-card__value">{stats.retention.bouncedUsers}</span>
+            </div>
+            <div className="admin-card">
+              <span className="admin-card__label">Played once</span>
+              <span className="admin-card__value">{stats.retention.playedOnce}</span>
+            </div>
+            <div className="admin-card">
+              <span className="admin-card__label">Returning</span>
+              <span className="admin-card__value">{stats.retention.returningUsers}</span>
+              <span className="admin-card__hint">{stats.retention.returningPercent.toFixed(0)}%</span>
+            </div>
+            <div className="admin-card">
+              <span className="admin-card__label">5+ games</span>
+              <span className="admin-card__value">{stats.retention.fivePlusMatches}</span>
+            </div>
+            <div className="admin-card">
+              <span className="admin-card__label">Finished matches</span>
+              <span className="admin-card__value">{stats.retention.finishedMatches}</span>
+            </div>
+          </div>
+        </section>
+      )}
 
       {stats && stats.activity && stats.activity.recentEvents.length > 0 && (
         <section className="admin-section">
@@ -582,29 +624,6 @@ export function AdminPage() {
                 </ul>
               </div>
             )}
-          </section>
-
-          <section className="admin-section">
-            <h2>Retention</h2>
-            <div className="admin-cards admin-cards--3">
-              <div className="admin-card">
-                <span className="admin-card__label">Returning users</span>
-                <span className="admin-card__value">
-                  {stats.retention.returningUsersPercent.toFixed(1)}%
-                </span>
-                <span className="admin-card__hint">
-                  {stats.retention.totalUsers - stats.retention.usersPlayedOnce} of {stats.retention.totalUsers}
-                </span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">5+ matches</span>
-                <span className="admin-card__value">{stats.retention.usersWithFivePlusMatches}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Played once (churn)</span>
-                <span className="admin-card__value">{stats.retention.usersPlayedOnce}</span>
-              </div>
-            </div>
           </section>
 
           <section className="admin-section">
