@@ -392,3 +392,135 @@
 .admin-loading {
   color: #8b93a7;
 }
+
+.admin-cards--retention {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.admin-btn--active {
+  border-color: #6d5efc;
+  background: rgba(109, 94, 252, 0.15);
+  color: #c4b5fd;
+}
+
+.admin-roadmap {
+  padding: 0.5rem 0;
+}
+
+.admin-roadmap__branch {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-roadmap__branch--depth-0 {
+  padding-left: 0;
+}
+
+.admin-roadmap__branch--depth-1 {
+  padding-left: 1.25rem;
+  border-left: 2px solid #3b5bdb;
+  margin-left: 0.75rem;
+}
+
+.admin-roadmap__branch--depth-2 {
+  padding-left: 1.25rem;
+  border-left: 2px solid #6366f1;
+  margin-left: 0.75rem;
+}
+
+.admin-roadmap__node {
+  margin: 0.5rem 0;
+}
+
+.admin-roadmap__card {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.65rem 1rem;
+  background: #1a1f2e;
+  border: 1px solid #2a3142;
+  border-radius: 10px;
+  min-width: 200px;
+}
+
+.admin-roadmap__branch--depth-0 > .admin-roadmap__node > .admin-roadmap__card {
+  border-color: #d4a843;
+  background: #1a2438;
+}
+
+.admin-roadmap__label {
+  font-weight: 700;
+  color: #e8eaef;
+  font-size: 0.9rem;
+}
+
+.admin-roadmap__counts {
+  font-size: 0.75rem;
+  color: #8b93a7;
+}
+
+.admin-journey-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.admin-journey-table td {
+  font-size: 0.8rem;
+}
+
+.admin-journey-path {
+  max-width: 280px;
+  line-height: 1.4;
+  color: #b8bfce;
+}
+
+.admin-journey-status {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-journey-status--bounced {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}
+
+.admin-journey-status--browser {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fcd34d;
+}
+
+.admin-journey-status--started_no_finish {
+  background: rgba(248, 113, 113, 0.15);
+  color: #fca5a5;
+}
+
+.admin-journey-status--played_once {
+  background: rgba(96, 165, 250, 0.15);
+  color: #93c5fd;
+}
+
+.admin-journey-status--returning {
+  background: rgba(34, 197, 94, 0.15);
+  color: #86efac;
+}
+
+.admin-journey-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 180px;
+  font-size: 0.7rem;
+  color: #8b93a7;
+  line-height: 1.35;
+}
+
+.admin-journey-events li + li {
+  margin-top: 0.15rem;
+}

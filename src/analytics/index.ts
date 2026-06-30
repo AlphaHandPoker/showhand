@@ -47,4 +47,5 @@ export const AnalyticsEvents = {
   gameStarted: (mode: 'online' | 'bot', disguised: boolean) =>
     trackEvent('game_started', { mode, disguised }),
   matchForfeited: (mode: 'online' | 'bot') => trackEvent('match_forfeited', { mode }),
+  mainMenuView: () => trackEvent('main_menu_view'),
 } as const;

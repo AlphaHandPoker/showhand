@@ -68,6 +68,9 @@ function App() {
 
   useEffect(() => {
     trackScreen(screen);
+    if (screen === 'home') {
+      AnalyticsEvents.mainMenuView();
+    }
   }, [screen]);
 
   const rs = online.roomState;

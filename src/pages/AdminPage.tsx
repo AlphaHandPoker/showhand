@@ -1,69 +1,54 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { API_BASE } from '../config/api';
 import { GAME_NAME } from '../config/brand';
-import { getOrCreateUserId } from '../analytics/userId';
 import { EFFECT_NAMES, type EffectType } from '../game/types';
 import './AdminPage.css';
 
 const ADMIN_TOKEN_KEY = 'pd_admin_token';
 
-interface AdminStats {
+interface RoadmapStep {
+  id: string;
+  label: string;
+  parentId: string | null;
+  visits: number;
+  uniqueUsers: number;
+}
+
+interface JourneyEvent {
+  name: string;
+  label: string;
+  at: string;
+}
+
+interface UserJourney {
+  userId: string;
+  firstSeen: string;
+  lastSeen: string;
+  totalMatches: number;
+  status: 'bounced' | 'browser' | 'started_no_finish' | 'played_once' | 'returning';
+  statusLabel: string;
+  path: string;
+  events: JourneyEvent[];
+}
+
+interface RetentionSummary {
+  totalUsers: number;
+  bouncedUsers: number;
+  playedOnce: number;
+  returningUsers: number;
+  returningPercent: number;
+  fivePlusMatches: number;
+  finishedMatches: number;
+}
+
+interface RoadmapDashboard {
   meta: {
     excludedUserIds: string[];
     excludedMatchCount: number;
   };
-  overview: {
-    matchesToday: number;
-    matchesThisWeek: number;
-    matchesAllTime: number;
-    uniqueUsersToday: number;
-    uniqueUsersThisWeek: number;
-    uniqueUsersAllTime: number;
-    avgRoundsPerMatch: number;
-    avgMatchDurationSeconds: number;
-  };
-  retention: {
-    returningUsersPercent: number;
-    usersWithFivePlusMatches: number;
-    usersPlayedOnce: number;
-    totalUsers: number;
-  };
-  gameBalance: {
-    effectUsage: { effect: string; count: number }[];
-    winRateVsBot: number;
-    winRateVsPlayer: number;
-    botMatches: number;
-    playerMatches: number;
-  };
-  matchesPerDay: { date: string; count: number }[];
-  recentUsers: {
-    userId: string;
-    totalMatches: number;
-    lastSeen: string;
-    excluded: boolean;
-  }[];
-  funnel: {
-    uniqueVisitorsToday: number;
-    uniqueVisitorsAllTime: number;
-    playVsComputerClicks: number;
-    playVsComputerUsers: number;
-    findPlayerClicks: number;
-    findPlayerUsers: number;
-    matchmakingStarted: number;
-    matchFound: number;
-    botGameStarted: number;
-    matchmakingFallbackBot: number;
-    roomCreated: number;
-    roomJoined: number;
-    draftSubmitted: number;
-    gameStarted: number;
-    gamesFinished: number;
-    matchForfeited: number;
-    onlineMatchLeft: number;
-    howToPlayClicks: number;
-    cosmeticsClicks: number;
-    screenViews: { screen: string; count: number }[];
-  };
+  retention: RetentionSummary;
+  steps: RoadmapStep[];
+  journeys: UserJourney[];
 }
 
 interface AdminMatch {
@@ -92,7 +77,7 @@ function shortUserId(id: string): string {
   return `${id.slice(0, 8)}…`;
 }
 
-function formatLastSeen(iso: string): string {
+function formatTime(iso: string): string {
   return new Date(iso).toLocaleString();
 }
 
@@ -112,44 +97,85 @@ function winnerClass(winner: 'self' | 'opponent' | 'tie'): string {
   return 'admin-match-winner--tie';
 }
 
+function statusClass(status: UserJourney['status']): string {
+  return `admin-journey-status--${status}`;
+}
+
+function RoadmapTree({ steps }: { steps: RoadmapStep[] }) {
+  const byParent = useMemo(() => {
+    const map = new Map<string | null, RoadmapStep[]>();
+    for (const step of steps) {
+      const key = step.parentId;
+      const list = map.get(key) ?? [];
+      list.push(step);
+      map.set(key, list);
+    }
+    return map;
+  }, [steps]);
+
+  const renderBranch = (parentId: string | null, depth = 0): ReactNode => {
+    const children = byParent.get(parentId) ?? [];
+    if (children.length === 0) return null;
+
+    return (
+      <ul className={`admin-roadmap__branch admin-roadmap__branch--depth-${depth}`}>
+        {children.map(step => (
+          <li key={step.id} className="admin-roadmap__node">
+            <div className="admin-roadmap__card">
+              <span className="admin-roadmap__label">{step.label}</span>
+              <span className="admin-roadmap__counts">
+                {step.visits} visits · {step.uniqueUsers} users
+              </span>
+            </div>
+            {renderBranch(step.id, depth + 1)}
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
+  return <div className="admin-roadmap">{renderBranch(null)}</div>;
+}
+
 export function AdminPage() {
   const [token, setToken] = useState(() => sessionStorage.getItem(ADMIN_TOKEN_KEY) ?? '');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [dashboard, setDashboard] = useState<RoadmapDashboard | null>(null);
   const [matches, setMatches] = useState<AdminMatch[]>([]);
   const [fetchError, setFetchError] = useState('');
+  const [journeyFilter, setJourneyFilter] = useState<UserJourney['status'] | 'all'>('all');
 
-  const fetchStats = useCallback(async (authToken: string) => {
+  const fetchDashboard = useCallback(async (authToken: string) => {
     setLoading(true);
     setFetchError('');
     try {
       const headers = { Authorization: `Bearer ${authToken}` };
-      const [statsRes, matchesRes] = await Promise.all([
+      const [dashRes, matchesRes] = await Promise.all([
         fetch(`${API_BASE}/api/admin/stats`, { headers }),
         fetch(`${API_BASE}/api/admin/matches?limit=100`, { headers }),
       ]);
-      if (!statsRes.ok || !matchesRes.ok) {
-        if (statsRes.status === 401 || matchesRes.status === 401) {
+      if (!dashRes.ok || !matchesRes.ok) {
+        if (dashRes.status === 401 || matchesRes.status === 401) {
           sessionStorage.removeItem(ADMIN_TOKEN_KEY);
           setToken('');
         }
-        throw new Error('Could not load stats');
+        throw new Error('Could not load dashboard');
       }
-      setStats(await statsRes.json() as AdminStats);
+      setDashboard(await dashRes.json() as RoadmapDashboard);
       const matchesData = await matchesRes.json() as { matches: AdminMatch[] };
       setMatches(matchesData.matches);
     } catch {
-      setFetchError('Failed to load stats. Check server connection and password.');
+      setFetchError('Failed to load dashboard. Check server connection and password.');
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (token) void fetchStats(token);
-  }, [token, fetchStats]);
+    if (token) void fetchDashboard(token);
+  }, [token, fetchDashboard]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,19 +205,15 @@ export function AdminPage() {
   const handleLogout = () => {
     sessionStorage.removeItem(ADMIN_TOKEN_KEY);
     setToken('');
-    setStats(null);
+    setDashboard(null);
     setMatches([]);
   };
 
-  const myDeviceId = getOrCreateUserId();
-
-  const copyText = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // clipboard may be blocked
-    }
-  };
+  const filteredJourneys = useMemo(() => {
+    if (!dashboard) return [];
+    if (journeyFilter === 'all') return dashboard.journeys;
+    return dashboard.journeys.filter(j => j.status === journeyFilter);
+  }, [dashboard, journeyFilter]);
 
   if (!token) {
     return (
@@ -217,20 +239,17 @@ export function AdminPage() {
     );
   }
 
-  const maxDaily = Math.max(1, ...(stats?.matchesPerDay.map(d => d.count) ?? [1]));
-  const topEffects = stats?.gameBalance.effectUsage ?? [];
-  const leastEffect = topEffects.length > 0 ? topEffects[topEffects.length - 1] : null;
-  const mostEffect = topEffects[0] ?? null;
+  const retention = dashboard?.retention;
 
   return (
     <div className="admin-page">
       <header className="admin-header">
         <div>
           <h1>{GAME_NAME} Analytics</h1>
-          <p className="admin-header__sub">Self-hosted · Railway Postgres</p>
+          <p className="admin-header__sub">Player roadmap · journeys · retention</p>
         </div>
         <div className="admin-header__actions">
-          <button type="button" className="admin-btn admin-btn--ghost" onClick={() => void fetchStats(token)}>
+          <button type="button" className="admin-btn admin-btn--ghost" onClick={() => void fetchDashboard(token)}>
             Refresh
           </button>
           <button type="button" className="admin-btn admin-btn--ghost" onClick={handleLogout}>
@@ -239,46 +258,121 @@ export function AdminPage() {
         </div>
       </header>
 
-      {loading && !stats && <p className="admin-loading">Loading…</p>}
+      {loading && !dashboard && <p className="admin-loading">Loading…</p>}
       {fetchError && <p className="admin-error">{fetchError}</p>}
 
-      {stats && stats.meta.excludedUserIds.length > 0 && (
+      {dashboard && dashboard.meta.excludedUserIds.length > 0 && (
         <p className="admin-filter-note">
-          Hiding {stats.meta.excludedUserIds.length} test user
-          {stats.meta.excludedUserIds.length === 1 ? '' : 's'}
-          {' '}({stats.meta.excludedMatchCount} match
-          {stats.meta.excludedMatchCount === 1 ? '' : 'es'} not counted).
+          Hiding {dashboard.meta.excludedUserIds.length} test user IDs from stats
+          ({dashboard.meta.excludedMatchCount} matches excluded).
         </p>
       )}
 
-      <details className="admin-exclude-help">
-        <summary>Exclude your own test plays</summary>
-        <p>
-          Your PC and phone each get a separate anonymous ID. Pick yours from the list below
-          (marked &quot;this device&quot; when you open admin on that browser), copy the IDs,
-          and add them to <code>ANALYTICS_EXCLUDE_USER_IDS</code> on Railway.
-        </p>
-        <p>
-          This browser: <code>{myDeviceId}</code>{' '}
-          <button type="button" className="admin-btn admin-btn--ghost" onClick={() => void copyText(myDeviceId)}>
-            Copy
-          </button>
-        </p>
-      </details>
-
-      {stats && matches.length === 0 && (
+      {retention && (
         <section className="admin-section">
-          <h2>Recent matches</h2>
-          <p className="admin-section__hint">No finished matches recorded yet.</p>
+          <h2>Retention</h2>
+          <div className="admin-cards admin-cards--retention">
+            <div className="admin-card">
+              <span className="admin-card__label">Total visitors</span>
+              <span className="admin-card__value">{retention.totalUsers}</span>
+            </div>
+            <div className="admin-card">
+              <span className="admin-card__label">Left immediately</span>
+              <span className="admin-card__value">{retention.bouncedUsers}</span>
+            </div>
+            <div className="admin-card">
+              <span className="admin-card__label">Played once</span>
+              <span className="admin-card__value">{retention.playedOnce}</span>
+            </div>
+            <div className="admin-card">
+              <span className="admin-card__label">Returning</span>
+              <span className="admin-card__value">{retention.returningUsers}</span>
+              <span className="admin-card__hint">{retention.returningPercent.toFixed(0)}%</span>
+            </div>
+            <div className="admin-card">
+              <span className="admin-card__label">5+ games</span>
+              <span className="admin-card__value">{retention.fivePlusMatches}</span>
+            </div>
+            <div className="admin-card">
+              <span className="admin-card__label">Finished matches</span>
+              <span className="admin-card__value">{retention.finishedMatches}</span>
+            </div>
+          </div>
         </section>
       )}
 
-      {matches.length > 0 && (
+      {dashboard && (
         <section className="admin-section">
-          <h2>Recent matches</h2>
+          <h2>Player roadmap</h2>
           <p className="admin-section__hint">
-            Last {matches.length} finished games (test users excluded from stats are hidden here too).
+            Each step links to the next. Counts show total visits and unique users.
           </p>
+          <RoadmapTree steps={dashboard.steps} />
+        </section>
+      )}
+
+      {dashboard && (
+        <section className="admin-section">
+          <h2>User journeys</h2>
+          <p className="admin-section__hint">
+            Who went where — bounced, clicked and left, started but didn&apos;t finish, or kept playing.
+          </p>
+          <div className="admin-journey-filters">
+            {(['all', 'bounced', 'browser', 'started_no_finish', 'played_once', 'returning'] as const).map(f => (
+              <button
+                key={f}
+                type="button"
+                className={`admin-btn admin-btn--ghost${journeyFilter === f ? ' admin-btn--active' : ''}`}
+                onClick={() => setJourneyFilter(f)}
+              >
+                {f === 'all' ? 'All' : f.replace(/_/g, ' ')}
+              </button>
+            ))}
+          </div>
+          <div className="admin-user-table-wrap">
+            <table className="admin-user-table admin-journey-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Status</th>
+                  <th>Path</th>
+                  <th>Games</th>
+                  <th>Last seen</th>
+                  <th>Recent steps</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredJourneys.map(journey => (
+                  <tr key={journey.userId}>
+                    <td><code title={journey.userId}>{shortUserId(journey.userId)}</code></td>
+                    <td>
+                      <span className={`admin-journey-status ${statusClass(journey.status)}`}>
+                        {journey.statusLabel}
+                      </span>
+                    </td>
+                    <td className="admin-journey-path">{journey.path}</td>
+                    <td>{journey.totalMatches}</td>
+                    <td className="admin-match-table__time">{formatTime(journey.lastSeen)}</td>
+                    <td>
+                      <ul className="admin-journey-events">
+                        {journey.events.map((ev, i) => (
+                          <li key={`${journey.userId}-${i}`}>{ev.label}</li>
+                        ))}
+                      </ul>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      <section className="admin-section">
+        <h2>Recent matches</h2>
+        {matches.length === 0 ? (
+          <p className="admin-section__hint">No finished matches recorded yet.</p>
+        ) : (
           <div className="admin-user-table-wrap">
             <table className="admin-user-table admin-match-table">
               <thead>
@@ -295,10 +389,8 @@ export function AdminPage() {
               <tbody>
                 {matches.map(match => (
                   <tr key={match.id}>
-                    <td className="admin-match-table__time">{formatLastSeen(match.createdAt)}</td>
-                    <td>
-                      <code title={match.userId}>{shortUserId(match.userId)}</code>
-                    </td>
+                    <td className="admin-match-table__time">{formatTime(match.createdAt)}</td>
+                    <td><code title={match.userId}>{shortUserId(match.userId)}</code></td>
                     <td>{modeLabel(match.opponentType)}</td>
                     <td>
                       <span className={`admin-match-winner ${winnerClass(match.winner)}`}>
@@ -325,283 +417,8 @@ export function AdminPage() {
               </tbody>
             </table>
           </div>
-        </section>
-      )}
-
-      {stats && stats.recentUsers.length > 0 && (
-        <section className="admin-section">
-          <h2>Recent players</h2>
-          <p className="admin-section__hint">
-            Likely your test devices are the ones with the most matches. Copy their IDs into Railway.
-          </p>
-          <div className="admin-user-table-wrap">
-            <table className="admin-user-table">
-              <thead>
-                <tr>
-                  <th>User ID</th>
-                  <th>Matches</th>
-                  <th>Last seen</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recentUsers.map(row => (
-                  <tr
-                    key={row.userId}
-                    className={row.userId === myDeviceId ? 'admin-user-table__row--mine' : undefined}
-                  >
-                    <td>
-                      <code title={row.userId}>{shortUserId(row.userId)}</code>
-                      {row.userId === myDeviceId && (
-                        <span className="admin-user-table__badge">this device</span>
-                      )}
-                      {row.excluded && (
-                        <span className="admin-user-table__badge admin-user-table__badge--muted">excluded</span>
-                      )}
-                    </td>
-                    <td>{row.totalMatches}</td>
-                    <td>{formatLastSeen(row.lastSeen)}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="admin-btn admin-btn--ghost"
-                        onClick={() => void copyText(row.userId)}
-                      >
-                        Copy ID
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      {stats && (
-        <>
-          <section className="admin-section">
-            <h2>Funnel</h2>
-            <p className="admin-section__hint">
-              Every button click and screen view. Finished games only count when a winner is decided.
-            </p>
-            <div className="admin-cards">
-              <div className="admin-card">
-                <span className="admin-card__label">Visitors today</span>
-                <span className="admin-card__value">{stats.funnel.uniqueVisitorsToday}</span>
-                <span className="admin-card__hint">{stats.funnel.uniqueVisitorsAllTime} all time</span>
-              </div>
-              <div className="admin-card admin-card--highlight">
-                <span className="admin-card__label">Play vs Computer</span>
-                <span className="admin-card__value">{stats.funnel.playVsComputerClicks}</span>
-                <span className="admin-card__hint">{stats.funnel.playVsComputerUsers} unique users</span>
-              </div>
-              <div className="admin-card admin-card--highlight">
-                <span className="admin-card__label">Play Online</span>
-                <span className="admin-card__value">{stats.funnel.findPlayerClicks}</span>
-                <span className="admin-card__hint">{stats.funnel.findPlayerUsers} unique users</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Matchmaking started</span>
-                <span className="admin-card__value">{stats.funnel.matchmakingStarted}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Player match found</span>
-                <span className="admin-card__value">{stats.funnel.matchFound}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Bot game started</span>
-                <span className="admin-card__value">{stats.funnel.botGameStarted}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Queue → bot fallback</span>
-                <span className="admin-card__value">{stats.funnel.matchmakingFallbackBot}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Room created</span>
-                <span className="admin-card__value">{stats.funnel.roomCreated}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Room joined</span>
-                <span className="admin-card__value">{stats.funnel.roomJoined}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Game board opened</span>
-                <span className="admin-card__value">{stats.funnel.gameStarted}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Games finished</span>
-                <span className="admin-card__value">{stats.funnel.gamesFinished}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Forfeits / early leaves</span>
-                <span className="admin-card__value">{stats.funnel.matchForfeited}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Online match left</span>
-                <span className="admin-card__value">{stats.funnel.onlineMatchLeft}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">How to Play opens</span>
-                <span className="admin-card__value">{stats.funnel.howToPlayClicks}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Cosmetics opens</span>
-                <span className="admin-card__value">{stats.funnel.cosmeticsClicks}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Draft submitted</span>
-                <span className="admin-card__value">{stats.funnel.draftSubmitted}</span>
-              </div>
-            </div>
-            {stats.funnel.screenViews.length > 0 && (
-              <div className="admin-effect-list">
-                <h3>Screen views</h3>
-                <ul>
-                  {stats.funnel.screenViews.map(row => (
-                    <li key={row.screen}>
-                      <span>{row.screen}</span>
-                      <span className="admin-effect-list__count">{row.count}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </section>
-
-          <section className="admin-section">
-            <h2>Overview</h2>
-            <div className="admin-cards">
-              <div className="admin-card">
-                <span className="admin-card__label">Matches today</span>
-                <span className="admin-card__value">{stats.overview.matchesToday}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Matches this week</span>
-                <span className="admin-card__value">{stats.overview.matchesThisWeek}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Matches all time</span>
-                <span className="admin-card__value">{stats.overview.matchesAllTime}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Unique users today</span>
-                <span className="admin-card__value">{stats.overview.uniqueUsersToday}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Unique users this week</span>
-                <span className="admin-card__value">{stats.overview.uniqueUsersThisWeek}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Unique users all time</span>
-                <span className="admin-card__value">{stats.overview.uniqueUsersAllTime}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Avg rounds / match</span>
-                <span className="admin-card__value">{stats.overview.avgRoundsPerMatch.toFixed(1)}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Avg match duration</span>
-                <span className="admin-card__value">
-                  {formatDuration(stats.overview.avgMatchDurationSeconds)}
-                </span>
-              </div>
-            </div>
-          </section>
-
-          <section className="admin-section">
-            <h2>Retention</h2>
-            <div className="admin-cards admin-cards--3">
-              <div className="admin-card">
-                <span className="admin-card__label">Returning users</span>
-                <span className="admin-card__value">
-                  {stats.retention.returningUsersPercent.toFixed(1)}%
-                </span>
-                <span className="admin-card__hint">
-                  {stats.retention.totalUsers - stats.retention.usersPlayedOnce} of {stats.retention.totalUsers}
-                </span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">5+ matches</span>
-                <span className="admin-card__value">{stats.retention.usersWithFivePlusMatches}</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Played once (churn)</span>
-                <span className="admin-card__value">{stats.retention.usersPlayedOnce}</span>
-              </div>
-            </div>
-          </section>
-
-          <section className="admin-section">
-            <h2>Game balance</h2>
-            <div className="admin-cards admin-cards--3">
-              <div className="admin-card">
-                <span className="admin-card__label">Win rate vs bot</span>
-                <span className="admin-card__value">
-                  {stats.gameBalance.winRateVsBot.toFixed(1)}%
-                </span>
-                <span className="admin-card__hint">{stats.gameBalance.botMatches} matches</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Win rate vs player</span>
-                <span className="admin-card__value">
-                  {stats.gameBalance.winRateVsPlayer.toFixed(1)}%
-                </span>
-                <span className="admin-card__hint">{stats.gameBalance.playerMatches} matches</span>
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Most used effect</span>
-                <span className="admin-card__value admin-card__value--sm">
-                  {mostEffect ? effectLabel(mostEffect.effect) : '—'}
-                </span>
-                {mostEffect && (
-                  <span className="admin-card__hint">{mostEffect.count} plays</span>
-                )}
-              </div>
-              <div className="admin-card">
-                <span className="admin-card__label">Least used effect</span>
-                <span className="admin-card__value admin-card__value--sm">
-                  {leastEffect ? effectLabel(leastEffect.effect) : '—'}
-                </span>
-                {leastEffect && (
-                  <span className="admin-card__hint">{leastEffect.count} plays</span>
-                )}
-              </div>
-            </div>
-
-            {topEffects.length > 0 && (
-              <div className="admin-effect-list">
-                <h3>Effect usage</h3>
-                <ul>
-                  {topEffects.map(row => (
-                    <li key={row.effect}>
-                      <span>{effectLabel(row.effect)}</span>
-                      <span className="admin-effect-list__count">{row.count}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </section>
-
-          <section className="admin-section">
-            <h2>Matches per day (14 days)</h2>
-            <div className="admin-chart">
-              {stats.matchesPerDay.map(day => (
-                <div key={day.date} className="admin-chart__col">
-                  <div
-                    className="admin-chart__bar"
-                    style={{ height: `${(day.count / maxDaily) * 100}%` }}
-                    title={`${day.date}: ${day.count}`}
-                  />
-                  <span className="admin-chart__label">{day.date.slice(5)}</span>
-                  <span className="admin-chart__count">{day.count}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        </>
-      )}
+        )}
+      </section>
     </div>
   );
 }
