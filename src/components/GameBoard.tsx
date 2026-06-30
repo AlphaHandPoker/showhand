@@ -116,7 +116,6 @@ export function GameBoard({
     applyUpdate,
     runResolutionCinematic,
     runIntroReveal,
-    resetGame,
     getGameState,
     completeDeckTravel,
     completeCardToDeck,
@@ -157,13 +156,8 @@ export function GameBoard({
   const botDelayAbortRef = useRef(false);
   const opponentLabel = online?.opponentLabel ?? (disguisedOpponent ? 'Opponent' : 'Bot');
 
-  const authority = online?.syncedGame ?? game;
-  const isCommitting = authority.phase === 'committing';
-  const isFinished = authority.phase === 'finished';
-  const onlineInSync = !online || (
-    game.currentRound === authority.currentRound
-    && game.phase === authority.phase
-  );
+  const isCommitting = game.phase === 'committing';
+  const isFinished = game.phase === 'finished';
 
   useEffect(() => {
     if (!isFinished) {
@@ -186,7 +180,7 @@ export function GameBoard({
   const youLocked = online?.youLocked ?? disguisedWaiting;
   const opponentLocked = online?.opponentLocked ?? false;
   const canInteract = introReady && isCommitting && !isFinished && !isAnimating && !resolving
-    && !youLocked && !leavingMatch && onlineInSync;
+    && !youLocked && !leavingMatch;
   const canCancelPick = isCommitting && !isFinished && pendingPick !== null;
   const canPickOpponentEffects = isCommitting && !isFinished && !resolving
     && pendingPick?.step === 'opponent_effect'
@@ -212,26 +206,53 @@ export function GameBoard({
     if (sig === lastSyncSigRef.current) return;
     lastSyncSigRef.current = sig;
 
-    const local = getGameState();
-    const ahead = g.currentRound > local.currentRound
-      || (g.phase === 'committing' && local.phase === 'resolving' && g.currentRound >= local.currentRound)
-      || (g.phase === 'finished' && local.phase !== 'finished');
-
-    if (ahead) {
-      syncQueueRef.current = Promise.resolve();
-    }
-
     syncQueueRef.current = syncQueueRef.current.then(async () => {
-      if (ahead) {
-        resetGame(g);
+      const local = getGameState();
+
+      // Both players locked — play full resolution locally (same path as vs bot).
+      if (
+        online
+        && g.phase === 'resolving'
+        && local.phase === 'committing'
+        && g.resolutionQueue.length > 0
+      ) {
+        setResolving(true);
+        await runResolutionCinematic(g, resolveNextInQueue);
         setResolving(false);
         setCommitQueue([]);
         setPendingPick(null);
         return;
       }
 
-      const current = getGameState();
-      if (g.phase === 'resolving' && current.phase === 'committing') {
+      // Server finished resolution while cinematic is still playing.
+      if (online && g.phase === 'committing' && local.phase === 'resolving') {
+        await applyUpdate(g);
+        setResolving(false);
+        setCommitQueue([]);
+        setPendingPick(null);
+        return;
+      }
+
+      // Server finished before we received the resolving snapshot.
+      if (
+        online
+        && g.phase === 'committing'
+        && local.phase === 'committing'
+        && g.currentRound > local.currentRound
+      ) {
+        await applyUpdate(g);
+        setResolving(false);
+        setCommitQueue([]);
+        setPendingPick(null);
+        return;
+      }
+
+      // Skip duplicate resolving snapshots from the server.
+      if (online && g.phase === 'resolving' && local.phase === 'resolving') {
+        return;
+      }
+
+      if (g.phase === 'resolving' && local.phase === 'committing') {
         setResolving(true);
       }
       await applyUpdate(g);
@@ -243,7 +264,7 @@ export function GameBoard({
         }
       }
     });
-  }, [online?.syncedGame, applyUpdate, resetGame, getGameState]);
+  }, [online, online?.syncedGame, applyUpdate, getGameState, runResolutionCinematic]);
 
   useEffect(() => {
     if (!isCommitting || resolving) {
@@ -694,10 +715,6 @@ export function GameBoard({
         </button>
       )}
 
-      {online && !onlineInSync && isCommitting && (
-        <span className="online-status-msg">Syncing round…</span>
-      )}
-
       {youLocked && !opponentLocked && isCommitting && (
         <span className="online-status-msg">Locked in — waiting for opponent…</span>
       )}
@@ -802,7 +819,7 @@ export function GameBoard({
 
       <RoundTimer
         active={timerActive}
-        round={authority.currentRound}
+        round={game.currentRound}
         onExpire={handleTimerExpire}
       />
 

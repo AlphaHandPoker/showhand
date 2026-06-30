@@ -71,22 +71,15 @@ function emitAll(code: string): void {
   emitGameState(code);
 }
 
-async function runResolutionLoop(code: string): Promise<void> {
+async function finishResolution(code: string): Promise<void> {
   if (resolutionLoops.has(code)) return;
   resolutionLoops.add(code);
 
   try {
-    const room = rooms.getRoom(code);
-    if (!room?.resolving) return;
-
-    emitAll(code);
-
     while (rooms.getRoom(code)?.resolving) {
-      const stillResolving = rooms.advanceResolution(code);
-      emitAll(code);
-      if (!stillResolving) break;
-      await new Promise(r => setTimeout(r, 80));
+      rooms.advanceResolution(code);
     }
+    emitAll(code);
   } finally {
     resolutionLoops.delete(code);
   }
@@ -197,7 +190,10 @@ io.on('connection', (socket) => {
     console.log(`[commit] locked in ${code} by ${socket.id}`);
 
     if (room?.resolving) {
-      void runResolutionLoop(code);
+      // Let clients receive the resolving state before the final post-resolution emit.
+      setTimeout(() => {
+        void finishResolution(code);
+      }, 150);
     }
   });
 
